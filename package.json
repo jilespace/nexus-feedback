@@ -1,0 +1,29 @@
+{
+  "name": "nexus-feedback",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "dev:server": "pnpm --filter @nexus-feedback/server dev",
+    "dev:admin": "pnpm --filter @nexus-feedback/admin dev",
+    "dev:submit": "pnpm --filter @nexus-feedback/submit-page dev",
+    "dev:board": "pnpm --filter @nexus-feedback/board dev",
+    "dev:widget": "pnpm --filter @nexus-feedback/widget dev",
+    "build": "pnpm -r run build",
+    "lint": "pnpm -r run lint",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r run test",
+    "test:e2e": "pnpm -r run test:e2e",
+    "db:start": "docker compose up -d db",
+    "db:migrate": "pnpm --filter @nexus-feedback/server prisma:migrate",
+    "db:seed": "pnpm --filter @nexus-feedback/server prisma:seed"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "prettier": "^3.4.0",
+    "eslint": "^9.16.0",
+    "typescript-eslint": "^8.18.0",
+    "@eslint/js": "^9.16.0"
+  }
+}

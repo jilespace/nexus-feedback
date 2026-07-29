@@ -1,0 +1,15 @@
+{
+  "nav": {
+    "feedback": "Feedback",
+    "roadmap": "Roadmap",
+    "changelog": "Changelog"
+  },
+  "common": {
+    "loading": "Loading...",
+    "empty": "No content",
+    "vote": "Vote",
+    "comment": "Comment",
+    "submit": "Submit",
+    "cancel": "Cancel"
+  }
+}

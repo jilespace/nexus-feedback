@@ -1,0 +1,365 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  logo_url    String?
+  brand_color String   @default("#4c6ef5")
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  members  Member[]
+  projects Project[]
+  tags     Tag[]
+
+  @@map("organization")
+}
+
+model Member {
+  id                 String    @id @default(cuid())
+  email              String
+  password_hash      String
+  display_name       String    @default("")
+  role               String    @default("member")
+  org_id             String
+  reset_token        String?
+  reset_token_expiry DateTime?
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+
+  organization     Organization    @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  replies          Reply[]
+  internal_notes   InternalNote[]
+  status_histories StatusHistory[]
+  assigned_feedbacks Feedback[]
+
+  @@unique([email, org_id])
+  @@map("member")
+}
+
+model Project {
+  id              String   @id @default(cuid())
+  name            String
+  slug            String
+  api_key_hash    String   @unique
+  api_key_prefix  String   @default("")
+  allowed_origins String[]
+  org_id          String
+  widget_config   String?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  organization   Organization   @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  feedbacks      Feedback[]
+  attachments    Attachment[]
+  changelogs     Changelog[]
+  webhooks       Webhook[]
+  status_configs     StatusConfig[]
+  category_configs   CategoryConfig[]
+
+  @@unique([slug, org_id])
+  @@map("project")
+}
+
+model Feedback {
+  id             String   @id @default(cuid())
+  title          String
+  content        String
+  category       String
+  priority       String   @default("medium")
+  status         String   @default("open")
+  source         String   @default("api")
+  contact        String?
+  app_version    String?
+  metadata       Json?
+  vote_count     Int      @default(0)
+  project_id     String
+  assignee_id    String?
+  merged_into_id String?
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+  deleted_at     DateTime?
+
+  project          Project              @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  assignee         Member?              @relation(fields: [assignee_id], references: [id])
+  merged_into      Feedback?            @relation("FeedbackMerge", fields: [merged_into_id], references: [id])
+  merged_from      Feedback[]           @relation("FeedbackMerge")
+  attachments      Attachment[]
+  replies          Reply[]
+  votes            Vote[]
+  feedbackTags     FeedbackTag[]
+  changelogs       ChangelogFeedback[]
+  comments         Comment[]
+  internal_notes   InternalNote[]
+  status_histories StatusHistory[]
+
+  @@index([deleted_at])
+  @@index([assignee_id])
+  @@map("feedback")
+}
+
+model Attachment {
+  id             String   @id @default(cuid())
+  filename       String
+  url            String
+  size           Int
+  mime_type      String
+  feedback_id    String?
+  project_id     String
+  created_at     DateTime @default(now())
+
+  feedback    Feedback?    @relation(fields: [feedback_id], references: [id])
+  project     Project      @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@map("attachment")
+}
+
+model Reply {
+  id          String   @id @default(cuid())
+  content     String
+  feedback_id String
+  member_id   String?
+  created_at  DateTime @default(now())
+
+  feedback Feedback @relation(fields: [feedback_id], references: [id])
+  member   Member?  @relation(fields: [member_id], references: [id])
+
+  @@map("reply")
+}
+
+model Admin {
+  id            String   @id @default(cuid())
+  username      String   @unique
+  password_hash String
+  created_at    DateTime @default(now())
+
+  @@map("admin")
+}
+
+model Vote {
+  id          String   @id @default(cuid())
+  email       String
+  feedback_id String
+  created_at  DateTime @default(now())
+
+  feedback Feedback @relation(fields: [feedback_id], references: [id], onDelete: Cascade)
+
+  @@unique([email, feedback_id])
+  @@map("vote")
+}
+
+model Tag {
+  id         String   @id @default(cuid())
+  name       String
+  color      String   @default("#6B7280")
+  org_id     String
+  created_at DateTime @default(now())
+
+  organization Organization @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  feedbackTags FeedbackTag[]
+
+  @@unique([name, org_id])
+  @@map("tag")
+}
+
+model FeedbackTag {
+  id          String   @id @default(cuid())
+  feedback_id String
+  tag_id      String
+  created_at  DateTime @default(now())
+
+  feedback Feedback @relation(fields: [feedback_id], references: [id], onDelete: Cascade)
+  tag      Tag      @relation(fields: [tag_id], references: [id], onDelete: Cascade)
+
+  @@unique([feedback_id, tag_id])
+  @@map("feedback_tag")
+}
+
+model Changelog {
+  id           String    @id @default(cuid())
+  title        String
+  content      String
+  published    Boolean   @default(false)
+  published_at DateTime?
+  project_id   String
+  org_id       String
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  project   Project              @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  feedbacks ChangelogFeedback[]
+
+  @@map("changelog")
+}
+
+model ChangelogFeedback {
+  changelog_id String
+  feedback_id  String
+
+  changelog Changelog @relation(fields: [changelog_id], references: [id], onDelete: Cascade)
+  feedback  Feedback  @relation(fields: [feedback_id], references: [id], onDelete: Cascade)
+
+  @@id([changelog_id, feedback_id])
+  @@map("changelog_feedback")
+}
+
+model Comment {
+  id           String   @id @default(cuid())
+  content      String
+  author_email String
+  author_name  String?
+  feedback_id  String
+  created_at   DateTime @default(now())
+  deleted_at   DateTime?
+
+  feedback Feedback @relation(fields: [feedback_id], references: [id], onDelete: Cascade)
+
+  @@index([deleted_at])
+  @@map("comment")
+}
+
+model NotificationPreference {
+  id             String  @id @default(cuid())
+  email          String
+  project_id     String
+  status_updates Boolean @default(true)
+  weekly_digest  Boolean @default(true)
+  created_at     DateTime @default(now())
+
+  @@unique([email, project_id])
+  @@map("notification_preference")
+}
+
+model SSOConfig {
+  id            String  @id @default(cuid())
+  project_id    String  @unique
+  jwt_secret    String
+  user_id_claim String  @default("sub")
+  email_claim   String  @default("email")
+  name_claim    String  @default("name")
+  enabled       Boolean @default(false)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  @@map("sso_config")
+}
+
+model InternalNote {
+  id          String   @id @default(cuid())
+  content     String
+  member_id   String
+  feedback_id String
+  created_at  DateTime @default(now())
+
+  member   Member   @relation(fields: [member_id], references: [id])
+  feedback Feedback @relation(fields: [feedback_id], references: [id], onDelete: Cascade)
+
+  @@map("internal_note")
+}
+
+model StatusHistory {
+  id          String   @id @default(cuid())
+  feedback_id String
+  old_status  String
+  new_status  String
+  member_id   String?
+  created_at  DateTime @default(now())
+
+  feedback Feedback @relation(fields: [feedback_id], references: [id], onDelete: Cascade)
+  member   Member?  @relation(fields: [member_id], references: [id])
+
+  @@map("status_history")
+}
+
+model Webhook {
+  id         String   @id @default(cuid())
+  url        String
+  events     String[]
+  secret     String
+  active     Boolean  @default(true)
+  project_id String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  logs    WebhookLog[]
+
+  @@map("webhook")
+}
+
+model WebhookLog {
+  id          String   @id @default(cuid())
+  webhook_id  String
+  event       String
+  payload     String
+  status_code Int?
+  success     Boolean  @default(false)
+  attempts    Int      @default(0)
+  error       String?
+  created_at  DateTime @default(now())
+
+  webhook Webhook @relation(fields: [webhook_id], references: [id], onDelete: Cascade)
+
+  @@index([webhook_id, created_at])
+  @@map("webhook_log")
+}
+
+model StatusConfig {
+  id         String  @id @default(cuid())
+  project_id String
+  name       String
+  color      String  @default("#6B7280")
+  position   Int     @default(0)
+  is_closed  Boolean @default(false)
+
+  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@unique([project_id, name])
+  @@map("status_config")
+}
+
+model CategoryConfig {
+  id         String   @id @default(cuid())
+  project_id String
+  name       String
+  color      String   @default("#6B7280")
+  position   Int      @default(0)
+  created_at DateTime @default(now())
+
+  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@unique([project_id, name])
+  @@map("category_config")
+}
+
+model SystemConfig {
+  id         String   @id @default(cuid())
+  key        String   @unique
+  value      String
+  updated_at DateTime @updatedAt
+
+  @@map("system_config")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  org_id      String
+  member_id   String?
+  action      String
+  target_type String
+  target_id   String?
+  metadata    Json?
+  created_at  DateTime @default(now())
+
+  @@index([org_id, created_at])
+  @@index([org_id, action])
+  @@map("audit_log")
+}

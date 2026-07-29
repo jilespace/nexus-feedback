@@ -1,0 +1,15 @@
+{
+  "nav": {
+    "feedback": "反馈",
+    "roadmap": "路线图",
+    "changelog": "更新日志"
+  },
+  "common": {
+    "loading": "加载中...",
+    "empty": "暂无内容",
+    "vote": "投票",
+    "comment": "评论",
+    "submit": "提交",
+    "cancel": "取消"
+  }
+}
