@@ -1,6 +1,7 @@
 import { prisma } from '../db/client.js';
 import { NotFoundError } from '../utils/errors.js';
 import { fireWebhooks } from './webhook.js';
+import { assertFeedbackInOrg, type OrgScopedFeedbackRef } from '../utils/orgScope.js';
 
 export async function addComment(
   feedbackId: string,
@@ -28,14 +29,24 @@ export async function addComment(
   return comment;
 }
 
-export async function listComments(feedbackId: string) {
+export async function listComments(feedbackId: string, org?: OrgScopedFeedbackRef) {
+  if (org) {
+    await assertFeedbackInOrg(org.orgId, feedbackId);
+  }
   return prisma.comment.findMany({
     where: { feedback_id: feedbackId },
     orderBy: { created_at: 'asc' },
   });
 }
 
-export async function deleteComment(commentId: string) {
+export async function deleteComment(
+  commentId: string,
+  orgId?: string,
+  feedbackId?: string,
+) {
+  if (orgId && feedbackId) {
+    await assertFeedbackInOrg(orgId, feedbackId);
+  }
   const comment = await prisma.comment.findUnique({ where: { id: commentId } });
   if (!comment) throw new NotFoundError('评论不存在');
   await prisma.comment.delete({ where: { id: commentId } });

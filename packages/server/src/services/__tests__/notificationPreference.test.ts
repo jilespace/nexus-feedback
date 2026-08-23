@@ -13,7 +13,7 @@ const mockPrisma = {
 
 vi.mock('../../db/client.js', () => ({ prisma: mockPrisma }));
 
-const { getPreference, updatePreference, listPreferences, deletePreference } =
+const { getPreference, updatePreference, deletePreference } =
   await import('../notificationPreference.js');
 
 describe('NotificationPreference Service', () => {

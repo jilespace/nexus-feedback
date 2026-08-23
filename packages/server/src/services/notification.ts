@@ -5,7 +5,7 @@ import { buildStatusChangeEmail, buildNewFeedbackEmail, buildReplyEmail } from '
 export async function notifyStatusChange(feedbackId: string, newStatus: string): Promise<void> {
   const feedback = await prisma.feedback.findUnique({
     where: { id: feedbackId },
-    include: { votes: { select: { email: true } } },
+    include: { votes: { select: { email: true } }, project: { select: { org_id: true } } },
   });
   if (!feedback) return;
 
@@ -29,7 +29,7 @@ export async function notifyStatusChange(feedbackId: string, newStatus: string):
 
   const subject = `Feedback status updated: ${feedback.title}`;
   const html = buildStatusChangeEmail(feedback.title, newStatus, feedbackId);
-  await sendBatchEmails(recipients, subject, html);
+  await sendBatchEmails(recipients, subject, html, feedback.project.org_id);
 }
 
 export async function notifyNewFeedback(feedbackId: string, orgId: string): Promise<void> {
@@ -44,16 +44,19 @@ export async function notifyNewFeedback(feedbackId: string, orgId: string): Prom
 
   const subject = `New feedback: ${feedback.title}`;
   const html = buildNewFeedbackEmail(feedback.title, feedback.category, feedbackId);
-  await sendBatchEmails(members.map((m) => m.email), subject, html);
+  await sendBatchEmails(members.map((m) => m.email), subject, html, orgId);
 }
 
 export async function notifyReply(feedbackId: string, replyContent: string): Promise<void> {
-  const feedback = await prisma.feedback.findUnique({ where: { id: feedbackId } });
+  const feedback = await prisma.feedback.findUnique({
+    where: { id: feedbackId },
+    include: { project: { select: { org_id: true } } },
+  });
   if (!feedback || !feedback.contact) return;
 
   const subject = `New reply on: ${feedback.title}`;
   const html = buildReplyEmail(feedback.title, replyContent, feedbackId);
-  await sendEmail(feedback.contact, subject, html);
+  await sendEmail(feedback.contact, subject, html, feedback.project.org_id);
 }
 
 

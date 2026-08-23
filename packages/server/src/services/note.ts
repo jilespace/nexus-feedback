@@ -1,6 +1,6 @@
 import { prisma } from '../db/client.js';
 import { NotFoundError, ForbiddenError, ValidationError } from '../utils/errors.js';
-import { parsePagination, paginatedResult } from '../utils/pagination.js';
+import { paginatedResult } from '../utils/pagination.js';
 
 export async function addNote(feedbackId: string, memberId: string, content: string) {
   if (!content || !content.trim()) {

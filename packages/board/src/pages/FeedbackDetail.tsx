@@ -159,7 +159,7 @@ export function FeedbackDetail({ feedbackId: propId, onBack }: FeedbackDetailPro
             >
               <div className="mb-1 flex items-center gap-2">
                 <span className="text-sm font-medium text-gray-700">
-                  {comment.name || comment.email.split('@')[0]}
+                  {comment.author_name}
                 </span>
                 <span className="text-xs text-gray-400">
                   {formatDate(comment.created_at)}

@@ -67,7 +67,6 @@ export function submitFeedback(body: {
   content: string;
   category: string;
   priority?: string;
-  contact?: string;
   email?: string;
 }): Promise<FeedbackItem> {
   return request<FeedbackItem>('/feedback', {

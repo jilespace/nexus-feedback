@@ -13,10 +13,10 @@ type ProjectInfo = {
   created_at: string;
 };
 
-function getBoardUrl(slug: string): string {
-  const url = new URL(window.location.href);
-  url.port = '8082';
-  return `${url.origin}/${slug}`;
+function getBoardUrl(slug: string, boardUrl?: string | null): string {
+  if (boardUrl) return `${boardUrl.replace(/\/$/, '')}/${slug}`;
+  const origin = window.location.origin;
+  return `${origin}/${slug}`;
 }
 
 export function ProjectSettings() {
@@ -48,7 +48,13 @@ export function ProjectSettings() {
     enabled: !!projectId,
   });
 
-  const boardUrl = project ? getBoardUrl(project.slug) : '';
+  const { data: orgBoardUrl } = useQuery({
+    queryKey: ['org-board-url'],
+    queryFn: () => apiRequest<{ board_url: string | null }>('/org/settings'),
+    select: (data) => data.board_url,
+  });
+
+  const boardUrl = project ? getBoardUrl(project.slug, orgBoardUrl) : '';
 
   useEffect(() => {
     if (ssoConfig) {

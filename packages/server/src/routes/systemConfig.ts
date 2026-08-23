@@ -9,15 +9,14 @@ export const systemConfigRouter = Router();
 const SECRET_KEYS = ['storage_access_key', 'storage_secret_key', 'email_api_key'];
 
 function maskValue(key: string, value: string): string {
-  if (SECRET_KEYS.includes(key) && value.length > 4) {
-    return '****' + value.slice(-4);
-  }
-  return value;
+  if (!SECRET_KEYS.includes(key)) return value;
+  if (value.length <= 8) return '****';
+  return '****' + value.slice(-4);
 }
 
 systemConfigRouter.get('/system-config', orgAuth, requireRole(['owner']), async (req, res, next) => {
   try {
-    const configs = await getAllConfigs();
+    const configs = await getAllConfigs(req.orgId!);
     const masked: Record<string, string> = {};
     for (const [k, v] of Object.entries(configs)) {
       masked[k] = maskValue(k, v);
@@ -42,7 +41,7 @@ systemConfigRouter.put('/system-config', orgAuth, requireRole(['owner']), async 
       if (SECRET_KEYS.includes(key) && value.startsWith('****')) {
         continue;
       }
-      await setConfig(key, value);
+      await setConfig(req.orgId!, key, value);
     }
     success(res, { updated: true });
   } catch (err) {

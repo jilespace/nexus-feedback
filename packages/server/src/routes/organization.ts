@@ -11,17 +11,20 @@ import {
   deleteProject,
   updateProject,
   updateMemberRole,
+  acceptInvite,
+  resendInvite,
 } from '../services/organization.js';
 import { addNote, listNotes, deleteNote } from '../services/note.js';
 import { parsePagination } from '../utils/pagination.js';
 import { getOrgSettings, updateOrgSettings, changePassword, forgotPassword, resetPassword } from '../services/orgSettings.js';
 import { success } from '../utils/response.js';
 import { ValidationError, isValidEmail } from '../utils/errors.js';
+import { authLimiter, passwordResetLimiter } from '../middleware/rateLimit.js';
 import { prisma } from '../db/client.js';
 
 export const organizationRouter = Router();
 
-organizationRouter.post('/register', async (req, res, next) => {
+organizationRouter.post('/register', authLimiter, async (req, res, next) => {
   try {
     const { email } = req.body;
     if (email && !isValidEmail(email)) {
@@ -34,7 +37,7 @@ organizationRouter.post('/register', async (req, res, next) => {
   }
 });
 
-organizationRouter.post('/login', async (req, res, next) => {
+organizationRouter.post('/login', authLimiter, async (req, res, next) => {
   try {
     const { email, password, org_slug } = req.body;
     if (email && !isValidEmail(email)) {
@@ -47,7 +50,7 @@ organizationRouter.post('/login', async (req, res, next) => {
   }
 });
 
-organizationRouter.get('/members', orgAuth, async (req, res, next) => {
+organizationRouter.get('/members', orgAuth, requireRole(['owner', 'admin']), async (req, res, next) => {
   try {
     const pagination = parsePagination(req.query);
     const result = await listMembers(req.orgId!, pagination);
@@ -63,7 +66,7 @@ organizationRouter.post('/members', orgAuth, requireRole(['owner', 'admin']), as
     if (email && !isValidEmail(email)) {
       throw new ValidationError('邮箱格式不正确');
     }
-    const result = await inviteMember(req.orgId!, req.body);
+    const result = await inviteMember(req.orgId!, req.body, req.memberRole!);
     success(res, result, 201);
   } catch (err) {
     next(err);
@@ -73,7 +76,7 @@ organizationRouter.post('/members', orgAuth, requireRole(['owner', 'admin']), as
 organizationRouter.patch('/members/:id', orgAuth, requireRole(['owner']), async (req, res, next) => {
   try {
     const { role } = req.body;
-    const result = await updateMemberRole(req.orgId!, req.params.id as string, role);
+    const result = await updateMemberRole(req.orgId!, req.params.id as string, role, req.memberRole!);
     success(res, result);
   } catch (err) {
     next(err);
@@ -119,7 +122,7 @@ organizationRouter.get('/projects', orgAuth, async (req, res, next) => {
   }
 });
 
-organizationRouter.get('/projects/:id', orgAuth, async (req, res, next) => {
+organizationRouter.get('/projects/:id', orgAuth, requireRole(['owner', 'admin']), async (req, res, next) => {
   try {
     const project = await prisma.project.findFirst({
       where: { id: req.params.id as string, org_id: req.orgId },
@@ -169,7 +172,7 @@ organizationRouter.post('/projects/:id/regenerate-key', orgAuth, requireRole(['o
 });
 
 // Internal Notes
-organizationRouter.get('/feedback/:id/notes', orgAuth, async (req, res, next) => {
+organizationRouter.get('/feedback/:id/notes', orgAuth, requireRole(['owner', 'admin']), async (req, res, next) => {
   try {
     const pagination = parsePagination(req.query);
     const result = await listNotes(req.params.id as string, pagination);
@@ -179,7 +182,7 @@ organizationRouter.get('/feedback/:id/notes', orgAuth, async (req, res, next) =>
   }
 });
 
-organizationRouter.post('/feedback/:id/notes', orgAuth, async (req, res, next) => {
+organizationRouter.post('/feedback/:id/notes', orgAuth, requireRole(['owner', 'admin']), async (req, res, next) => {
   try {
     const { content } = req.body;
     if (!content) throw new ValidationError('内容不能为空');
@@ -190,7 +193,7 @@ organizationRouter.post('/feedback/:id/notes', orgAuth, async (req, res, next) =
   }
 });
 
-organizationRouter.delete('/feedback/:id/notes/:noteId', orgAuth, async (req, res, next) => {
+organizationRouter.delete('/feedback/:id/notes/:noteId', orgAuth, requireRole(['owner', 'admin']), async (req, res, next) => {
   try {
     const result = await deleteNote(req.params.noteId as string, req.memberId!);
     success(res, result);
@@ -211,8 +214,8 @@ organizationRouter.get('/settings', orgAuth, async (req, res, next) => {
 
 organizationRouter.patch('/settings', orgAuth, requireRole(['owner', 'admin']), async (req, res, next) => {
   try {
-    const { name, logo_url, brand_color } = req.body;
-    const result = await updateOrgSettings(req.orgId!, { name, logo_url, brand_color });
+    const { name, logo_url, brand_color, board_url } = req.body;
+    const result = await updateOrgSettings(req.orgId!, { name, logo_url, brand_color, board_url });
     success(res, result);
   } catch (err) {
     next(err);
@@ -233,7 +236,7 @@ organizationRouter.post('/change-password', orgAuth, async (req, res, next) => {
   }
 });
 
-organizationRouter.post('/forgot-password', async (req, res, next) => {
+organizationRouter.post('/forgot-password', passwordResetLimiter, async (req, res, next) => {
   try {
     const { email, org_slug } = req.body;
     if (!email || !org_slug) {
@@ -246,13 +249,37 @@ organizationRouter.post('/forgot-password', async (req, res, next) => {
   }
 });
 
-organizationRouter.post('/reset-password', async (req, res, next) => {
+organizationRouter.post('/reset-password', passwordResetLimiter, async (req, res, next) => {
   try {
     const { token, new_password } = req.body;
     if (!token || !new_password) {
       throw new ValidationError('令牌和新密码不能为空');
     }
     const result = await resetPassword(token, new_password);
+    success(res, result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Accept invite (public, no auth required)
+organizationRouter.post('/accept-invite', authLimiter, async (req, res, next) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) {
+      throw new ValidationError('令牌和密码不能为空');
+    }
+    const result = await acceptInvite(token, password);
+    success(res, result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Resend invite (owner/admin only)
+organizationRouter.post('/members/:id/resend-invite', orgAuth, requireRole(['owner', 'admin']), async (req, res, next) => {
+  try {
+    const result = await resendInvite(req.orgId!, req.params.id as string, req.memberRole!);
     success(res, result);
   } catch (err) {
     next(err);

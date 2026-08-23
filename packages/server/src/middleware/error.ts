@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { Prisma } from '@prisma/client';
-import { AppError, ConflictError, NotFoundError, ValidationError } from '../utils/errors.js';
+import { AppError } from '../utils/errors.js';
 
 export function errorHandler(err: Error, _req: Request, res: Response, _next: NextFunction): void {
   if (err instanceof AppError) {

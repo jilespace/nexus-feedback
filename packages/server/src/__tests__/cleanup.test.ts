@@ -18,8 +18,8 @@ describe('cleanupOrphanedAttachments', () => {
     vi.mocked(prisma.attachment.findMany).mockResolvedValue([
       { id: 'att_1' },
       { id: 'att_2' },
-    ] as any);
-    vi.mocked(prisma.attachment.deleteMany).mockResolvedValue({ count: 2 } as any);
+    ] as never);
+    vi.mocked(prisma.attachment.deleteMany).mockResolvedValue({ count: 2 } as never);
 
     const { cleanupOrphanedAttachments } = await import('../jobs/digest.js');
     const result = await cleanupOrphanedAttachments();

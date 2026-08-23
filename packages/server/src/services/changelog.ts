@@ -1,38 +1,54 @@
 import { prisma } from '../db/client.js';
 import { NotFoundError } from '../utils/errors.js';
-import { parsePagination, paginatedResult } from '../utils/pagination.js';
+import { paginatedResult } from '../utils/pagination.js';
 
 export async function createChangelog(
   orgId: string,
   projectId: string,
   title: string,
   content: string,
+  publishAt?: string | null,
 ) {
   return prisma.changelog.create({
-    data: { org_id: orgId, project_id: projectId, title, content },
+    data: {
+      org_id: orgId,
+      project_id: projectId,
+      title,
+      content,
+      published_at: publishAt ? new Date(publishAt) : null,
+    },
   });
 }
 
 export async function updateChangelog(
   orgId: string,
   changelogId: string,
-  data: { title?: string; content?: string },
+  data: { title?: string; content?: string; publish_at?: string | null },
 ) {
   const existing = await prisma.changelog.findFirst({
     where: { id: changelogId, org_id: orgId },
   });
   if (!existing) throw new NotFoundError('更新日志不存在');
-  return prisma.changelog.update({ where: { id: changelogId }, data });
+  const { publish_at, ...rest } = data;
+  return prisma.changelog.update({
+    where: { id: changelogId },
+    data: {
+      ...rest,
+      ...(publish_at !== undefined
+        ? { published_at: publish_at ? new Date(publish_at) : null }
+        : {}),
+    },
+  });
 }
 
-export async function publishChangelog(orgId: string, changelogId: string) {
+export async function publishChangelog(orgId: string, changelogId: string, publishAt?: string | null) {
   const existing = await prisma.changelog.findFirst({
     where: { id: changelogId, org_id: orgId },
   });
   if (!existing) throw new NotFoundError('更新日志不存在');
   return prisma.changelog.update({
     where: { id: changelogId },
-    data: { published: true, published_at: new Date() },
+    data: { published: true, published_at: publishAt ? new Date(publishAt) : new Date() },
   });
 }
 

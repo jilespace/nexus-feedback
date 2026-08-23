@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchChangelog } from '../api';
+import Markdown from '../components/Markdown';
 import type { ChangelogEntry } from '../types';
 
 function formatDate(dateStr: string): string {
@@ -53,9 +54,7 @@ export function Changelog() {
             <h2 className="mb-2 text-base font-semibold text-gray-900">
               {entry.title}
             </h2>
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-600">
-              {entry.content}
-            </p>
+            <Markdown content={entry.content} />
           </div>
         ))}
       </div>

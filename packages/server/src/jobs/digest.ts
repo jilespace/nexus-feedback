@@ -85,7 +85,7 @@ async function runWeeklyDigest(): Promise<void> {
 
     const subject = `Weekly Digest: ${project.name}`;
     const html = buildDigestEmail(project.name, newCount, resolvedCount, topVoted);
-    await sendBatchEmails(recipients, subject, html);
+    await sendBatchEmails(recipients, subject, html, project.org_id);
   }
 }
 

@@ -13,6 +13,7 @@ model Organization {
   slug        String   @unique
   logo_url    String?
   brand_color String   @default("#4c6ef5")
+  board_url   String?
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
@@ -26,12 +27,14 @@ model Organization {
 model Member {
   id                 String    @id @default(cuid())
   email              String
-  password_hash      String
+  password_hash      String?
   display_name       String    @default("")
   role               String    @default("member")
   org_id             String
   reset_token        String?
   reset_token_expiry DateTime?
+  invite_token       String?
+  invite_token_expiry DateTime?
   created_at         DateTime  @default(now())
   updated_at         DateTime  @updatedAt
 
@@ -342,10 +345,12 @@ model CategoryConfig {
 
 model SystemConfig {
   id         String   @id @default(cuid())
-  key        String   @unique
+  org_id     String
+  key        String
   value      String
   updated_at DateTime @updatedAt
 
+  @@unique([org_id, key])
   @@map("system_config")
 }
 

@@ -12,6 +12,7 @@ import { organizationRouter } from './routes/organization.js';
 import { voteRouter } from './routes/vote.js';
 import { tagRouter } from './routes/tag.js';
 import { publicRouter } from './routes/public.js';
+import { widgetConfigRouter } from './routes/boardConfig.js';
 import { changelogRouter } from './routes/changelog.js';
 import { ssoRouter } from './routes/sso.js';
 import { unsubscribeRouter } from './routes/unsubscribe.js';
@@ -49,6 +50,7 @@ export function createApp() {
   app.use('/api/v1/org/changelog', adminLimiter, changelogRouter);
   app.use('/api/v1/public', publicLimiter, unsubscribeRouter);
   app.use('/api/v1/public/:projectSlug', publicLimiter, publicRouter);
+  app.use('/api/v1/widget', publicLimiter, widgetConfigRouter);
   app.use('/api/v1', swaggerRouter);
 
   // Serve admin SPA (production) - at root

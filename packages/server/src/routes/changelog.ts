@@ -33,11 +33,17 @@ changelogRouter.get('/', async (req, res, next) => {
 
 changelogRouter.post('/', async (req, res, next) => {
   try {
-    const { title, content, project_id } = req.body;
+    const { title, content, project_id, publish_at } = req.body;
     if (!title || !content || !project_id) {
       throw new ValidationError('title、content 和 project_id 不能为空');
     }
-    const result = await createChangelog(req.orgId!, project_id, title, content);
+    const result = await createChangelog(
+      req.orgId!,
+      project_id,
+      title,
+      content,
+      parsePublishAt(publish_at) ?? null,
+    );
     success(res, result, 201);
   } catch (err) {
     next(err);
@@ -46,17 +52,29 @@ changelogRouter.post('/', async (req, res, next) => {
 
 changelogRouter.patch('/:id', async (req, res, next) => {
   try {
-    const { title, content } = req.body;
-    const result = await updateChangelog(req.orgId!, req.params.id, { title, content });
+    const { title, content, publish_at } = req.body;
+    const result = await updateChangelog(req.orgId!, req.params.id, {
+      title,
+      content,
+      publish_at: parsePublishAt(publish_at),
+    });
     success(res, result);
   } catch (err) {
     next(err);
   }
 });
 
+function parsePublishAt(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) throw new ValidationError('publish_at 时间格式无效');
+  return date.toISOString();
+}
+
 changelogRouter.post('/:id/publish', async (req, res, next) => {
   try {
-    const result = await publishChangelog(req.orgId!, req.params.id);
+    const result = await publishChangelog(req.orgId!, req.params.id, parsePublishAt(req.body?.publish_at) ?? null);
     success(res, result);
   } catch (err) {
     next(err);

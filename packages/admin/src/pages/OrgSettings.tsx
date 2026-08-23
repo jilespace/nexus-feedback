@@ -9,6 +9,7 @@ type OrgSettingsData = {
   slug: string;
   logo_url: string | null;
   brand_color: string;
+  board_url?: string | null;
 };
 
 export function OrgSettings() {
@@ -17,6 +18,7 @@ export function OrgSettings() {
   const [name, setName] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [brandColor, setBrandColor] = useState('#4c6ef5');
+  const [boardUrl, setBoardUrl] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -31,11 +33,12 @@ export function OrgSettings() {
     setName(data.name);
     setLogoUrl(data.logo_url ?? '');
     setBrandColor(data.brand_color);
+    setBoardUrl(data.board_url ?? '');
     setInitialized(true);
   }
 
   const settingsMutation = useMutation({
-    mutationFn: (body: { name?: string; logo_url?: string; brand_color?: string }) =>
+    mutationFn: (body: { name?: string; logo_url?: string; brand_color?: string; board_url?: string | null }) =>
       apiRequest('/org/settings', {
         method: 'PATCH',
         body: JSON.stringify(body),
@@ -64,7 +67,7 @@ export function OrgSettings() {
 
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
-    settingsMutation.mutate({ name, logo_url: logoUrl || undefined, brand_color: brandColor });
+    settingsMutation.mutate({ name, logo_url: logoUrl || undefined, brand_color: brandColor, board_url: boardUrl.trim() || null });
   };
 
   const handleChangePassword = (e: React.FormEvent) => {
@@ -118,6 +121,18 @@ export function OrgSettings() {
               className="w-32 rounded-lg border border-surface-3 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             />
           </div>
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">公开看板地址</label>
+          <input
+            value={boardUrl}
+            onChange={(e) => setBoardUrl(e.target.value)}
+            placeholder="https://feedback.example.com"
+            className="w-full rounded-lg border border-surface-3 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          />
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            留空则自动使用当前域名：https://你的域名/&#123;项目slug&#125;
+          </p>
         </div>
         <button
           type="submit"

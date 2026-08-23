@@ -1,6 +1,7 @@
 import { prisma } from '../db/client.js';
 import { NotFoundError, ConflictError } from '../utils/errors.js';
-import { parsePagination, paginatedResult } from '../utils/pagination.js';
+import { paginatedResult } from '../utils/pagination.js';
+import { assertFeedbackIdsInOrg } from '../utils/orgScope.js';
 
 export async function createTag(orgId: string, name: string, color?: string) {
   const existing = await prisma.tag.findUnique({
@@ -24,11 +25,17 @@ export async function listTags(
       orderBy: { name: 'asc' },
       skip: pagination?.skip,
       take: pagination?.take,
+      include: { _count: { select: { feedbackTags: true } } },
     }),
     prisma.tag.count({ where: { org_id: orgId } }),
   ]);
 
-  return paginatedResult(items, total, pagination?.page ?? 1, pagination?.pageSize ?? 20);
+  return paginatedResult(
+    items.map((tag) => ({ ...tag, usage_count: tag._count.feedbackTags })),
+    total,
+    pagination?.page ?? 1,
+    pagination?.pageSize ?? 20,
+  );
 }
 
 export async function deleteTag(orgId: string, tagId: string) {
@@ -72,7 +79,14 @@ export async function getFeedbackTags(feedbackId: string) {
   return feedbackTags.map((ft) => ft.tag);
 }
 
-export async function batchAssignTags(feedbackIds: string[], tagIds: string[]) {
+export async function batchAssignTags(
+  feedbackIds: string[],
+  tagIds: string[],
+  orgId?: string,
+) {
+  if (orgId) {
+    await assertFeedbackIdsInOrg(orgId, feedbackIds);
+  }
   const data = feedbackIds.flatMap((feedback_id) =>
     tagIds.map((tag_id) => ({ feedback_id, tag_id })),
   );
@@ -83,7 +97,14 @@ export async function batchAssignTags(feedbackIds: string[], tagIds: string[]) {
   return result.count;
 }
 
-export async function batchUnassignTags(feedbackIds: string[], tagIds: string[]) {
+export async function batchUnassignTags(
+  feedbackIds: string[],
+  tagIds: string[],
+  orgId?: string,
+) {
+  if (orgId) {
+    await assertFeedbackIdsInOrg(orgId, feedbackIds);
+  }
   const result = await prisma.feedbackTag.deleteMany({
     where: {
       feedback_id: { in: feedbackIds },

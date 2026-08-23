@@ -9,7 +9,8 @@
     "webhooks": "Webhooks",
     "statuses": "Status Config",
     "settings": "Org Settings",
-    "systemConfig": "System Config"
+    "systemConfig": "System Config",
+    "auditLogs": "Audit Logs"
   },
   "common": {
     "save": "Save",
@@ -75,6 +76,7 @@
     "col_title": "Title",
     "col_source": "Source",
     "col_category": "Category",
+    "col_tags": "Tags",
     "col_priority": "Priority",
     "col_status": "Status",
     "col_time": "Time",

@@ -1,5 +1,6 @@
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../db/client.js';
-import { parsePagination, paginatedResult } from '../utils/pagination.js';
+import { paginatedResult } from '../utils/pagination.js';
 
 export async function logAudit(params: {
   orgId: string;
@@ -16,19 +17,25 @@ export async function logAudit(params: {
       action: params.action,
       target_type: params.targetType,
       target_id: params.targetId,
-      metadata: params.metadata as any,
+      metadata: params.metadata as Prisma.InputJsonValue | undefined,
     },
   });
 }
 
 export async function listAuditLogs(
   orgId: string,
-  filters: { action?: string; memberId?: string },
+  filters: { action?: string; memberId?: string; actionPrefix?: string; from?: Date; to?: Date },
   pagination?: { page: number; pageSize: number; skip: number; take: number },
 ) {
   const where: Record<string, unknown> = { org_id: orgId };
   if (filters.action) where.action = filters.action;
+  if (filters.actionPrefix) where.action = { startsWith: filters.actionPrefix };
   if (filters.memberId) where.member_id = filters.memberId;
+
+  const createdAt: Record<string, Date> = {};
+  if (filters.from) createdAt.gte = filters.from;
+  if (filters.to) createdAt.lte = filters.to;
+  if (Object.keys(createdAt).length > 0) where.created_at = createdAt;
 
   const [items, total] = await Promise.all([
     prisma.auditLog.findMany({

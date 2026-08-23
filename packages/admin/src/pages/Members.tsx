@@ -6,6 +6,9 @@ import { useToast } from '@/components/Toast';
 import { Skeleton } from '@/components/Skeleton';
 import type { OrgMember, OrgMemberRole } from '@/types';
 
+type InviteResult = { id: string; email: string; role: string; invited: boolean; email_sent?: boolean; email_error?: string; invite_url?: string };
+type ResendResult = { invited: boolean; email_sent: boolean; invite_url?: string };
+
 const ROLE_LABELS: Record<OrgMemberRole, string> = {
   owner: '所有者',
   admin: '管理员',
@@ -23,8 +26,9 @@ export function Members() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const [showInvite, setShowInvite] = useState(false);
+  const [showInviteResult, setShowInviteResult] = useState(false);
+  const [inviteResultUrl, setInviteResultUrl] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
-  const [invitePassword, setInvitePassword] = useState('');
   const [inviteDisplayName, setInviteDisplayName] = useState('');
   const [inviteRole, setInviteRole] = useState<OrgMemberRole>('member');
 
@@ -36,18 +40,47 @@ export function Members() {
   const members = data?.items;
 
   const inviteMutation = useMutation({
-    mutationFn: (params: { email: string; password: string; display_name: string; role: OrgMemberRole }) =>
-      apiRequest('/org/members', { method: 'POST', body: JSON.stringify(params) }),
-    onSuccess: () => {
+    mutationFn: (params: { email: string; display_name: string; role: OrgMemberRole }) =>
+      apiRequest<InviteResult>('/org/members', { method: 'POST', body: JSON.stringify(params) }),
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['org-members'] });
-      toast.show('成员邀请成功');
-      setShowInvite(false);
-      setInviteEmail('');
-      setInvitePassword('');
-      setInviteDisplayName('');
-      setInviteRole('member');
+      if (result.email_sent) {
+        toast.show('邀请邮件已发送');
+        setShowInvite(false);
+        setInviteEmail('');
+        setInviteDisplayName('');
+        setInviteRole('member');
+      } else if (result.invite_url) {
+        // Email send failed - show invite URL for manual delivery
+        if (result.email_error) {
+          toast.show(`邮件发送失败: ${result.email_error}`, 'error');
+        }
+        setInviteResultUrl(result.invite_url);
+        setShowInviteResult(true);
+      } else {
+        toast.show('成员邀请成功');
+        setShowInvite(false);
+        setInviteEmail('');
+        setInviteDisplayName('');
+        setInviteRole('member');
+      }
     },
     onError: (err) => toast.show(err instanceof Error ? err.message : '邀请失败', 'error'),
+  });
+
+  const resendInviteMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiRequest<ResendResult>(`/org/members/${id}/resend-invite`, { method: 'POST' }),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['org-members'] });
+      if (result.email_sent) {
+        toast.show('邀请邮件已重发');
+      } else if (result.invite_url) {
+        setInviteResultUrl(result.invite_url);
+        setShowInviteResult(true);
+      }
+    },
+    onError: (err) => toast.show(err instanceof Error ? err.message : '重发失败', 'error'),
   });
 
   const removeMutation = useMutation({
@@ -75,7 +108,10 @@ export function Members() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">团队成员</h1>
+        <div>
+          <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">团队成员</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">邀请协作成员共同处理反馈，角色决定操作权限。</p>
+        </div>
         {canInvite && (
           <button onClick={() => setShowInvite(true)} className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-brand-700 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-brand-200">
             邀请成员
@@ -102,14 +138,36 @@ export function Members() {
                   <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_COLORS[m.role]}`}>
                     {ROLE_LABELS[m.role]}
                   </span>
+                  {m.pending && (
+                    <span className="ml-2 inline-block rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-200">
+                      待激活
+                    </span>
+                  )}
                 </td>
                 <td className="px-5 py-3 text-gray-500 dark:text-gray-400">{new Date(m.created_at).toLocaleDateString()}</td>
                 {isOwner && (
                   <td className="px-5 py-3">
                     {m.role !== 'owner' && (
-                      <button onClick={() => removeMutation.mutate(m.id)} disabled={removeMutation.isPending} className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50">
-                        移除
-                      </button>
+                      <div className="flex gap-2">
+                        {m.pending && (
+                          <>
+                            <button
+                              onClick={() => resendInviteMutation.mutate(m.id)}
+                              disabled={resendInviteMutation.isPending}
+                              className="text-xs text-brand-600 hover:text-brand-700 disabled:opacity-50"
+                            >
+                              重发邀请
+                            </button>
+                          </>
+                        )}
+                        <button
+                          onClick={() => removeMutation.mutate(m.id)}
+                          disabled={removeMutation.isPending}
+                          className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
+                        >
+                          移除
+                        </button>
+                      </div>
                     )}
                   </td>
                 )}
@@ -123,12 +181,12 @@ export function Members() {
           <div className="w-full max-w-sm rounded-2xl border border-surface-3 bg-surface-0 p-6 shadow-xl dark:border-gray-600 dark:bg-gray-800">
             <h2 className="mb-4 text-base font-semibold text-gray-900 dark:text-gray-100">邀请成员</h2>
             <form
-              onSubmit={(e) => { e.preventDefault(); inviteMutation.mutate({ email: inviteEmail, password: invitePassword, display_name: inviteDisplayName, role: inviteRole }); }}
+              onSubmit={(e) => { e.preventDefault(); inviteMutation.mutate({ email: inviteEmail, display_name: inviteDisplayName, role: inviteRole }); }}
               className="space-y-3"
             >
               <input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="邮箱" required className="block w-full rounded-xl border border-surface-3 bg-surface-1 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
               <input type="text" value={inviteDisplayName} onChange={(e) => setInviteDisplayName(e.target.value)} placeholder="显示名称" required className="block w-full rounded-xl border border-surface-3 bg-surface-1 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-              <input type="password" value={invitePassword} onChange={(e) => setInvitePassword(e.target.value)} placeholder="初始密码" required className="block w-full rounded-xl border border-surface-3 bg-surface-1 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+              <p className="text-xs text-gray-400 dark:text-gray-500">将通过邮件发送邀请链接，成员自行设置密码完成注册</p>
               <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value as OrgMemberRole)} className="block w-full rounded-xl border border-surface-3 bg-surface-1 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                 <option value="member">成员</option>
                 <option value="admin">管理员</option>
@@ -138,6 +196,40 @@ export function Members() {
                 <button type="submit" disabled={inviteMutation.isPending} className="flex-1 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50">{inviteMutation.isPending ? '邀请中...' : '邀请'}</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {showInviteResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-sm rounded-2xl border border-surface-3 bg-surface-0 p-6 shadow-xl dark:border-gray-600 dark:bg-gray-800">
+            <h2 className="mb-4 text-base font-semibold text-gray-900 dark:text-gray-100">邮件未配置，请手动分享链接</h2>
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600 dark:text-gray-400">邀请链接（72小时有效）：</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={inviteResultUrl}
+                  readOnly
+                  className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-2.5 text-sm text-gray-600 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                />
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(inviteResultUrl);
+                    toast.show('已复制到剪贴板');
+                  }}
+                  className="rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700"
+                >
+                  复制链接
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 dark:text-gray-500">请将此链接发送给被邀请人，他们可通过链接设置密码完成激活</p>
+              <button
+                onClick={() => setShowInviteResult(false)}
+                className="w-full rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700"
+              >
+                完成
+              </button>
+            </div>
           </div>
         </div>
       )}

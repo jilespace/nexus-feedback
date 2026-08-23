@@ -65,7 +65,10 @@ export function StatusSettings() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">状态配置</h1>
+        <div>
+          <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">状态配置</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">自定义此项目的反馈状态流转流程。</p>
+        </div>
         <button
           onClick={() => setShowForm(true)}
           className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-700"

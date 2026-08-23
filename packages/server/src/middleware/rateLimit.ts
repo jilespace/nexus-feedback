@@ -9,6 +9,22 @@ export const publicLimiter = rateLimit({
   message: { code: 42901, data: null, message: '请求过于频繁，请稍后再试' },
 });
 
+export const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { code: 42900, data: null, message: '尝试次数过多，请15分钟后再试' },
+});
+
+export const passwordResetLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { code: 42900, data: null, message: '请求过于频繁，请一小时后再试' },
+});
+
 export const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 1000,

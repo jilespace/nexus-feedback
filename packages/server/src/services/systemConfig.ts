@@ -1,21 +1,23 @@
 import { prisma } from '../db/client.js';
 import { env } from '../config/index.js';
 
-export async function getConfig(key: string): Promise<string | null> {
-  const row = await prisma.systemConfig.findUnique({ where: { key } });
+export async function getConfig(orgId: string, key: string): Promise<string | null> {
+  const row = await prisma.systemConfig.findUnique({
+    where: { org_id_key: { org_id: orgId, key } },
+  });
   return row?.value ?? null;
 }
 
-export async function setConfig(key: string, value: string): Promise<void> {
+export async function setConfig(orgId: string, key: string, value: string): Promise<void> {
   await prisma.systemConfig.upsert({
-    where: { key },
+    where: { org_id_key: { org_id: orgId, key } },
     update: { value },
-    create: { key, value },
+    create: { org_id: orgId, key, value },
   });
 }
 
-export async function getAllConfigs(): Promise<Record<string, string>> {
-  const rows = await prisma.systemConfig.findMany();
+export async function getAllConfigs(orgId: string): Promise<Record<string, string>> {
+  const rows = await prisma.systemConfig.findMany({ where: { org_id: orgId } });
   const map: Record<string, string> = {};
   for (const row of rows) {
     map[row.key] = row.value;
@@ -23,14 +25,8 @@ export async function getAllConfigs(): Promise<Record<string, string>> {
   return map;
 }
 
-export async function getConfigOrEnv(key: string, envKey: string): Promise<string | undefined> {
-  const dbVal = await getConfig(key);
-  if (dbVal) return dbVal;
-  return (env as Record<string, unknown>)[envKey] as string | undefined;
-}
-
-export async function getStorageConfig() {
-  const configs = await getAllConfigs();
+export async function getStorageConfig(orgId: string) {
+  const configs = await getAllConfigs(orgId);
   return {
     type: configs['storage_type'] || env.STORAGE_TYPE || 'local',
     bucket: configs['storage_bucket'] || env.S3_BUCKET || '',
@@ -42,8 +38,8 @@ export async function getStorageConfig() {
   };
 }
 
-export async function getEmailConfig() {
-  const configs = await getAllConfigs();
+export async function getEmailConfig(orgId: string) {
+  const configs = await getAllConfigs(orgId);
   return {
     apiKey: configs['email_api_key'] || env.RESEND_API_KEY || '',
     fromEmail: configs['email_from'] || env.RESEND_FROM_EMAIL || '',

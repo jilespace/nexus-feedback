@@ -1,16 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { registerOrganization, memberLogin, inviteMember, regenerateProjectApiKey } from '../organization.js';
+import { registerOrganization, memberLogin, inviteMember, acceptInvite, regenerateProjectApiKey } from '../organization.js';
 
 vi.mock('../../db/client.js', () => ({
   prisma: {
     organization: { findUnique: vi.fn(), create: vi.fn() },
-    member: { findUnique: vi.fn(), create: vi.fn() },
+    member: { findUnique: vi.fn(), create: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
     project: { findFirst: vi.fn(), update: vi.fn() },
   },
 }));
 
 vi.mock('../../config/index.js', () => ({
-  env: { JWT_SECRET: 'test-secret' },
+  env: { JWT_SECRET: 'test-secret-key-that-is-at-least-32-chars', BASE_URL: 'http://localhost:8080' },
 }));
 
 vi.mock('argon2', () => ({
@@ -21,8 +21,22 @@ vi.mock('jsonwebtoken', () => ({
   default: { sign: vi.fn().mockReturnValue('mock-token') },
 }));
 
+vi.mock('../audit.js', () => ({
+  logAudit: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../systemConfig.js', () => ({
+  getEmailConfig: vi.fn(),
+}));
+
+vi.mock('../email.js', () => ({
+  sendEmail: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { prisma } from '../../db/client.js';
 import argon2 from 'argon2';
+import { getEmailConfig } from '../systemConfig.js';
+import { sendEmail } from '../email.js';
 
 beforeEach(() => { vi.clearAllMocks(); });
 
@@ -40,7 +54,7 @@ describe('OrganizationService', () => {
 
       const result = await registerOrganization({
         name: 'Test Org', slug: 'test-org',
-        email: 'a@b.com', password: '123456',
+        email: 'a@b.com', password: 'Passw0rd123',
       });
 
       expect(result.slug).toBe('test-org');
@@ -81,19 +95,109 @@ describe('OrganizationService', () => {
       await expect(memberLogin('a@b.com', 'wrong', 'demo'))
         .rejects.toThrow('邮箱或密码错误');
     });
+
+    it('should throw when password_hash is null (pending invite)', async () => {
+      (prisma.organization.findUnique as ReturnType<typeof vi.fn>)
+        .mockResolvedValue({ id: 'org-1', slug: 'demo' });
+      (prisma.member.findUnique as ReturnType<typeof vi.fn>)
+        .mockResolvedValue({ id: 'm-1', email: 'a@b.com', password_hash: null, role: 'member' });
+
+      await expect(memberLogin('a@b.com', 'pass', 'demo'))
+        .rejects.toThrow('请先通过邮件邀请链接设置密码');
+    });
   });
 
   describe('inviteMember', () => {
     it('should create a new member', async () => {
       (prisma.member.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      (prisma.organization.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'org-1', name: 'Test Org' });
       (prisma.member.create as ReturnType<typeof vi.fn>)
         .mockResolvedValue({ id: 'm-2', email: 'new@b.com', role: 'member' });
 
       const result = await inviteMember('org-1', {
-        email: 'new@b.com', password: '123456',
-      });
+        email: 'new@b.com', password: 'Passw0rd123',
+      }, 'admin');
       expect(result.email).toBe('new@b.com');
       expect(result.role).toBe('member');
+    });
+
+    it('should forbid admin from minting an owner', async () => {
+      await expect(inviteMember('org-1', {
+        email: 'new@b.com', password: 'Passw0rd123', role: 'owner',
+      }, 'admin')).rejects.toThrow('只有所有者可以创建所有者');
+      expect(prisma.member.create).not.toHaveBeenCalled();
+    });
+
+    it('should allow owner to mint an owner', async () => {
+      (prisma.member.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      (prisma.organization.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'org-1', name: 'Test Org' });
+      (prisma.member.create as ReturnType<typeof vi.fn>)
+        .mockResolvedValue({ id: 'm-3', email: 'owner2@b.com', role: 'owner' });
+
+      const result = await inviteMember('org-1', {
+        email: 'owner2@b.com', password: 'Passw0rd123', role: 'owner',
+      }, 'owner');
+      expect(result.role).toBe('owner');
+    });
+
+    it('should return invite_url when no password and email unconfigured', async () => {
+      (prisma.member.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      (prisma.organization.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'org-1', name: 'Test Org' });
+      (prisma.member.create as ReturnType<typeof vi.fn>)
+        .mockResolvedValue({ id: 'm-2', email: 'new@b.com', role: 'member' });
+      (getEmailConfig as ReturnType<typeof vi.fn>).mockResolvedValue({ apiKey: '', fromEmail: '' });
+
+      const result = await inviteMember('org-1', { email: 'new@b.com' }, 'admin');
+      expect(result.invited).toBe(true);
+      expect(result.email_sent).toBe(false);
+      expect(result.invite_url).toContain('/invite-accept?token=');
+    });
+
+    it('should send email when no password and email configured', async () => {
+      (prisma.member.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      (prisma.organization.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'org-1', name: 'Test Org' });
+      (prisma.member.create as ReturnType<typeof vi.fn>)
+        .mockResolvedValue({ id: 'm-3', email: 'new@b.com', role: 'member' });
+      (getEmailConfig as ReturnType<typeof vi.fn>).mockResolvedValue({ apiKey: 're_xxx', fromEmail: 'test@test.com' });
+
+      const result = await inviteMember('org-1', { email: 'new@b.com' }, 'admin');
+      expect(result.invited).toBe(true);
+      expect(result.email_sent).toBe(true);
+      expect(sendEmail).toHaveBeenCalled();
+    });
+  });
+
+  describe('acceptInvite', () => {
+    it('should activate member with valid token and password', async () => {
+      const member = { id: 'm-1', email: 'a@b.com', invite_token: 'hashed', invite_token_expiry: new Date(Date.now() + 3600000) };
+      (prisma.member.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(member);
+      (prisma.member.update as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+      (argon2.hash as ReturnType<typeof vi.fn>).mockResolvedValue('new-hash');
+
+      const result = await acceptInvite('raw-token', 'Passw0rd123');
+      expect(result.email).toBe('a@b.com');
+      expect(prisma.member.update).toHaveBeenCalledWith({
+        where: { id: 'm-1' },
+        data: {
+          password_hash: 'new-hash',
+          invite_token: null,
+          invite_token_expiry: null,
+        },
+      });
+    });
+
+    it('should throw for expired invite token', async () => {
+      (prisma.member.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      await expect(acceptInvite('expired-token', 'Passw0rd123'))
+        .rejects.toThrow('邀请链接无效或已过期');
+    });
+
+    it('should throw for invalid invite token', async () => {
+      (prisma.member.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      await expect(acceptInvite('bad-token', 'Passw0rd123'))
+        .rejects.toThrow('邀请链接无效或已过期');
     });
   });
 

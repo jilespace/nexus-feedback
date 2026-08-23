@@ -8,17 +8,13 @@ export interface FeedbackItem {
   vote_count: number;
   comment_count: number;
   tags?: string[];
-  contact?: string;
-  email?: string;
   created_at: string;
-  updated_at: string;
 }
 
 export interface Comment {
   id: string;
   feedback_id: string;
-  email: string;
-  name?: string;
+  author_name?: string;
   content: string;
   created_at: string;
 }
@@ -43,10 +39,19 @@ export interface PaginatedResponse<T> {
   total: number;
 }
 
+export type RoadmapColumn = {
+  key: string;
+  name: string;
+  color: string;
+  items: FeedbackItem[];
+};
+
 export interface RoadmapData {
-  planned: FeedbackItem[];
-  in_progress: FeedbackItem[];
-  completed: FeedbackItem[];
+  mode?: string;
+  planned?: FeedbackItem[];
+  in_progress?: FeedbackItem[];
+  completed?: FeedbackItem[];
+  columns?: RoadmapColumn[];
 }
 
 export interface ChangelogEntry {

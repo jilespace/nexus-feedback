@@ -63,9 +63,31 @@ export async function assignFeedback(feedbackId: string, assigneeId: string | nu
   );
 }
 
-export async function fetchOrgMembers() {
-  const result = await apiRequest<{ items: Array<{ id: string; display_name: string; email: string; role: string }> }>('/org/members');
-  return result.items;
+export async function assignFeedbackBatch(ids: string[], assigneeId: string | null) {
+  return apiRequest<{ updated: number }>('/admin/feedback/batch-assign', {
+    method: 'PATCH',
+    body: JSON.stringify({ ids, assignee_id: assigneeId }),
+  });
+}
+
+export async function restoreFeedback(id: string) {
+  return apiRequest<{ id: string; restored: boolean }>(`/admin/feedback/${id}/restore`, {
+    method: 'POST',
+  });
+}
+
+export async function fetchOrgMembers(): Promise<Array<{ id: string; display_name: string; email: string; role: string }>> {
+  const result = await apiRequest<{ items?: Array<{ id: string; display_name: string; email: string; role: string }> } | Array<{ id: string; display_name: string; email: string; role: string }>>('/org/members');
+  if (Array.isArray(result)) return result;
+  return Array.isArray(result?.items) ? result.items : [];
+}
+
+export type OrgTagItem = { id: string; name: string; color: string | null; usage_count?: number };
+
+export async function fetchOrgTags(): Promise<OrgTagItem[]> {
+  const result = await apiRequest<{ items?: OrgTagItem[] } | OrgTagItem[]>('/org/tags');
+  if (Array.isArray(result)) return result;
+  return Array.isArray(result?.items) ? result.items : [];
 }
 
 export async function fetchProjectCategories(): Promise<Array<{ name: string; color: string }>> {
@@ -77,12 +99,18 @@ export async function fetchAuditLogs(params: {
   page_size?: number;
   action?: string;
   member_id?: string;
+  action_prefix?: string;
+  from?: string;
+  to?: string;
 }) {
   const query = new URLSearchParams();
   if (params.page) query.set('page', String(params.page));
   if (params.page_size) query.set('page_size', String(params.page_size));
   if (params.action) query.set('action', params.action);
   if (params.member_id) query.set('member_id', String(params.member_id));
+  if (params.action_prefix) query.set('action_prefix', params.action_prefix);
+  if (params.from) query.set('from', params.from);
+  if (params.to) query.set('to', params.to);
   const result = await apiRequest<{ items: Array<AuditLogResponse>; page: number; page_size: number; total: number }>(
     `/org/audit-logs?${query}`,
   );

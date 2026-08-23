@@ -14,16 +14,22 @@ import {
   AuditLogsIcon,
 } from '@/components/icons';
 
+import type { OrgMemberRole } from '@/types';
+
+const ALL_ROLES: OrgMemberRole[] = ['owner', 'admin', 'member'];
+const ADMIN_ROLES: OrgMemberRole[] = ['owner', 'admin'];
+const OWNER_ROLES: OrgMemberRole[] = ['owner'];
+
 const navItems = [
-  { to: '/dashboard', labelKey: 'nav.dashboard', icon: DashboardIcon },
-  { to: '/feedback', labelKey: 'nav.feedback', icon: FeedbackIcon },
-  { to: '/changelog', labelKey: 'nav.changelog', icon: ChangelogNavIcon },
-  { to: '/applications', labelKey: 'nav.applications', icon: AppsIcon },
-  { to: '/members', labelKey: 'nav.members', icon: MembersIcon },
-  { to: '/tags', labelKey: 'nav.tags', icon: TagsIcon },
-  { to: '/system-config', labelKey: 'nav.systemConfig', icon: SystemConfigIcon },
-  { to: '/audit-logs', labelKey: 'nav.auditLogs', icon: AuditLogsIcon },
-  { to: '/settings', labelKey: 'nav.settings', icon: SettingsIcon },
+  { to: '/dashboard', labelKey: 'nav.dashboard', icon: DashboardIcon, roles: ALL_ROLES },
+  { to: '/feedback', labelKey: 'nav.feedback', icon: FeedbackIcon, roles: ALL_ROLES },
+  { to: '/changelog', labelKey: 'nav.changelog', icon: ChangelogNavIcon, roles: ALL_ROLES },
+  { to: '/applications', labelKey: 'nav.applications', icon: AppsIcon, roles: ADMIN_ROLES },
+  { to: '/members', labelKey: 'nav.members', icon: MembersIcon, roles: ADMIN_ROLES },
+  { to: '/tags', labelKey: 'nav.tags', icon: TagsIcon, roles: ADMIN_ROLES },
+  { to: '/audit-logs', labelKey: 'nav.auditLogs', icon: AuditLogsIcon, roles: ADMIN_ROLES },
+  { to: '/system-config', labelKey: 'nav.systemConfig', icon: SystemConfigIcon, roles: OWNER_ROLES },
+  { to: '/settings', labelKey: 'nav.settings', icon: SettingsIcon, roles: OWNER_ROLES },
 ];
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -39,9 +45,12 @@ export function Layout({ children }: { children: ReactNode }) {
     localStorage.setItem('lang', next);
   };
 
-  const displayName = member?.display_name ?? '管理员';
-  const roleBadge = member?.role ?? 'member';
+  const displayName = member?.display_name ?? '用户';
+  const ROLE_LABELS: Record<string, string> = { owner: '所有者', admin: '管理员', member: '成员' };
+  const roleBadge = ROLE_LABELS[member?.role ?? 'member'] ?? '成员';
   const orgName = organization?.name ?? 'Nexus';
+  const memberRole = (member?.role ?? 'member') as OrgMemberRole;
+  const visibleNavItems = navItems.filter((item) => item.roles.includes(memberRole));
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface-1 dark:bg-gray-900">
@@ -81,7 +90,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
 
         <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

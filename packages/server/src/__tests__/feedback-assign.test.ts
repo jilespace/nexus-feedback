@@ -19,15 +19,15 @@ describe('assignFeedback', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('assigns feedback to a member in the same org', async () => {
-    vi.mocked(prisma.feedback.findUnique).mockResolvedValue({
-      id: 'fb_1', project_id: 'proj_1',
-    } as any);
+    vi.mocked(prisma.feedback.findUnique)
+      .mockResolvedValueOnce({ project: { org_id: 'org_1' } } as never)
+      .mockResolvedValueOnce({ id: 'fb_1', project_id: 'proj_1' } as never);
     vi.mocked(prisma.member.findFirst).mockResolvedValue({
       id: 'mem_1', org_id: 'org_1',
-    } as any);
+    } as never);
     vi.mocked(prisma.feedback.update).mockResolvedValue({
       id: 'fb_1', assignee_id: 'mem_1',
-    } as any);
+    } as never);
 
     const result = await assignFeedback('fb_1', 'mem_1', 'org_1');
 
@@ -45,13 +45,13 @@ describe('assignFeedback', () => {
     vi.mocked(prisma.feedback.findUnique).mockResolvedValue(null);
 
     await expect(assignFeedback('missing', 'mem_1', 'org_1'))
-      .rejects.toThrow('Feedback not found');
+      .rejects.toThrow('反馈不存在');
   });
 
   it('throws when member not in org', async () => {
     vi.mocked(prisma.feedback.findUnique).mockResolvedValue({
-      id: 'fb_1', project_id: 'proj_1',
-    } as any);
+      project: { org_id: 'org_1' },
+    } as never);
     vi.mocked(prisma.member.findFirst).mockResolvedValue(null);
 
     await expect(assignFeedback('fb_1', 'mem_1', 'org_1'))
@@ -59,12 +59,12 @@ describe('assignFeedback', () => {
   });
 
   it('allows unassigning (null assignee)', async () => {
-    vi.mocked(prisma.feedback.findUnique).mockResolvedValue({
-      id: 'fb_1', project_id: 'proj_1',
-    } as any);
+    vi.mocked(prisma.feedback.findUnique)
+      .mockResolvedValueOnce({ project: { org_id: 'org_1' } } as never)
+      .mockResolvedValueOnce({ id: 'fb_1', project_id: 'proj_1' } as never);
     vi.mocked(prisma.feedback.update).mockResolvedValue({
       id: 'fb_1', assignee_id: null,
-    } as any);
+    } as never);
 
     const result = await assignFeedback('fb_1', null, 'org_1');
 

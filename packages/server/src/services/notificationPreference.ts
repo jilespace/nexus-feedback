@@ -1,6 +1,6 @@
 import { prisma } from '../db/client.js';
 import { NotFoundError } from '../utils/errors.js';
-import { parsePagination, paginatedResult } from '../utils/pagination.js';
+import { paginatedResult } from '../utils/pagination.js';
 
 export async function getPreference(email: string, projectId: string) {
   const pref = await prisma.notificationPreference.findUnique({

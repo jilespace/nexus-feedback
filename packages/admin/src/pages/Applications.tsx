@@ -22,10 +22,10 @@ type NewProject = {
   created_at: string;
 };
 
-function getBoardUrl(slug: string): string {
-  const url = new URL(window.location.href);
-  url.port = '8082';
-  return `${url.origin}/${slug}`;
+function getBoardUrl(slug: string, boardUrl?: string | null): string {
+  if (boardUrl) return `${boardUrl.replace(/\/$/, '')}/${slug}`;
+  const origin = window.location.origin;
+  return `${origin}/${slug}`;
 }
 
 function formatOrigins(origins: string[]): string {
@@ -43,6 +43,12 @@ export function Applications() {
   const { data: projects, isLoading } = useQuery({
     queryKey: ['projects'],
     queryFn: () => apiRequest<ProjectAccessInfo[]>('/org/projects'),
+  });
+
+  const { data: orgBoardUrl } = useQuery({
+    queryKey: ['org-board-url'],
+    queryFn: () => apiRequest<{ board_url: string | null }>('/org/settings'),
+    select: (data) => data.board_url,
   });
 
   const regenerateMutation = useMutation({
@@ -169,7 +175,7 @@ export function Applications() {
             </thead>
             <tbody className="divide-y divide-surface-3 dark:divide-gray-700">
               {projects.map((project) => {
-                const boardUrl = getBoardUrl(project.slug);
+                const boardUrl = getBoardUrl(project.slug, orgBoardUrl);
                 const isConfirming = confirmProjectId === project.id;
                 return (
                   <tr key={project.id} className="transition-colors hover:bg-brand-50/40 dark:hover:bg-gray-700">

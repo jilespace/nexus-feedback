@@ -14,6 +14,8 @@ export type FeedbackItem = {
   created_at: string;
   reply_count: number;
   attachment_count: number;
+  assignee?: { id: string; display_name: string } | null;
+  tags?: { id: string; name: string; color: string | null }[];
 };
 
 export type FeedbackDetail = {
@@ -98,12 +100,14 @@ export type OrgMember = {
   display_name: string;
   role: OrgMemberRole;
   created_at: string;
+  pending?: boolean;
 };
 
 export type Organization = {
   id: string;
   name: string;
   slug: string;
+  board_url?: string | null;
 };
 
 export type Tag = {
@@ -111,6 +115,7 @@ export type Tag = {
   name: string;
   color: string | null;
   created_at: string;
+  usage_count?: number;
 };
 
 export type ChangelogEntry = {
@@ -187,4 +192,19 @@ export type AuditLog = {
   member_id: string | null;
   member?: { id: string; display_name: string } | null;
   created_at: string;
+};
+
+export type WidgetFields = {
+  priority: boolean;
+  contact: boolean;
+  category: boolean;
+};
+
+export type WidgetConfig = {
+  primaryColor: string;
+  position: 'bottom-right' | 'bottom-left';
+  buttonLabel: string;
+  successTitle: string;
+  successMessage: string;
+  fields: WidgetFields;
 };

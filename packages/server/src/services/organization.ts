@@ -10,8 +10,12 @@ import {
   ConflictError,
   ForbiddenError,
 } from '../utils/errors.js';
-import { parsePagination, paginatedResult } from '../utils/pagination.js';
+import { paginatedResult } from '../utils/pagination.js';
+import { validatePasswordStrength } from '../utils/passwordPolicy.js';
 import { logAudit } from './audit.js';
+import { getEmailConfig } from './systemConfig.js';
+import { sendEmail } from './email.js';
+import { buildInviteEmail } from '../utils/emailTemplates.js';
 
 function slugify(name: string): string {
   return name
@@ -42,6 +46,8 @@ export async function registerOrganization(input: RegisterInput) {
 
   const existing = await prisma.organization.findUnique({ where: { slug } });
   if (existing) throw new ConflictError('该组织标识已被使用');
+
+  validatePasswordStrength(input.password);
 
   const passwordHash = await argon2.hash(input.password);
   const apiKey = generateApiKey();
@@ -90,13 +96,17 @@ export async function memberLogin(email: string, password: string, orgSlug: stri
   });
   if (!member) throw new AuthError(40110, '邮箱或密码错误');
 
+  if (!member.password_hash) {
+    throw new AuthError(40110, '请先通过邮件邀请链接设置密码');
+  }
+
   const valid = await argon2.verify(member.password_hash, password);
   if (!valid) throw new AuthError(40110, '邮箱或密码错误');
 
   const token = jwt.sign(
-    { memberId: member.id, orgId: org.id, role: member.role },
+    { memberId: member.id, orgId: org.id, role: member.role, typ: 'org' },
     env.JWT_SECRET,
-    { expiresIn: '7d' },
+    { expiresIn: '7d', algorithm: 'HS256' },
   );
 
   return {
@@ -108,25 +118,43 @@ export async function memberLogin(email: string, password: string, orgSlug: stri
 
 export type InviteMemberInput = {
   email: string;
-  password: string;
   display_name?: string;
   role?: string;
 };
 
-export async function inviteMember(orgId: string, input: InviteMemberInput) {
+export async function inviteMember(orgId: string, input: InviteMemberInput, callerRole: string) {
+  if (input.role === 'owner' && callerRole !== 'owner') {
+    throw new ForbiddenError('只有所有者可以创建所有者');
+  }
+
   const existing = await prisma.member.findUnique({
     where: { email_org_id: { email: input.email, org_id: orgId } },
   });
   if (existing) throw new ConflictError('该成员已存在');
 
-  const passwordHash = await argon2.hash(input.password);
+  const org = await prisma.organization.findUnique({ where: { id: orgId } });
+  if (!org) throw new NotFoundError('组织不存在');
+
+  // Check email config before proceeding
+  const emailConfig = await getEmailConfig(orgId);
+  if (!emailConfig.apiKey) {
+    throw new ValidationError('未配置邮件服务，请先在「系统配置」中设置 Resend API Key');
+  }
+
+  // Generate invite token
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const expiry = new Date(Date.now() + 72 * 60 * 60 * 1000); // 72 hours
+
   const member = await prisma.member.create({
     data: {
       email: input.email,
-      password_hash: passwordHash,
+      password_hash: null,
       display_name: input.display_name || '',
       role: input.role || 'member',
       org_id: orgId,
+      invite_token: tokenHash,
+      invite_token_expiry: expiry,
     },
   });
 
@@ -135,10 +163,22 @@ export async function inviteMember(orgId: string, input: InviteMemberInput) {
     action: 'member.invite',
     targetType: 'member',
     targetId: member.id,
-    metadata: { email: input.email, role: input.role || 'member' },
+    metadata: { email: input.email, role: input.role || 'member', invite: true },
   }).catch(() => {});
 
-  return { id: member.id, email: member.email, role: member.role };
+  const inviteUrl = `${env.BASE_URL}/invite-accept?token=${rawToken}`;
+  try {
+    await sendEmail(
+      input.email,
+      `加入 ${org.name} - Nexus Feedback`,
+      buildInviteEmail(org.name, inviteUrl),
+      orgId
+    );
+    return { id: member.id, email: member.email, role: member.role, invited: true, email_sent: true };
+  } catch (emailErr) {
+    console.error('Invite email send failed:', emailErr);
+    return { id: member.id, email: member.email, role: member.role, invited: true, email_sent: false, email_error: emailErr instanceof Error ? emailErr.message : '邮件发送失败', invite_url: inviteUrl };
+  }
 }
 
 export async function listMembers(
@@ -148,7 +188,7 @@ export async function listMembers(
   const [items, total] = await Promise.all([
     prisma.member.findMany({
       where: { org_id: orgId },
-      select: { id: true, email: true, display_name: true, role: true, created_at: true },
+      select: { id: true, email: true, display_name: true, role: true, created_at: true, password_hash: true },
       orderBy: { created_at: 'asc' },
       skip: pagination?.skip,
       take: pagination?.take,
@@ -156,15 +196,23 @@ export async function listMembers(
     prisma.member.count({ where: { org_id: orgId } }),
   ]);
 
-  return paginatedResult(items, total, pagination?.page ?? 1, pagination?.pageSize ?? 20);
+  const itemsWithPending = items.map(({ password_hash, ...m }) => ({
+    ...m,
+    pending: password_hash === null,
+  }));
+
+  return paginatedResult(itemsWithPending, total, pagination?.page ?? 1, pagination?.pageSize ?? 20);
 }
 
 const VALID_ROLES = ['owner', 'admin', 'member'] as const;
 export type MemberRole = (typeof VALID_ROLES)[number];
 
-export async function updateMemberRole(orgId: string, memberId: string, role: string) {
+export async function updateMemberRole(orgId: string, memberId: string, role: string, callerRole: string) {
   if (!VALID_ROLES.includes(role as MemberRole)) {
     throw new ValidationError('无效的角色类型');
+  }
+  if (role === 'owner' && callerRole !== 'owner') {
+    throw new ForbiddenError('只有所有者可以创建所有者');
   }
   const member = await prisma.member.findFirst({
     where: { id: memberId, org_id: orgId },
@@ -360,4 +408,85 @@ export async function updateProject(
     allowed_origins: updated.allowed_origins,
     updated_at: updated.updated_at.toISOString(),
   };
+}
+
+export async function acceptInvite(token: string, password: string) {
+  if (!token || !password) {
+    throw new ValidationError('令牌和密码不能为空');
+  }
+  validatePasswordStrength(password);
+
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const member = await prisma.member.findFirst({
+    where: {
+      invite_token: tokenHash,
+      invite_token_expiry: { gte: new Date() },
+    },
+  });
+  if (!member) throw new ValidationError('邀请链接无效或已过期');
+
+  const passwordHash = await argon2.hash(password);
+  await prisma.member.update({
+    where: { id: member.id },
+    data: {
+      password_hash: passwordHash,
+      invite_token: null,
+      invite_token_expiry: null,
+    },
+  });
+
+  return { email: member.email };
+}
+
+export async function resendInvite(orgId: string, memberId: string, callerRole: string) {
+  if (callerRole !== 'owner' && callerRole !== 'admin') {
+    throw new ForbiddenError('只有所有者和管理员可以重发邀请');
+  }
+
+  const member = await prisma.member.findFirst({
+    where: { id: memberId, org_id: orgId },
+  });
+  if (!member) throw new NotFoundError('成员不存在');
+
+  if (member.password_hash) {
+    throw new ValidationError('该成员已激活，无需重发邀请');
+  }
+
+  const org = await prisma.organization.findUnique({ where: { id: orgId } });
+  if (!org) throw new NotFoundError('组织不存在');
+
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const expiry = new Date(Date.now() + 72 * 60 * 60 * 1000);
+
+  await prisma.member.update({
+    where: { id: memberId },
+    data: { invite_token: tokenHash, invite_token_expiry: expiry },
+  });
+
+  logAudit({
+    orgId,
+    action: 'member.resend_invite',
+    targetType: 'member',
+    targetId: memberId,
+    metadata: { email: member.email },
+  }).catch(() => {});
+
+  const emailConfig = await getEmailConfig(orgId);
+  const hasEmailConfig = Boolean(emailConfig.apiKey);
+
+  if (hasEmailConfig) {
+    const inviteUrl = `${env.BASE_URL}/invite-accept?token=${rawToken}`;
+    sendEmail(
+      member.email,
+      `加入 ${org.name} - Nexus Feedback`,
+      `<p>您好，</p><p>您被邀请加入 <strong>${org.name}</strong>。</p><p><a href="${inviteUrl}">点击接受邀请</a></p><p>此链接将在 72 小时后过期。</p><p>如果您没有请求此邀请，请忽略此邮件。</p>`,
+      orgId
+    ).catch(() => {});
+
+    return { invited: true, email_sent: true };
+  }
+
+  const inviteUrl = `${env.BASE_URL}/invite-accept?token=${rawToken}`;
+  return { invited: true, email_sent: false, invite_url: inviteUrl };
 }

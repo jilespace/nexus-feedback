@@ -8,8 +8,35 @@ import { notifyNewFeedback } from '../services/notification.js';
 import { createApiKeyLimiter } from '../middleware/rateLimit.js';
 import { moderateComment, sanitizeContent } from '../middleware/commentModeration.js';
 import { getProjectCategories, getProjectCategoryObjects } from '../services/categoryConfig.js';
+import { getBoardConfig } from '../services/boardConfig.js';
 
 const apiKeyLimiter = createApiKeyLimiter();
+
+function toPublicFeedback(f: {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+  priority: string;
+  status: string;
+  vote_count: number;
+  source: string;
+  created_at: Date;
+  feedbackTags: Array<{ tag: { id: string; name: string; color: string } }>;
+}) {
+  return {
+    id: f.id,
+    title: f.title,
+    content: f.content,
+    category: f.category,
+    priority: f.priority,
+    status: f.status,
+    vote_count: f.vote_count,
+    source: f.source,
+    created_at: f.created_at.toISOString(),
+    tags: f.feedbackTags.map((ft) => ({ id: ft.tag.id, name: ft.tag.name, color: ft.tag.color })),
+  };
+}
 
 export const publicRouter = Router({ mergeParams: true });
 
@@ -116,14 +143,10 @@ publicRouter.get('/feedback/:id', async (req, res, next) => {
     });
     if (!feedback) throw new NotFoundError('反馈不存在');
     success(res, {
-      ...feedback,
-      vote_count: feedback.vote_count,
-      tags: feedback.feedbackTags.map((ft) => ({ id: ft.tag.id, name: ft.tag.name, color: ft.tag.color })),
-      created_at: feedback.created_at.toISOString(),
+      ...toPublicFeedback(feedback),
       comments: feedback.comments.map((c) => ({
         id: c.id,
-        email: c.author_email,
-        name: c.author_name,
+        author_name: c.author_name || '匿名',
         content: c.content,
         created_at: c.created_at.toISOString(),
       })),
@@ -257,8 +280,7 @@ publicRouter.post('/feedback/:id/comments', apiKeyLimiter, async (req, res, next
     const comment = await addComment(feedbackId, email, sanitizedName, sanitizedContent);
     success(res, {
       id: comment.id,
-      email: comment.author_email,
-      name: comment.author_name,
+      author_name: comment.author_name || '匿名',
       content: comment.content,
       created_at: comment.created_at.toISOString(),
     }, 201);
@@ -267,20 +289,51 @@ publicRouter.post('/feedback/:id/comments', apiKeyLimiter, async (req, res, next
   }
 });
 
+publicRouter.get('/config', async (req, res, next) => {
+  try {
+    const config = await getBoardConfig(req.project!);
+    res.set('Cache-Control', 'public, max-age=60');
+    success(res, config);
+  } catch (err) {
+    next(err);
+  }
+});
+
 publicRouter.get('/roadmap', async (req, res, next) => {
   try {
     const project = req.project!;
+    const configs = await prisma.statusConfig.findMany({
+      where: { project_id: project.id },
+      orderBy: { position: 'asc' },
+    });
+
+    if (configs.length > 0) {
+      const feedbacks = await prisma.feedback.findMany({
+        where: { project_id: project.id, deleted_at: null },
+        orderBy: { vote_count: 'desc' },
+        select: { id: true, title: true, status: true, category: true, vote_count: true },
+      });
+      const columns = configs.map((c) => ({
+        key: c.name,
+        name: c.name,
+        color: c.color,
+        items: feedbacks.filter((f) => f.status === c.name),
+      }));
+      success(res, { mode: 'custom', columns });
+      return;
+    }
+
     const feedbacks = await prisma.feedback.findMany({
       where: { project_id: project.id, status: { in: ['in_progress', 'resolved', 'open'] } },
       orderBy: { vote_count: 'desc' },
       select: { id: true, title: true, status: true, category: true, vote_count: true },
     });
-    const roadmap = {
+    success(res, {
+      mode: 'default',
       planned: feedbacks.filter((f) => f.status === 'open'),
       in_progress: feedbacks.filter((f) => f.status === 'in_progress'),
       completed: feedbacks.filter((f) => f.status === 'resolved'),
-    };
-    success(res, roadmap);
+    });
   } catch (err) {
     next(err);
   }
@@ -290,7 +343,11 @@ publicRouter.get('/changelog', async (req, res, next) => {
   try {
     const project = req.project!;
     const changelogs = await prisma.changelog.findMany({
-      where: { project_id: project.id, published: true },
+      where: {
+        project_id: project.id,
+        published: true,
+        OR: [{ published_at: null }, { published_at: { lte: new Date() } }],
+      },
       orderBy: { published_at: 'desc' },
     });
     success(res, changelogs);

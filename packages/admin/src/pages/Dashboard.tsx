@@ -7,6 +7,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { Card, CardHeader, StatCard, EmptyState } from '@/components/ui';
 import { TotalIcon, OpenIcon, ProgressIcon, ResolvedIcon, ClosedIcon, ResponseTimeIcon } from '@/components/icons';
 import { formatRelativeTime } from '@/utils/formatRelativeTime';
+import { useFirstProject } from '@/hooks/useOnboarding';
 import type { FeedbackItem, PaginatedResponse, Stats } from '@/types';
 
 type DashboardStats = Stats;
@@ -16,6 +17,8 @@ const PIE_COLORS = ['#6366f1', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ec4
 export function Dashboard() {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const firstProject = useFirstProject();
+  const recentProjectId = firstProject?.projectId;
 
   const STAT_CARDS = [
     { key: 'total', label: t('dashboard.total_feedback'), icon: <TotalIcon />, accent: 'bg-gray-50 text-gray-700 dark:bg-gray-700 dark:text-gray-200' },
@@ -161,7 +164,15 @@ export function Dashboard() {
               ))}
             </div>
           ) : (
-            <EmptyState title="暂无反馈" description="当有新的反馈提交时，将会显示在这里" />
+            <EmptyState
+              title="暂无反馈"
+              description="还没有收到反馈，嵌入 Widget 开始收集用户声音"
+              action={
+                recentProjectId
+                  ? { label: '获取嵌入代码', onClick: () => navigate(`/projects/${recentProjectId}/widget`) }
+                  : undefined
+              }
+            />
           )}
         </Card>
 

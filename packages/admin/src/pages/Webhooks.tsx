@@ -116,7 +116,10 @@ export function Webhooks() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Webhooks</h1>
+        <div>
+          <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Webhooks</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">反馈事件发生时自动推送通知到您的其他系统（如飞书、Slack）。</p>
+        </div>
         <button
           onClick={() => setShowForm(true)}
           className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-700"

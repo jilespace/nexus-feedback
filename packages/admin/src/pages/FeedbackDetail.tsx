@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clsx } from 'clsx';
@@ -7,6 +7,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { Skeleton } from '@/components/Skeleton';
 import { useToast } from '@/components/Toast';
 import { formatRelativeTime } from '@/utils/formatRelativeTime';
+import { useAuth } from '@/hooks/useAuth';
 import type { FeedbackDetail as FeedbackDetailType, FeedbackPriority, FeedbackItem, Tag } from '@/types';
 import type { PaginatedResponse } from '@/types';
 
@@ -48,6 +49,8 @@ export function FeedbackDetail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const toast = useToast();
+  const { member } = useAuth();
+  const canAssign = member?.role === 'owner' || member?.role === 'admin';
   const [replyContent, setReplyContent] = useState('');
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [mergeSearch, setMergeSearch] = useState('');
@@ -154,7 +157,7 @@ export function FeedbackDetail() {
   const priorityConfig = PRIORITY_CONFIG[data.priority];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 animate-fade-in">
       <button
         onClick={() => navigate('/feedback')}
         className="flex items-center gap-1.5 text-sm font-medium text-gray-500 transition-colors hover:text-brand-600 focus:outline-none"
@@ -171,185 +174,165 @@ export function FeedbackDetail() {
           </Link>
         </div>
       )}
-      <div className="rounded-xl border border-surface-3 bg-surface-0 shadow-sm dark:border-gray-600 dark:bg-gray-800">
-        <div className="border-b border-surface-3 p-6 dark:border-gray-600">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{data.title}</h1>
-              <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                {data.project.name} · {formatRelativeTime(data.created_at)}
-              </p>
-            </div>
-            <StatusBadge status={data.status} />
-          </div>
-        </div>
-        <div className="p-6">
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700 dark:text-gray-300">{data.content}</p>
-        </div>
-        <div className="border-t border-surface-3 bg-surface-1/50 px-6 py-4 dark:border-gray-600 dark:bg-gray-700/50">
-          <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
-            <MetaItem label="分类" value={data.category} />
-            <MetaItem label="优先级" value={priorityConfig.label} className={priorityConfig.className} />
-            {data.contact && <MetaItem label="联系方式" value={data.contact} />}
-            {data.app_version && <MetaItem label="版本" value={`v${data.app_version}`} />}
-          </div>
-        </div>
-      </div>
-      {allowedTransitions.length > 0 && (
-        <div className="flex items-center gap-3 rounded-xl border border-surface-3 bg-surface-0 px-5 py-4 dark:border-gray-600 dark:bg-gray-800">
-          <span className="text-sm font-medium text-gray-600 dark:text-gray-300">变更状态</span>
-          <div className="flex gap-2">
-            {allowedTransitions.map((s) => (
-              <button
-                key={s}
-                onClick={() => statusMutation.mutate(s)}
-                disabled={statusMutation.isPending}
-                className="rounded-lg border border-surface-3 bg-surface-0 px-3 py-1.5 text-sm font-medium transition-all hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-brand-100"
-              >
-                {STATUS_LABELS[s] ?? s}
-              </button>
-            ))}
-          </div>
-          {!data.merged_into_id && (
-            <button
-              onClick={() => setShowMergeModal(true)}
-              className="ml-auto rounded-lg border border-surface-3 bg-surface-0 px-3 py-1.5 text-sm font-medium text-gray-600 transition-all hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-100"
-            >
-              合并到...
-            </button>
-          )}
-        </div>
-      )}
-      <div className="flex items-center gap-3 rounded-xl border border-surface-3 bg-surface-0 px-5 py-4 dark:border-gray-600 dark:bg-gray-800">
-        <span className="text-sm font-medium text-gray-600 dark:text-gray-300">指派给</span>
-        <select
-          value={data.assignee_id ?? ''}
-          onChange={(e) => assignMutation.mutate(e.target.value || null)}
-          disabled={assignMutation.isPending}
-          className="rounded-lg border border-surface-3 bg-surface-0 px-3 py-1.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
-        >
-          <option value="">未指派</option>
-          {members?.map((m) => (
-            <option key={m.id} value={m.id}>{m.display_name}</option>
-          ))}
-        </select>
-        {data.assignee && (
-          <span className="text-xs text-gray-500 dark:text-gray-400">
-            {data.assignee.display_name} ({data.assignee.email})
-          </span>
-        )}
-      </div>
-      <div className="rounded-xl border border-surface-3 bg-surface-0 px-5 py-4 dark:border-gray-600 dark:bg-gray-800">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-gray-600 dark:text-gray-300">标签</span>
-        </div>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          {data.tags?.map((tag) => (
-            <span key={tag.id} className="inline-flex items-center gap-1.5 rounded-full border border-surface-3 px-2.5 py-1 text-xs font-medium text-gray-700">
-              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: tag.color ?? '#6b7280' }} />
-              {tag.name}
-              <button onClick={() => removeTagMutation.mutate(tag.id)} className="ml-0.5 text-gray-400 hover:text-red-500" disabled={removeTagMutation.isPending}>×</button>
-            </span>
-          ))}
-          {allTags && allTags.length > 0 && (
-            <select
-              onChange={(e) => { if (e.target.value) { assignTagMutation.mutate(e.target.value); e.target.value = ''; } }}
-              className="rounded-lg border border-dashed border-surface-3 bg-transparent px-2 py-1 text-xs text-gray-500 hover:border-brand-300 focus:outline-none"
-              defaultValue=""
-            >
-              <option value="" disabled>+ 添加标签</option>
-              {allTags.filter((t) => !data.tags?.some((dt) => dt.id === t.id)).map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-          )}
-        </div>
-      </div>
-      {data.attachments.length > 0 && (
-        <div className="rounded-xl border border-surface-3 bg-surface-0 p-5">
-          <h2 className="mb-3 text-sm font-semibold text-gray-900">附件</h2>
-          <div className="flex flex-wrap gap-3">
-            {data.attachments.map((a) => {
-              const fileUrl = `/api/v1/upload/files/${a.id}`;
-              const isImage = /^image\/(png|jpe?g|gif|webp)$/i.test(a.mime_type);
-              return isImage ? (
-                <a
-                  key={a.id}
-                  href={fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group block overflow-hidden rounded-lg border border-surface-3 transition-colors hover:border-brand-300"
-                >
-                  <img
-                    src={fileUrl}
-                    alt={a.filename}
-                    className="max-h-[200px] w-auto object-contain"
-                  />
-                  <div className="border-t border-surface-3 bg-surface-1 px-2 py-1 text-xs text-gray-600 group-hover:text-brand-700">
-                    {a.filename} ({(a.size / 1024).toFixed(0)} KB)
-                  </div>
-                </a>
-              ) : (
-                <a
-                  key={a.id}
-                  href={fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded-lg border border-surface-3 px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
-                >
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 1h5l4 4v8H3V1z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><path d="M8 1v4h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  {a.filename} ({(a.size / 1024).toFixed(0)} KB)
-                </a>
-              );
-            })}
-          </div>
-        </div>
-      )}
-      <div className="rounded-xl border border-surface-3 bg-surface-0 p-5">
-        <h2 className="mb-4 text-sm font-semibold text-gray-900">
-          回复 ({data.replies.length})
-        </h2>
-        {data.replies.length > 0 ? (
-          <div className="relative space-y-4 pl-4">
-            <div className="absolute bottom-2 left-[7px] top-2 w-px bg-surface-3" />
-            {data.replies.map((r) => (
-              <div key={r.id} className="relative">
-                <div className="absolute -left-4 top-3 h-2.5 w-2.5 rounded-full border-2 border-brand-300 bg-surface-0" />
-                <div className="ml-2 rounded-lg bg-surface-1 p-3">
-                  <p className="text-sm text-gray-700">{r.content}</p>
-                  <p className="mt-1.5 text-xs text-gray-400">
-                    {r.member?.display_name ?? '系统'} · {formatRelativeTime(r.created_at)}
+      <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
+        {/* Main Content */}
+        <div className="space-y-4">
+          {/* Feedback Info Card */}
+          <div className="rounded-xl border border-surface-3 bg-surface-0 shadow-sm dark:border-gray-600 dark:bg-gray-800">
+            <div className="border-b border-surface-3 p-5 dark:border-gray-600">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{data.title}</h1>
+                  <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    {data.project.name} · {formatRelativeTime(data.created_at)}
                   </p>
                 </div>
+                <StatusBadge status={data.status} />
               </div>
-            ))}
+            </div>
+            <div className="p-5">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700 dark:text-gray-300">{data.content}</p>
+            </div>
+            {/* Meta Info */}
+            <div className="border-t border-surface-3 bg-surface-1/50 px-5 py-3 dark:border-gray-600 dark:bg-gray-700/50">
+              <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs">
+                <span className="text-gray-500">分类：<span className="font-medium text-gray-700 dark:text-gray-300">{data.category}</span></span>
+                <span className="text-gray-500">优先级：<span className={clsx('font-medium', priorityConfig.className)}>{priorityConfig.label}</span></span>
+                {data.contact && <span className="text-gray-500">联系：<span className="font-medium text-gray-700 dark:text-gray-300">{data.contact}</span></span>}
+                {data.app_version && <span className="text-gray-500">版本：<span className="font-medium text-gray-700 dark:text-gray-300">v{data.app_version}</span></span>}
+              </div>
+            </div>
           </div>
-        ) : (
-          <p className="py-4 text-center text-sm text-gray-400">暂无回复</p>
-        )}
-        {data.status !== 'closed' && (
-          <form
-            onSubmit={(e) => { e.preventDefault(); if (replyContent.trim()) replyMutation.mutate(replyContent.trim()); }}
-            className="mt-4 flex gap-2"
-          >
-            <input
-              value={replyContent}
-              onChange={(e) => setReplyContent(e.target.value)}
-              placeholder="输入回复内容..."
-              className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-2.5 text-sm transition-all placeholder:text-gray-400 focus:border-brand-500 focus:bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-100"
-            />
-            <button
-              type="submit"
-              disabled={!replyContent.trim() || replyMutation.isPending}
-              className="rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-brand-700 hover:shadow-md disabled:opacity-50 disabled:shadow-none focus:outline-none focus:ring-2 focus:ring-brand-200"
-            >
-              回复
-            </button>
-          </form>
-        )}
+
+          {/* Attachments */}
+          {data.attachments.length > 0 && (
+            <div className="rounded-xl border border-surface-3 bg-surface-0 p-5 dark:border-gray-600 dark:bg-gray-800">
+              <h2 className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-100">附件 ({data.attachments.length})</h2>
+              <div className="flex flex-wrap gap-3">
+                {data.attachments.map((a) => {
+                  const fileUrl = `/api/v1/upload/files/${a.id}`;
+                  const isImage = /^image\/(png|jpe?g|gif|webp)$/i.test(a.mime_type);
+                  return isImage ? (
+                    <a key={a.id} href={fileUrl} target="_blank" rel="noopener noreferrer" className="group block overflow-hidden rounded-lg border border-surface-3 transition-colors hover:border-brand-300">
+                      <img src={fileUrl} alt={a.filename} className="max-h-[200px] w-auto object-contain" />
+                      <div className="border-t border-surface-3 bg-surface-1 px-2 py-1 text-xs text-gray-600 group-hover:text-brand-700">{a.filename} ({(a.size / 1024).toFixed(0)} KB)</div>
+                    </a>
+                  ) : (
+                    <a key={a.id} href={fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-lg border border-surface-3 px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700">
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 1h5l4 4v8H3V1z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><path d="M8 1v4h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      {a.filename} ({(a.size / 1024).toFixed(0)} KB)
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Replies */}
+          <div className="rounded-xl border border-surface-3 bg-surface-0 p-5 dark:border-gray-600 dark:bg-gray-800">
+            <h2 className="mb-4 text-sm font-semibold text-gray-900 dark:text-gray-100">回复 ({data.replies.length})</h2>
+            {data.replies.length > 0 ? (
+              <div className="relative space-y-4 pl-4">
+                <div className="absolute bottom-2 left-[7px] top-2 w-px bg-surface-3" />
+                {data.replies.map((r) => (
+                  <div key={r.id} className="relative">
+                    <div className="absolute -left-4 top-3 h-2.5 w-2.5 rounded-full border-2 border-brand-300 bg-surface-0" />
+                    <div className="ml-2 rounded-lg bg-surface-1 p-3">
+                      <p className="text-sm text-gray-700 dark:text-gray-300">{r.content}</p>
+                      <p className="mt-1.5 text-xs text-gray-400">{r.member?.display_name ?? '系统'} · {formatRelativeTime(r.created_at)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="py-4 text-center text-sm text-gray-400">暂无回复</p>
+            )}
+            {data.status !== 'closed' && (
+              <form onSubmit={(e) => { e.preventDefault(); if (replyContent.trim()) replyMutation.mutate(replyContent.trim()); }} className="mt-4 flex gap-2">
+                <input value={replyContent} onChange={(e) => setReplyContent(e.target.value)} placeholder="输入回复内容..." className="flex-1 rounded-xl border border-surface-3 bg-surface-1 px-4 py-2.5 text-sm transition-all placeholder:text-gray-400 focus:border-brand-500 focus:bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-100" />
+                <button type="submit" disabled={!replyContent.trim() || replyMutation.isPending} className="rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-brand-700 hover:shadow-md disabled:opacity-50 disabled:shadow-none focus:outline-none focus:ring-2 focus:ring-brand-200">回复</button>
+              </form>
+            )}
+          </div>
+
+          <InternalNotesSection feedbackId={id!} />
+          <StatusHistorySection feedbackId={id!} />
+        </div>
+
+        {/* Sidebar - Actions */}
+        <div className="space-y-4">
+          {/* Status Actions */}
+          {allowedTransitions.length > 0 && (
+            <div className="rounded-xl border border-surface-3 bg-surface-0 p-4 dark:border-gray-600 dark:bg-gray-800">
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">状态变更</h3>
+              <div className="flex flex-wrap gap-2">
+                {allowedTransitions.map((s) => (
+                  <button key={s} onClick={() => statusMutation.mutate(s)} disabled={statusMutation.isPending} className="rounded-lg border border-surface-3 bg-surface-0 px-3 py-1.5 text-sm font-medium transition-all hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-brand-100">
+                    {STATUS_LABELS[s] ?? s}
+                  </button>
+                ))}
+              </div>
+              {!data.merged_into_id && (
+                <button onClick={() => setShowMergeModal(true)} className="mt-3 w-full rounded-lg border border-surface-3 px-3 py-1.5 text-sm font-medium text-gray-600 transition-all hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-100">
+                  合并到...
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Assignee */}
+          <div className="rounded-xl border border-surface-3 bg-surface-0 p-4 dark:border-gray-600 dark:bg-gray-800">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">负责人</h3>
+            {canAssign ? (
+              <select value={data.assignee_id ?? ''} onChange={(e) => assignMutation.mutate(e.target.value || null)} disabled={assignMutation.isPending} className="w-full rounded-lg border border-surface-3 bg-surface-0 px-3 py-1.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200">
+                <option value="">未指派</option>
+                {members?.map((m) => (
+                  <option key={m.id} value={m.id}>{m.display_name}</option>
+                ))}
+              </select>
+            ) : (
+              <div className="flex items-center gap-2">
+                {data.assignee ? (
+                  <>
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">{data.assignee.display_name.charAt(0)}</span>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{data.assignee.display_name}</p>
+                      <p className="text-xs text-gray-400">{data.assignee.email}</p>
+                    </div>
+                  </>
+                ) : (
+                  <span className="text-sm text-gray-400">未指派</span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Tags */}
+          <div className="rounded-xl border border-surface-3 bg-surface-0 p-4 dark:border-gray-600 dark:bg-gray-800">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">标签</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              {data.tags?.map((tag) => (
+                <span key={tag.id} className="inline-flex items-center gap-1.5 rounded-full border border-surface-3 px-2.5 py-1 text-xs font-medium text-gray-700 dark:border-gray-600 dark:text-gray-300">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: tag.color ?? '#6b7280' }} />
+                  {tag.name}
+                  <button onClick={() => removeTagMutation.mutate(tag.id)} className="ml-0.5 text-gray-400 hover:text-red-500" disabled={removeTagMutation.isPending}>×</button>
+                </span>
+              ))}
+              {(!data.tags || data.tags.length === 0) && (
+                <span className="text-xs text-gray-400">暂无标签</span>
+              )}
+              {allTags && allTags.length > 0 && (
+                <select onChange={(e) => { if (e.target.value) { assignTagMutation.mutate(e.target.value); e.target.value = ''; } }} className="rounded-lg border border-dashed border-surface-3 bg-transparent px-2 py-1 text-xs text-gray-500 hover:border-brand-300 focus:outline-none dark:border-gray-600 dark:text-gray-400" defaultValue="">
+                  <option value="" disabled>+ 添加标签</option>
+                  {allTags.filter((t) => !data.tags?.some((dt) => dt.id === t.id)).map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
-      <InternalNotesSection feedbackId={id!} />
-      <StatusHistorySection feedbackId={id!} />
       {showMergeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-md rounded-xl bg-surface-0 p-6 shadow-xl">

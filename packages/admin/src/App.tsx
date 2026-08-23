@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Layout } from '@/components/Layout';
+import type { OrgMemberRole } from '@/types';
 import { Login } from '@/pages/Login';
 import { Landing } from '@/pages/Landing';
 import { Dashboard } from '@/pages/Dashboard';
@@ -20,6 +21,7 @@ import { SystemConfig } from '@/pages/SystemConfig';
 import { Notifications } from '@/pages/Notifications';
 import { Categories } from '@/pages/Categories';
 import { AuditLogs } from '@/pages/AuditLogs';
+import { AcceptInvite } from '@/pages/AcceptInvite';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -27,6 +29,25 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
     return <Login />;
   }
   return <Layout>{children}</Layout>;
+}
+
+function RoleRoute({ children, roles }: { children: ReactNode; roles: OrgMemberRole[] }) {
+  const { isAuthenticated, member } = useAuth();
+  if (!isAuthenticated) {
+    return <Login />;
+  }
+  if (!member || !roles.includes(member.role)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <Layout>{children}</Layout>;
+}
+
+function PublicRoute({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth();
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <>{children}</>;
 }
 
 export function App() {
@@ -40,15 +61,18 @@ export function App() {
       <Route path="/applications" element={<ProtectedRoute><Applications /></ProtectedRoute>} />
       <Route path="/projects/:projectId/settings" element={<ProtectedRoute><ProjectSettings /></ProtectedRoute>} />
       <Route path="/projects/:projectId/widget" element={<ProtectedRoute><WidgetConfig /></ProtectedRoute>} />
-      <Route path="/members" element={<ProtectedRoute><Members /></ProtectedRoute>} />
-      <Route path="/tags" element={<ProtectedRoute><Tags /></ProtectedRoute>} />
-      <Route path="/projects/:projectId/webhooks" element={<ProtectedRoute><Webhooks /></ProtectedRoute>} />
-      <Route path="/projects/:projectId/statuses" element={<ProtectedRoute><StatusSettings /></ProtectedRoute>} />
-      <Route path="/projects/:projectId/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-      <Route path="/projects/:projectId/categories" element={<ProtectedRoute><Categories /></ProtectedRoute>} />
-      <Route path="/audit-logs" element={<ProtectedRoute><AuditLogs /></ProtectedRoute>} />
-      <Route path="/settings" element={<ProtectedRoute><OrgSettings /></ProtectedRoute>} />
-      <Route path="/system-config" element={<ProtectedRoute><SystemConfig /></ProtectedRoute>} />
+      <Route path="/members" element={<RoleRoute roles={['owner', 'admin']}><Members /></RoleRoute>} />
+      <Route path="/tags" element={<RoleRoute roles={['owner', 'admin']}><Tags /></RoleRoute>} />
+      <Route path="/projects/:projectId/settings" element={<RoleRoute roles={['owner', 'admin']}><ProjectSettings /></RoleRoute>} />
+      <Route path="/projects/:projectId/widget" element={<RoleRoute roles={['owner', 'admin']}><WidgetConfig /></RoleRoute>} />
+      <Route path="/projects/:projectId/webhooks" element={<RoleRoute roles={['owner', 'admin']}><Webhooks /></RoleRoute>} />
+      <Route path="/projects/:projectId/statuses" element={<RoleRoute roles={['owner', 'admin']}><StatusSettings /></RoleRoute>} />
+      <Route path="/projects/:projectId/notifications" element={<RoleRoute roles={['owner', 'admin']}><Notifications /></RoleRoute>} />
+      <Route path="/projects/:projectId/categories" element={<RoleRoute roles={['owner', 'admin']}><Categories /></RoleRoute>} />
+      <Route path="/audit-logs" element={<RoleRoute roles={['owner', 'admin']}><AuditLogs /></RoleRoute>} />
+      <Route path="/settings" element={<RoleRoute roles={['owner']}><OrgSettings /></RoleRoute>} />
+      <Route path="/system-config" element={<RoleRoute roles={['owner']}><SystemConfig /></RoleRoute>} />
+      <Route path="/invite-accept" element={<PublicRoute><AcceptInvite /></PublicRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

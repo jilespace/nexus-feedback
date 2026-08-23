@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FeedbackForm } from './FeedbackForm';
 import { t, Locale } from './i18n';
+import { loadWidgetConfig, ServerWidgetConfig } from './configLoader';
 import type { WidgetConfig } from './index';
 
 function hexToRgb(hex: string) {
@@ -10,15 +11,24 @@ function hexToRgb(hex: string) {
   return `${r},${g},${b}`;
 }
 
-export function FeedbackWidget({ apiKey, apiUrl, position = 'bottom-right', theme, locale = 'zh' }: WidgetConfig & { locale?: Locale }) {
+export function FeedbackWidget({ apiKey, apiUrl, position, theme, locale = 'zh' }: WidgetConfig & { locale?: Locale }) {
   const [open, setOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
   const [showPulse, setShowPulse] = useState(true);
   const [animState, setAnimState] = useState<'closed' | 'opening' | 'open' | 'closing'>('closed');
+  const [serverConfig, setServerConfig] = useState<ServerWidgetConfig | null>(null);
 
-  const primaryColor = theme?.primaryColor ?? '#4c6ef5';
-  const buttonLabel = theme?.buttonLabel ?? t(locale, 'feedback');
+  useEffect(() => {
+    let cancelled = false;
+    loadWidgetConfig(apiUrl, apiKey).then(cfg => {
+      if (!cancelled && cfg) setServerConfig(cfg);
+    });
+    return () => { cancelled = true; };
+  }, [apiUrl, apiKey]);
+
+  const primaryColor = theme?.primaryColor ?? serverConfig?.primaryColor ?? '#4c6ef5';
+  const buttonLabel = theme?.buttonLabel ?? serverConfig?.buttonLabel ?? t(locale, 'feedback');
   const rgb = hexToRgb(primaryColor);
 
   useEffect(() => { const t = setTimeout(() => setShowPulse(false), 3000); return () => clearTimeout(t); }, []);
@@ -26,7 +36,7 @@ export function FeedbackWidget({ apiKey, apiUrl, position = 'bottom-right', them
   const handleOpen = () => { setOpen(true); setSubmitted(false); setError(''); setAnimState('opening'); setTimeout(() => setAnimState('open'), 20); };
   const handleClose = () => { setAnimState('closing'); setTimeout(() => { setOpen(false); setAnimState('closed'); }, 200); };
 
-  const positionStyle = position === 'bottom-left' ? { right: 'auto', left: '20px' } : { right: '20px', left: 'auto' };
+  const positionStyle = (position ?? serverConfig?.position) === 'bottom-left' ? { right: 'auto', left: '20px' } : { right: '20px', left: 'auto' };
 
   const pulseKeyframes = showPulse ? `@keyframes nf-pulse{0%,100%{box-shadow:0 4px 12px rgba(${rgb},0.25)}50%{box-shadow:0 4px 24px rgba(${rgb},0.5)}}` : '';
   const slideKeyframes = `@keyframes nf-slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}@keyframes nf-slideDown{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(12px)}}`;
@@ -67,8 +77,8 @@ export function FeedbackWidget({ apiKey, apiUrl, position = 'bottom-right', them
                 <circle cx="24" cy="24" r="20" fill="none" stroke="#4caf50" strokeWidth="3" strokeDasharray="100" style={{ animation: 'nf-circle 0.5s ease forwards' }}/>
                 <path d="M15 25l6 6 12-12" fill="none" stroke="#4caf50" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="24" style={{ animation: 'nf-check 0.3s 0.4s ease forwards', strokeDashoffset: 24 }}/>
               </svg>
-              <p style={{ fontSize: '15px', color: '#333', fontWeight: 600, margin: '0 0 4px' }}>{t(locale, 'thankYou')}</p>
-              <p style={{ fontSize: '12px', color: '#888', margin: 0 }}>{t(locale, 'thankYouDetail')}</p>
+              <p style={{ fontSize: '15px', color: '#333', fontWeight: 600, margin: '0 0 4px' }}>{serverConfig?.successTitle ?? t(locale, 'thankYou')}</p>
+              <p style={{ fontSize: '12px', color: '#888', margin: 0 }}>{serverConfig?.successMessage ?? t(locale, 'thankYouDetail')}</p>
             </div>
           ) : error && !submitted ? (
             <div style={{ padding: '32px 16px', textAlign: 'center' }}>

@@ -42,3 +42,7 @@ prisma/migrations/**/migration.sql.bak
 *.tgz
 .cache/
 .parcel-cache/
+packages.zip
+.omo/feedback_diff.txt
+.omo/more_diffs.txt
+.omo/other_diffs.txt

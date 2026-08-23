@@ -38,8 +38,21 @@ export function adminAuth(req: Request, _res: Response, next: NextFunction): voi
 
   const token = header.slice(7);
   try {
-    const payload = jwt.verify(token, env.JWT_SECRET) as { sub: string };
+    const payload = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as {
+      sub?: string;
+      memberId?: string;
+      orgId?: string;
+      role?: string;
+      typ?: string;
+    };
+    // Accept both admin tokens (typ: 'admin') and org member tokens (typ: 'org')
+    if (payload.typ !== 'admin' && payload.typ !== 'org') {
+      return next(new AuthError(40110, '认证令牌类型无效'));
+    }
     req.adminId = payload.sub;
+    req.memberId = payload.memberId || payload.sub;
+    req.orgId = payload.orgId;
+    req.memberRole = payload.role;
     next();
   } catch {
     next(new AuthError(40110, '认证令牌无效或已过期'));

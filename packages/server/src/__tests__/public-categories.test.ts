@@ -22,11 +22,11 @@ describe('GET /api/v1/public/:slug/categories', () => {
   it('returns custom categories when configured', async () => {
     vi.mocked(prisma.project.findFirst).mockResolvedValue({
       id: 'proj_1', slug: 'test', name: 'Test', org_id: 'org_1',
-    } as any);
+    } as never);
     vi.mocked(prisma.categoryConfig.findMany).mockResolvedValue([
       { id: 'cat_1', project_id: 'proj_1', name: '建议', color: '#10b981', position: 0, created_at: new Date() },
       { id: 'cat_2', project_id: 'proj_1', name: '问题', color: '#ef4444', position: 1, created_at: new Date() },
-    ] as any);
+    ] as never);
 
     const app = createApp();
     const res = await request(app).get('/api/v1/public/test/categories');
@@ -40,7 +40,7 @@ describe('GET /api/v1/public/:slug/categories', () => {
   it('returns default categories when none configured', async () => {
     vi.mocked(prisma.project.findFirst).mockResolvedValue({
       id: 'proj_1', slug: 'test', name: 'Test', org_id: 'org_1',
-    } as any);
+    } as never);
     vi.mocked(prisma.categoryConfig.findMany).mockResolvedValue([]);
 
     const app = createApp();
@@ -48,7 +48,7 @@ describe('GET /api/v1/public/:slug/categories', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(5);
-    expect(res.body.data.map((c: any) => c.name)).toContain('bug');
+    expect(res.body.data.map((c) => (c as { name: string }).name)).toContain('bug');
   });
 
   it('returns 404 when project not found', async () => {

@@ -11,11 +11,15 @@ export function orgAuth(req: Request, _res: Response, next: NextFunction): void 
 
   const token = header.slice(7);
   try {
-    const payload = jwt.verify(token, env.JWT_SECRET) as {
+    const payload = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as {
       memberId: string;
       orgId: string;
       role: string;
+      typ?: string;
     };
+    if (payload.typ !== 'org') {
+      return next(new AuthError(40110, '认证令牌类型无效'));
+    }
     req.memberId = payload.memberId;
     req.orgId = payload.orgId;
     req.memberRole = payload.role;

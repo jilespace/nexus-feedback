@@ -1,9 +1,11 @@
 import crypto from 'node:crypto';
 import { prisma } from '../db/client.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
-import { parsePagination, paginatedResult } from '../utils/pagination.js';
+import { paginatedResult } from '../utils/pagination.js';
+import { assertSafeWebhookUrl } from '../utils/urlGuard.js';
 
 export async function createWebhook(
+  orgId: string,
   projectId: string,
   url: string,
   events: string[],
@@ -11,6 +13,9 @@ export async function createWebhook(
 ) {
   if (!url) throw new ValidationError('URL 不能为空');
   if (!events.length) throw new ValidationError('事件列表不能为空');
+
+  // SSRF defense-in-depth: validate URL even if route layer already checked
+  await assertSafeWebhookUrl(url);
 
   const webhookSecret = secret || crypto.randomBytes(32).toString('hex');
 
@@ -43,12 +48,21 @@ export async function listWebhooks(
   return paginatedResult(items, total, pagination?.page ?? 1, pagination?.pageSize ?? 20);
 }
 
+async function findOrgWebhook(orgId: string, projectId: string, id: string) {
+  const webhook = await prisma.webhook.findFirst({
+    where: { id, project_id: projectId, project: { org_id: orgId } },
+  });
+  if (!webhook) throw new NotFoundError('Webhook 不存在');
+  return webhook;
+}
+
 export async function updateWebhook(
+  orgId: string,
+  projectId: string,
   id: string,
   data: { url?: string; events?: string[]; active?: boolean },
 ) {
-  const webhook = await prisma.webhook.findUnique({ where: { id } });
-  if (!webhook) throw new NotFoundError('Webhook 不存在');
+  await findOrgWebhook(orgId, projectId, id);
 
   return prisma.webhook.update({
     where: { id },
@@ -56,9 +70,8 @@ export async function updateWebhook(
   });
 }
 
-export async function deleteWebhook(id: string) {
-  const webhook = await prisma.webhook.findUnique({ where: { id } });
-  if (!webhook) throw new NotFoundError('Webhook 不存在');
+export async function deleteWebhook(orgId: string, projectId: string, id: string) {
+  await findOrgWebhook(orgId, projectId, id);
 
   await prisma.webhook.delete({ where: { id } });
   return { id };
@@ -74,12 +87,19 @@ async function deliverWebhook(
 ): Promise<void> {
   const signature = crypto.createHmac('sha256', webhook.secret).update(body).digest('hex');
 
+  try {
+    await assertSafeWebhookUrl(webhook.url);
+  } catch {
+    return; // URL became unsafe after storage (e.g. DNS rebinding) — skip delivery
+  }
+
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       const res = await fetch(webhook.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Webhook-Signature': signature },
         body,
+        redirect: 'error',
         signal: AbortSignal.timeout(10000),
       });
 
@@ -156,9 +176,9 @@ export async function listWebhookLogs(
   return paginatedResult(items, total, pagination?.page ?? 1, pagination?.pageSize ?? 20);
 }
 
-export async function sendTestWebhook(id: string) {
-  const webhook = await prisma.webhook.findUnique({ where: { id } });
-  if (!webhook) throw new NotFoundError('Webhook 不存在');
+export async function sendTestWebhook(orgId: string, projectId: string, id: string) {
+  const webhook = await findOrgWebhook(orgId, projectId, id);
+  await assertSafeWebhookUrl(webhook.url);
 
   const payload = {
     event: 'test',
@@ -178,7 +198,8 @@ export async function sendTestWebhook(id: string) {
       'X-Webhook-Signature': signature,
     },
     body,
+    redirect: 'error',
   });
 
-  return { status: res.status, ok: res.ok };
+  return { ok: res.ok };
 }

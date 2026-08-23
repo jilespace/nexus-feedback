@@ -2,9 +2,42 @@ import { prisma } from '../db/client.js';
 import { NotFoundError, ValidationError, ConflictError } from '../utils/errors.js';
 import { fireWebhooks } from './webhook.js';
 
-export async function mergeFeedback(sourceId: string, targetId: string) {
+async function assertBothInOrg(
+  orgId: string,
+  fetchSource: () => Promise<{ project_id: string | null } | null>,
+  fetchTarget: () => Promise<{ project_id: string | null } | null>,
+): Promise<void> {
+  const [source, target] = await Promise.all([fetchSource(), fetchTarget()]);
+  if (!source) throw new NotFoundError('源反馈不存在');
+  if (!target) throw new NotFoundError('目标反馈不存在');
+  const projects = await prisma.project.findMany({
+    where: { id: { in: [source.project_id!, target.project_id!] }, org_id: orgId },
+    select: { id: true },
+  });
+  const ownedIds = new Set(projects.map((p) => p.id));
+  if (!ownedIds.has(source.project_id!)) throw new NotFoundError('源反馈不存在');
+  if (!ownedIds.has(target.project_id!)) throw new NotFoundError('目标反馈不存在');
+}
+
+export async function mergeFeedback(sourceId: string, targetId: string, orgId?: string) {
   if (sourceId === targetId) {
     throw new ValidationError('不能将反馈合并到自身');
+  }
+
+  if (orgId) {
+    await assertBothInOrg(
+      orgId,
+      () =>
+        prisma.feedback.findUnique({
+          where: { id: sourceId },
+          select: { project_id: true },
+        }),
+      () =>
+        prisma.feedback.findUnique({
+          where: { id: targetId },
+          select: { project_id: true },
+        }),
+    );
   }
 
   const result = await prisma.$transaction(async (tx) => {
@@ -70,9 +103,25 @@ export async function mergeFeedback(sourceId: string, targetId: string) {
   return result;
 }
 
-export async function previewMerge(sourceId: string, targetId: string) {
+export async function previewMerge(sourceId: string, targetId: string, orgId?: string) {
   if (sourceId === targetId) {
     throw new ValidationError('不能将反馈合并到自身');
+  }
+
+  if (orgId) {
+    await assertBothInOrg(
+      orgId,
+      () =>
+        prisma.feedback.findUnique({
+          where: { id: sourceId },
+          select: { project_id: true },
+        }),
+      () =>
+        prisma.feedback.findUnique({
+          where: { id: targetId },
+          select: { project_id: true },
+        }),
+    );
   }
 
   const [source, target] = await Promise.all([

@@ -25,7 +25,7 @@ const mockPrisma = vi.hoisted(() => ({
 vi.mock('../../db/client.js', () => ({ prisma: mockPrisma }));
 
 vi.mock('../../services/storage.js', () => ({
-  createStorageAdapter: () => ({
+  createStorageAdapterFromConfig: async () => ({
     upload: vi.fn().mockResolvedValue({ url: '/uploads/test.png', key: 'test.png' }),
     delete: vi.fn(),
   }),
@@ -36,7 +36,7 @@ vi.mock('../../config/index.js', () => ({
     DATABASE_URL: 'postgresql://test:test@localhost:5432/test',
     PORT: 3000,
     NODE_ENV: 'test',
-    JWT_SECRET: 'test-secret-key',
+    JWT_SECRET: 'test-secret-key-that-is-at-least-32-chars',
     CORS_ALLOWED_ORIGINS: 'http://localhost:8080',
     MAX_FILE_SIZE: 10485760,
     ALLOWED_FILE_TYPES: 'image/png,image/jpeg',

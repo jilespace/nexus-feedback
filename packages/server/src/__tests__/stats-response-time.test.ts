@@ -23,11 +23,11 @@ describe('getStats response_time', () => {
     vi.mocked(prisma.feedback.count).mockResolvedValue(10);
     vi.mocked(prisma.feedback.findMany).mockResolvedValue([
       { id: 'fb_1', created_at: new Date('2024-01-01T00:00:00Z') },
-    ] as any);
+    ] as never);
     vi.mocked(prisma.feedback.groupBy).mockResolvedValue([]);
     vi.mocked(prisma.reply.findMany).mockResolvedValue([
       { feedback_id: 'fb_1', created_at: new Date('2024-01-02T00:00:00Z') },
-    ] as any);
+    ] as never);
 
     const stats = await getStats('proj_1');
 

@@ -148,8 +148,8 @@ export class QiniuStorageAdapter implements StorageAdapter {
   }
 }
 
-export async function createStorageAdapterFromConfig(): Promise<StorageAdapter> {
-  const config = await getStorageConfig();
+export async function createStorageAdapterFromConfig(orgId?: string): Promise<StorageAdapter> {
+  const config = await getStorageConfig(orgId ?? '');
   switch (config.type) {
     case 'qiniu':
       return new QiniuStorageAdapter({

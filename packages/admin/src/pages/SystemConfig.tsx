@@ -85,6 +85,7 @@ export function SystemConfig() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">系统配置</h1>
+      <p className="-mt-4 text-sm text-gray-500 dark:text-gray-400">配置邮件发送和附件存储服务，仅组织所有者可修改。</p>
       <div className={cardCls}>
         <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">邮件配置</h2>
         <div className="space-y-4">

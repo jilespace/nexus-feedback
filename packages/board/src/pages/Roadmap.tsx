@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchRoadmap } from '../api';
-import type { FeedbackItem, RoadmapData } from '../types';
+import type { FeedbackItem, RoadmapColumn, RoadmapData } from '../types';
 
 const COLUMN_CONFIG = [
   { key: 'planned' as const, label: '计划中', color: 'bg-amber-50 border-amber-200', dot: 'bg-amber-400' },
@@ -22,6 +22,36 @@ function RoadmapCard({ item }: { item: FeedbackItem }) {
           {item.vote_count} 票
         </span>
       </div>
+    </div>
+  );
+}
+
+function CustomColumns({ columns }: { columns: RoadmapColumn[] }) {
+  return (
+    <div
+      className="grid gap-6"
+      style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}
+    >
+      {columns.map((col) => (
+        <div key={col.key} className="rounded-xl border border-surface-3 bg-surface-1 p-4">
+          <div className="mb-4 flex items-center gap-2">
+            <span
+              className="h-2.5 w-2.5 rounded-full"
+              style={{ backgroundColor: col.color }}
+            />
+            <h2 className="text-sm font-semibold text-gray-800">{col.name}</h2>
+            <span className="ml-auto text-xs text-gray-500">{col.items.length}</span>
+          </div>
+          <div className="space-y-2">
+            {col.items.map((item) => (
+              <RoadmapCard key={item.id} item={item} />
+            ))}
+            {col.items.length === 0 && (
+              <p className="py-4 text-center text-xs text-gray-400">暂无</p>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -52,29 +82,33 @@ export function Roadmap() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
       <h1 className="mb-6 text-lg font-semibold text-gray-900">产品路线图</h1>
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        {COLUMN_CONFIG.map((col) => (
-          <div key={col.key} className={`rounded-xl border p-4 ${col.color}`}>
-            <div className="mb-4 flex items-center gap-2">
-              <span className={`h-2.5 w-2.5 rounded-full ${col.dot}`} />
-              <h2 className="text-sm font-semibold text-gray-800">
-                {col.label}
-              </h2>
-              <span className="ml-auto text-xs text-gray-500">
-                {data[col.key].length}
-              </span>
+      {data.columns?.length ? (
+        <CustomColumns columns={data.columns} />
+      ) : (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+          {COLUMN_CONFIG.map((col) => (
+            <div key={col.key} className={`rounded-xl border p-4 ${col.color}`}>
+              <div className="mb-4 flex items-center gap-2">
+                <span className={`h-2.5 w-2.5 rounded-full ${col.dot}`} />
+                <h2 className="text-sm font-semibold text-gray-800">
+                  {col.label}
+                </h2>
+                <span className="ml-auto text-xs text-gray-500">
+                  {data[col.key]?.length ?? 0}
+                </span>
+              </div>
+              <div className="space-y-2">
+                {(data[col.key] ?? []).map((item) => (
+                  <RoadmapCard key={item.id} item={item} />
+                ))}
+                {(data[col.key]?.length ?? 0) === 0 && (
+                  <p className="py-4 text-center text-xs text-gray-400">暂无</p>
+                )}
+              </div>
             </div>
-            <div className="space-y-2">
-              {data[col.key].map((item) => (
-                <RoadmapCard key={item.id} item={item} />
-              ))}
-              {data[col.key].length === 0 && (
-                <p className="py-4 text-center text-xs text-gray-400">暂无</p>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ const mockPrisma = {
   webhook: {
     findMany: vi.fn(),
     findUnique: vi.fn(),
+    findFirst: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
@@ -32,15 +33,15 @@ describe('Webhook Service', () => {
 
   it('createWebhook returns webhook without secret in response', async () => {
     mockPrisma.webhook.create.mockResolvedValue({ id: 'wh_1', url: 'https://example.com' });
-    const result = await createWebhook('p1', 'https://example.com', ['feedback.created']);
+    const result = await createWebhook('org_1', 'p1', 'https://example.com', ['feedback.created']);
     expect(result.id).toBe('wh_1');
     expect(result.url).toBe('https://example.com');
   });
 
   it('deleteWebhook removes webhook', async () => {
-    mockPrisma.webhook.findUnique.mockResolvedValue({ id: 'wh_1' });
+    mockPrisma.webhook.findFirst.mockResolvedValue({ id: 'wh_1' });
     mockPrisma.webhook.delete.mockResolvedValue({ id: 'wh_1' });
-    const result = await deleteWebhook('wh_1');
+    const result = await deleteWebhook('org_1', 'p1', 'wh_1');
     expect(result).toEqual({ id: 'wh_1' });
   });
 

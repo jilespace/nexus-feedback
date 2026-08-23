@@ -23,6 +23,7 @@ describe('Notification Service', () => {
     mockPrisma.feedback.findUnique.mockResolvedValue({
       id: 'fb_1', title: 'Test', project_id: 'p1',
       contact: 'user@example.com', votes: [{ email: 'voter@example.com' }],
+      project: { org_id: 'org_1' },
     });
     mockPrisma.notificationPreference.findMany.mockResolvedValue([]);
 
@@ -31,6 +32,7 @@ describe('Notification Service', () => {
       ['user@example.com', 'voter@example.com'],
       expect.any(String),
       expect.any(String),
+      'org_1',
     );
   });
 
@@ -38,6 +40,7 @@ describe('Notification Service', () => {
     mockPrisma.feedback.findUnique.mockResolvedValue({
       id: 'fb_1', title: 'Test', project_id: 'p1',
       contact: 'user@example.com', votes: [],
+      project: { org_id: 'org_1' },
     });
     mockPrisma.notificationPreference.findMany.mockResolvedValue([
       { email: 'user@example.com', status_updates: false },
@@ -50,6 +53,7 @@ describe('Notification Service', () => {
   it('notifyReply sends email to feedback contact', async () => {
     mockPrisma.feedback.findUnique.mockResolvedValue({
       id: 'fb_1', title: 'Test', contact: 'user@example.com',
+      project: { org_id: 'org_1' },
     });
 
     await notifyReply('fb_1', 'Reply content');
@@ -57,6 +61,7 @@ describe('Notification Service', () => {
       'user@example.com',
       expect.stringContaining('Test'),
       expect.stringContaining('Reply content'),
+      'org_1',
     );
   });
 
@@ -74,6 +79,7 @@ describe('Notification Service', () => {
       ['owner@example.com', 'admin@example.com'],
       expect.stringContaining('New Idea'),
       expect.stringContaining('feature'),
+      'org_1',
     );
   });
 });

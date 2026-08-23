@@ -7,8 +7,18 @@ import { fireWebhooks } from './webhook.js';
 import { validateStatusForProject } from './statusConfig.js';
 import { getProjectCategories } from './categoryConfig.js';
 import { logAudit } from './audit.js';
+import { assertFeedbackInOrg, assertFeedbackIdsInOrg } from '../utils/orgScope.js';
 
 const PRIORITIES = ['low', 'medium', 'high', 'critical'] as const;
+
+function sanitizeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   open: ['in_progress', 'closed'],
@@ -18,8 +28,8 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 };
 
 const createFeedbackSchema = z.object({
-  title: z.string().min(1).max(200),
-  content: z.string().min(1).max(5000),
+  title: z.string().min(1).max(200).transform(sanitizeHtml),
+  content: z.string().min(1).max(5000).transform(sanitizeHtml),
   category: z.string().min(1),
   priority: z.enum(PRIORITIES).default('medium'),
   contact: z.string().max(200).optional(),
@@ -73,6 +83,20 @@ export async function createFeedback(input: CreateFeedbackInput, projectId: stri
 
   // Fire webhooks if feedback belongs to a project
   if (feedback.project_id) {
+    const project = await prisma.project.findUnique({
+      where: { id: feedback.project_id },
+      select: { org_id: true },
+    });
+    if (project) {
+      logAudit({
+        orgId: project.org_id,
+        action: 'feedback.create',
+        targetType: 'feedback',
+        targetId: feedback.id,
+        metadata: { title: feedback.title, category: feedback.category, source },
+      }).catch(() => {});
+    }
+
     fireWebhooks(feedback.project_id, 'feedback.created', {
       id: feedback.id,
       title: feedback.title,
@@ -91,6 +115,8 @@ export async function createFeedback(input: CreateFeedbackInput, projectId: stri
 }
 
 export type ListFeedbackParams = {
+  org_id?: string;
+  project_id?: string;
   status?: string;
   category?: string;
   priority?: string;
@@ -99,12 +125,16 @@ export type ListFeedbackParams = {
   page?: number;
   page_size?: number;
   assignee_id?: string;
+  tag_id?: string;
+  view?: 'active' | 'trash';
 };
 
 export async function listFeedback(params: ListFeedbackParams) {
   const page = params.page ?? 1;
   const pageSize = Math.min(params.page_size ?? 20, 100);
   const where: Prisma.FeedbackWhereInput = {};
+  if (params.org_id) where.project = { org_id: params.org_id };
+  if (params.project_id) where.project_id = params.project_id;
   if (params.status) where.status = params.status;
   if (params.category) where.category = params.category;
   if (params.priority) where.priority = params.priority;
@@ -114,7 +144,13 @@ export async function listFeedback(params: ListFeedbackParams) {
       { content: { contains: params.keyword, mode: 'insensitive' } },
     ];
   }
-  if (params.assignee_id) where.assignee_id = params.assignee_id;
+  if (params.assignee_id === '__unassigned__') {
+    where.assignee_id = null;
+  } else if (params.assignee_id) {
+    where.assignee_id = params.assignee_id;
+  }
+  if (params.tag_id) where.feedbackTags = { some: { tag_id: params.tag_id } };
+  where.deleted_at = params.view === 'trash' ? { not: null } : null;
 
   const [items, total] = await Promise.all([
     prisma.feedback.findMany({
@@ -126,7 +162,11 @@ export async function listFeedback(params: ListFeedbackParams) {
           : { created_at: 'desc' },
       skip: (page - 1) * pageSize,
       take: pageSize,
-      include: { _count: { select: { replies: true, attachments: true } } },
+      include: {
+        _count: { select: { replies: true, attachments: true } },
+        feedbackTags: { include: { tag: true } },
+        assignee: { select: { id: true, display_name: true } },
+      },
     }),
     prisma.feedback.count({ where }),
   ]);
@@ -143,6 +183,8 @@ export async function listFeedback(params: ListFeedbackParams) {
       created_at: f.created_at.toISOString(),
       reply_count: f._count.replies,
       attachment_count: f._count.attachments,
+      assignee: f.assignee ? { id: f.assignee.id, display_name: f.assignee.display_name } : null,
+      tags: f.feedbackTags.map((ft) => ({ id: ft.tag.id, name: ft.tag.name, color: ft.tag.color })),
     })),
     page,
     page_size: pageSize,
@@ -150,7 +192,10 @@ export async function listFeedback(params: ListFeedbackParams) {
   };
 }
 
-export async function getFeedbackDetail(id: string) {
+export async function getFeedbackDetail(id: string, orgId?: string) {
+  if (orgId) {
+    await assertFeedbackInOrg(orgId, id);
+  }
   const feedback = await prisma.feedback.findUnique({
     where: { id },
     include: {
@@ -161,13 +206,22 @@ export async function getFeedbackDetail(id: string) {
       },
       project: { select: { id: true, name: true, slug: true } },
       feedbackTags: { include: { tag: true } },
+      assignee: { select: { id: true, display_name: true, email: true } },
     },
   });
   if (!feedback) throw new NotFoundError('反馈不存在');
   return feedback;
 }
 
-export async function updateFeedbackStatus(id: string, newStatus: string, memberId?: string) {
+export async function updateFeedbackStatus(
+  id: string,
+  newStatus: string,
+  memberId?: string,
+  orgId?: string,
+) {
+  if (orgId) {
+    await assertFeedbackInOrg(orgId, id);
+  }
   const feedback = await prisma.feedback.findUnique({ where: { id } });
   if (!feedback) throw new NotFoundError('反馈不存在');
 
@@ -202,6 +256,17 @@ export async function updateFeedbackStatus(id: string, newStatus: string, member
     },
   });
 
+  if (orgId) {
+    logAudit({
+      orgId,
+      memberId,
+      action: 'feedback.status_change',
+      targetType: 'feedback',
+      targetId: id,
+      metadata: { old_status: oldStatus, new_status: newStatus },
+    }).catch(() => {});
+  }
+
   notifyStatusChange(id, newStatus).catch(() => {});
 
   // Fire webhooks
@@ -216,7 +281,15 @@ export async function updateFeedbackStatus(id: string, newStatus: string, member
   return { id: updated.id, status: updated.status };
 }
 
-export async function addReply(feedbackId: string, content: string, memberId?: string) {
+export async function addReply(
+  feedbackId: string,
+  content: string,
+  memberId?: string,
+  orgId?: string,
+) {
+  if (orgId) {
+    await assertFeedbackInOrg(orgId, feedbackId);
+  }
   const feedback = await prisma.feedback.findUnique({ where: { id: feedbackId } });
   if (!feedback) throw new NotFoundError('反馈不存在');
   if (feedback.status === 'closed') {
@@ -239,7 +312,10 @@ export async function addReply(feedbackId: string, content: string, memberId?: s
   return reply;
 }
 
-export async function getStatusHistory(feedbackId: string) {
+export async function getStatusHistory(feedbackId: string, orgId?: string) {
+  if (orgId) {
+    await assertFeedbackInOrg(orgId, feedbackId);
+  }
   const feedback = await prisma.feedback.findUnique({ where: { id: feedbackId } });
   if (!feedback) throw new NotFoundError('反馈不存在');
 
@@ -252,10 +328,22 @@ export async function getStatusHistory(feedbackId: string) {
   });
 }
 
-export async function batchUpdateStatus(ids: string[], status: string) {
+export async function batchUpdateStatus(ids: string[], status: string, orgId?: string) {
   if (!ids.length) throw new ValidationError('ID 列表不能为空');
   if (!Object.keys(VALID_TRANSITIONS).includes(status)) {
     throw new ValidationError(`无效的目标状态: ${status}`);
+  }
+
+  if (orgId) {
+    const owned = await prisma.feedback.findMany({
+      where: { id: { in: ids }, project: { org_id: orgId } },
+      select: { id: true },
+    });
+    if (owned.length !== ids.length) {
+      const foundIds = new Set(owned.map((f) => f.id));
+      const missing = ids.filter((id) => !foundIds.has(id));
+      throw new NotFoundError(`反馈不存在: ${missing.join(', ')}`);
+    }
   }
 
   const feedbacks = await prisma.feedback.findMany({ where: { id: { in: ids } } });
@@ -282,8 +370,9 @@ export async function batchUpdateStatus(ids: string[], status: string) {
   return { updated: result.count };
 }
 
-export async function getStats() {
-  const baseWhere = { deleted_at: null };
+export async function getStats(orgId?: string) {
+  const baseWhere: Prisma.FeedbackWhereInput = { deleted_at: null };
+  if (orgId) baseWhere.project = { org_id: orgId };
 
   const [total, open, inProgress, resolved, closed, byCategory, bySource] = await Promise.all([
     prisma.feedback.count({ where: baseWhere }),
@@ -370,22 +459,52 @@ export async function getStats() {
   };
 }
 
-export async function softDeleteFeedback(id: string) {
+export async function softDeleteFeedback(id: string, orgId?: string) {
+  if (orgId) {
+    await assertFeedbackInOrg(orgId, id);
+  }
   const feedback = await prisma.feedback.findUnique({ where: { id } });
   if (!feedback) throw new NotFoundError('反馈不存在');
-  return prisma.feedback.update({
+  const deleted = await prisma.feedback.update({
     where: { id },
     data: { deleted_at: new Date() },
   });
+
+  if (orgId) {
+    logAudit({
+      orgId,
+      action: 'feedback.delete',
+      targetType: 'feedback',
+      targetId: id,
+      metadata: { title: feedback.title },
+    }).catch(() => {});
+  }
+
+  return deleted;
 }
 
-export async function restoreFeedback(id: string) {
+export async function restoreFeedback(id: string, orgId?: string) {
+  if (orgId) {
+    await assertFeedbackInOrg(orgId, id);
+  }
   const feedback = await prisma.feedback.findUnique({ where: { id } });
   if (!feedback) throw new NotFoundError('反馈不存在');
-  return prisma.feedback.update({
+  const restored = await prisma.feedback.update({
     where: { id },
     data: { deleted_at: null },
   });
+
+  if (orgId) {
+    logAudit({
+      orgId,
+      action: 'feedback.restore',
+      targetType: 'feedback',
+      targetId: id,
+      metadata: { title: feedback.title },
+    }).catch(() => {});
+  }
+
+  return restored;
 }
 
 export async function assignFeedback(
@@ -393,6 +512,8 @@ export async function assignFeedback(
   assigneeId: string | null,
   orgId: string,
 ) {
+  await assertFeedbackInOrg(orgId, feedbackId);
+
   const feedback = await prisma.feedback.findUnique({
     where: { id: feedbackId },
     select: { id: true, project_id: true },
@@ -419,10 +540,57 @@ export async function assignFeedback(
     },
   });
 
+  logAudit({
+    orgId,
+    action: 'feedback.assign',
+    targetType: 'feedback',
+    targetId: feedbackId,
+    metadata: { assignee_id: assigneeId },
+  }).catch(() => {});
+
   fireWebhooks(feedback.project_id, 'feedback.assigned', {
     feedback_id: feedbackId,
     assignee_id: assigneeId,
   }).catch(() => {});
 
   return updated;
+}
+
+export async function batchAssignFeedback(
+  ids: string[],
+  assigneeId: string | null,
+  orgId?: string,
+) {
+  if (!ids.length) throw new ValidationError('ID 列表不能为空');
+
+  if (orgId) {
+    await assertFeedbackIdsInOrg(orgId, ids);
+  }
+
+  if (assigneeId !== null) {
+    const member = await prisma.member.findFirst({
+      where: { id: assigneeId, org_id: orgId },
+      select: { id: true },
+    });
+    if (!member) {
+      throw new ValidationError('成员不存在');
+    }
+  }
+
+  const result = await prisma.feedback.updateMany({
+    where: { id: { in: ids } },
+    data: { assignee_id: assigneeId },
+  });
+
+  if (orgId) {
+    logAudit({
+      orgId,
+      action: 'feedback.batch_assign',
+      targetType: 'feedback',
+      targetId: ids.join(','),
+      metadata: { count: result.count, assignee_id: assigneeId },
+    }).catch(() => {});
+  }
+
+  return { updated: result.count };
 }

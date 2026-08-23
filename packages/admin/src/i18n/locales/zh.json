@@ -9,7 +9,8 @@
     "webhooks": "Webhooks",
     "statuses": "状态配置",
     "settings": "组织设置",
-    "systemConfig": "系统配置"
+    "systemConfig": "系统配置",
+    "auditLogs": "审计日志"
   },
   "common": {
     "save": "保存",
@@ -75,6 +76,7 @@
     "col_title": "标题",
     "col_source": "来源",
     "col_category": "分类",
+    "col_tags": "标签",
     "col_priority": "优先级",
     "col_status": "状态",
     "col_time": "时间",
