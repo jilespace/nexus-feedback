@@ -7,7 +7,7 @@ import { Button } from '@/components/ui';
 import { StatusBadge } from '@/components/StatusBadge';
 import { useToast } from '@/components/Toast';
 import { SearchIcon } from '@/components/icons';
-import type { FeedbackItem, PaginatedResponse } from '@/types';
+import type { FeedbackItem, FeedbackStatus, PaginatedResponse } from '@/types';
 
 interface MergeDialogProps {
   feedbackId: string;
@@ -15,10 +15,21 @@ interface MergeDialogProps {
   onMerged: (targetId: string) => void;
 }
 
+type SimilarSuggestion = {
+  id: string;
+  title: string;
+  status: FeedbackStatus;
+  category: string;
+  score: number;
+};
+
+const SEARCH_QUERY_MIN_LENGTH = 2;
+
 export function MergeDialog({ feedbackId, onClose, onMerged }: MergeDialogProps) {
   const { t } = useTranslation('detail');
   const toast = useToast();
   const [search, setSearch] = useState('');
+  const showSuggestions = search.trim().length < SEARCH_QUERY_MIN_LENGTH;
 
   const { data: results, isFetching } = useQuery({
     queryKey: ['feedback-search', search],
@@ -26,7 +37,14 @@ export function MergeDialog({ feedbackId, onClose, onMerged }: MergeDialogProps)
       apiRequest<PaginatedResponse<FeedbackItem>>(
         `/admin/feedback?keyword=${encodeURIComponent(search)}&page_size=6`,
       ),
-    enabled: search.trim().length > 1,
+    enabled: !showSuggestions,
+  });
+
+  const { data: suggestionsData, isPending: suggestionsPending, isError: suggestionsError } = useQuery({
+    queryKey: ['feedback-similar', feedbackId],
+    queryFn: () =>
+      apiRequest<{ items: SimilarSuggestion[] }>(`/admin/feedback/${feedbackId}/similar`),
+    enabled: showSuggestions,
   });
 
   const mergeMutation = useMutation({
@@ -44,6 +62,7 @@ export function MergeDialog({ feedbackId, onClose, onMerged }: MergeDialogProps)
   });
 
   const items = (results?.items ?? []).filter((item) => item.id !== feedbackId);
+  const suggestions = (suggestionsData?.items ?? []).filter((item) => item.id !== feedbackId);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
@@ -79,10 +98,14 @@ export function MergeDialog({ feedbackId, onClose, onMerged }: MergeDialogProps)
         </div>
 
         <div className="mt-2 max-h-64 min-h-[80px] overflow-y-auto rounded-lg border border-surface-3 dark:border-gray-700">
-          {search.trim().length <= 1 ? (
-            <p className="px-3 py-6 text-center text-xs text-gray-400 dark:text-gray-500">
-              {t('merge.minChars')}
-            </p>
+          {showSuggestions ? (
+            <Suggestions
+              items={suggestions}
+              loading={suggestionsPending}
+              error={suggestionsError}
+              pending={mergeMutation.isPending}
+              onPick={(id) => mergeMutation.mutate(id)}
+            />
           ) : isFetching ? (
             <p className="px-3 py-6 text-center text-xs text-gray-400 dark:text-gray-500">
               {t('merge.searching')}
@@ -121,5 +144,74 @@ export function MergeDialog({ feedbackId, onClose, onMerged }: MergeDialogProps)
         </div>
       </div>
     </div>
+  );
+}
+
+interface SuggestionsProps {
+  items: SimilarSuggestion[];
+  loading: boolean;
+  error: boolean;
+  pending: boolean;
+  onPick: (id: string) => void;
+}
+
+function Suggestions({ items, loading, error, pending, onPick }: SuggestionsProps) {
+  const { t } = useTranslation('detail');
+
+  if (loading) {
+    return (
+      <p className="px-3 py-6 text-center text-xs text-gray-400 dark:text-gray-500">
+        {t('suggestions.loading')}
+      </p>
+    );
+  }
+
+  if (error) {
+    return (
+      <p className="px-3 py-6 text-center text-xs text-gray-400 dark:text-gray-500">
+        {t('suggestions.error')}
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <div className="border-b border-surface-2 bg-surface-1/50 px-3 py-2 dark:border-gray-700/70 dark:bg-gray-800/40">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500">
+          {t('suggestions.title')}
+        </p>
+        <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500">
+          {t('suggestions.hint')}
+        </p>
+      </div>
+      {items.length === 0 ? (
+        <p className="px-3 py-6 text-center text-xs text-gray-400 dark:text-gray-500">
+          {t('suggestions.empty')}
+        </p>
+      ) : (
+        <ul className="divide-y divide-surface-2 dark:divide-gray-700/70">
+          {items.map((item) => (
+            <li key={item.id}>
+              <button
+                onClick={() => onPick(item.id)}
+                disabled={pending}
+                className={clsx(
+                  'flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors',
+                  'hover:bg-surface-1 disabled:opacity-50 dark:hover:bg-gray-700/50',
+                )}
+              >
+                <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-gray-800 dark:text-gray-200">
+                  {item.title}
+                </span>
+                <StatusBadge status={item.status} />
+                <span className="shrink-0 whitespace-nowrap text-[11px] font-semibold tabular-nums text-brand-600 dark:text-brand-400">
+                  {t('suggestions.score', { percent: Math.round(item.score * 100) })}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
   );
 }

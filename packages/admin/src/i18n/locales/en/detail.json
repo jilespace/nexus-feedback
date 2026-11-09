@@ -52,6 +52,14 @@
     "success": "Feedback merged",
     "failed": "Merge failed"
   },
+  "suggestions": {
+    "title": "Similar feedback",
+    "hint": "Ranked by title and content similarity — click to merge",
+    "loading": "Looking for similar feedback…",
+    "error": "Couldn't load similar feedback — search manually instead",
+    "empty": "No highly similar feedback found. Search manually to pick a target.",
+    "score": "{{percent}}% similar"
+  },
   "notes": {
     "title": "Internal notes",
     "teamOnly": "Team only",

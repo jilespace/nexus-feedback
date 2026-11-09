@@ -19,6 +19,7 @@ import {
 import { exportFeedbackCSV } from '../services/export.js';
 import { batchAssignTags, batchUnassignTags } from '../services/tag.js';
 import { mergeFeedback, previewMerge } from '../services/merge.js';
+import { findSimilarFeedback } from '../services/feedbackSimilarity.js';
 import { listComments, deleteComment } from '../services/comment.js';
 import { previewFeedbackImport, commitFeedbackImport } from '../services/feedbackImport.js';
 import { success } from '../utils/response.js';
@@ -151,6 +152,16 @@ adminRouter.post('/feedback/import', adminAuth, requireRole(['owner', 'admin']),
     // Invalid rows keep the success envelope (code: 0) so the admin client can
     // read `data.invalid_rows`; the HTTP status still signals the rejection.
     success(res, result, result.invalid_rows.length > 0 ? 400 : 200);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Registered before `/feedback/:id` so the similarity path always wins over the generic detail route.
+adminRouter.get('/feedback/:id/similar', adminAuth, async (req, res, next) => {
+  try {
+    const result = await findSimilarFeedback(String(req.params.id), req.orgId!);
+    success(res, result);
   } catch (err) {
     next(err);
   }
