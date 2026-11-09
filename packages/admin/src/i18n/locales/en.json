@@ -217,7 +217,8 @@
     "shortcut_prev": "Previous item",
     "shortcut_open": "Open selected item",
     "shortcut_help": "Show shortcut help",
-    "shortcut_close": "Close overlay / command palette"
+    "shortcut_close": "Close overlay / command palette",
+    "skip_to_content": "Skip to content"
   },
   "time": {
     "just_now": "just now",

@@ -161,3 +161,16 @@
     mask-image: linear-gradient(to bottom, black 82%, transparent 100%);
   }
 }
+
+/* a11y: tertiary and separator text must reach WCAG AA contrast on light surfaces.
+   Dark-mode variants keep their own colors because .dark .text-gray-* wins on specificity. */
+@layer utilities {
+  .text-gray-400 {
+    color: #6b7280;
+  }
+
+  .text-gray-300 {
+    color: #6b7280;
+  }
+}
+

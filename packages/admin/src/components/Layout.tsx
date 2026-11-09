@@ -47,6 +47,13 @@ export function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface-1 dark:bg-gray-900">
+      <a
+        href="#main-content"
+        className="sr-only z-[60] rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+      >
+        {t('shell.skip_to_content')}
+      </a>
+
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -112,7 +119,7 @@ export function Layout({ children }: { children: ReactNode }) {
             if (!items.length) return null;
             return (
               <div key={group.labelKey} className="mb-5 last:mb-0">
-                <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400/90 dark:text-gray-500">
+                <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-500">
                   {t(group.labelKey)}
                 </p>
                 <div className="space-y-0.5">
@@ -243,7 +250,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto">
+        <main id="main-content" className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-[1440px] p-4 sm:p-6 lg:p-8">
             <ErrorBoundary>
               <Suspense fallback={<PageFallback />}>{children}</Suspense>

@@ -217,7 +217,8 @@
     "shortcut_prev": "上一项",
     "shortcut_open": "打开选中项",
     "shortcut_help": "显示快捷键帮助",
-    "shortcut_close": "关闭弹层 / 命令面板"
+    "shortcut_close": "关闭弹层 / 命令面板",
+    "skip_to_content": "跳到主内容"
   },
   "time": {
     "just_now": "刚刚",

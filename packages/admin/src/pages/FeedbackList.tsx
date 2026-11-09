@@ -324,6 +324,7 @@ export function FeedbackList() {
               value={keyword}
               onChange={(e) => handleKeywordChange(e.target.value)}
               placeholder={t('feedback.search_placeholder')}
+              aria-label={t('feedback.search_placeholder')}
               data-shortcut-search
               className="h-9 w-full rounded-lg border border-surface-3 bg-surface-1/60 pl-9 pr-12 text-[13px] text-gray-900 placeholder:text-gray-400 transition-colors focus:border-brand-400 focus:bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:border-brand-500"
             />
@@ -483,6 +484,7 @@ export function FeedbackList() {
                       toast(tf('list.viewRemoved'), 'success');
                     }}
                     title={tf('toolbar.removeView')}
+                    aria-label={tf('toolbar.removeView')}
                     className="flex h-7 w-7 items-center justify-center rounded-md text-gray-400 transition-colors hover:text-rose-500"
                   >
                     ✕
@@ -494,6 +496,7 @@ export function FeedbackList() {
                     setViewName('');
                   }}
                   title={tf('toolbar.saveViewTitle')}
+                  aria-label={tf('toolbar.saveViewTitle')}
                   className="flex h-9 w-9 items-center justify-center rounded-lg border border-surface-3 bg-surface-0 text-gray-500 transition-colors hover:bg-surface-1 hover:text-brand-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-brand-400"
                 >
                   <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
@@ -507,6 +510,7 @@ export function FeedbackList() {
                       value={viewName}
                       onChange={(e) => setViewName(e.target.value)}
                       placeholder={tf('toolbar.viewNamePlaceholder')}
+                      aria-label={tf('toolbar.viewNamePlaceholder')}
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === 'Escape') setShowViewSaver(false);
