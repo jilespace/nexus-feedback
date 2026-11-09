@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useParams } from 'react-router-dom';
 import { fetchChangelog } from '../api';
 import type { ChangelogEntry } from '../types';
 import { formatDate } from '../lib/labels';
+import { canonicalUrl, usePageMeta } from '../lib/meta';
+import { buildChangelogJsonLd } from '../lib/seo';
 import Markdown from '../components/Markdown';
 import { PageHeader } from '../components/PageHeader';
 import { SparkIcon } from '../components/Icons';
@@ -12,11 +15,30 @@ import {
   ErrorState,
 } from '../components/States';
 
-export function Changelog() {
+export function Changelog({ projectName }: { projectName: string }) {
   const { t, i18n } = useTranslation();
+  const { projectSlug } = useParams<{ projectSlug: string }>();
+  const base = `/${projectSlug ?? ''}`;
   const [entries, setEntries] = useState<ChangelogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+
+  const pageTitle = t('meta.changelogTitle', { project: projectName });
+  usePageMeta({
+    title: pageTitle,
+    description: t('changelog.subtitle'),
+    siteName: projectName,
+    path: `${base}/changelog`,
+    jsonLd:
+      entries.length > 0
+        ? buildChangelogJsonLd(entries, {
+            name: pageTitle,
+            description: t('changelog.subtitle'),
+            url: canonicalUrl(`${base}/changelog`),
+            language: i18n.language.startsWith('zh') ? 'zh-CN' : 'en',
+          })
+        : null,
+  });
 
   const loadData = useCallback(async () => {
     setLoading(true);

@@ -185,3 +185,14 @@ export function TagIcon(props: IconProps) {
     </StrokeIcon>
   );
 }
+
+export function ShareIcon(props: IconProps) {
+  return (
+    <StrokeIcon {...props}>
+      <circle cx="17.5" cy="6" r="2.5" />
+      <circle cx="6.5" cy="12" r="2.5" />
+      <circle cx="17.5" cy="18" r="2.5" />
+      <path d="m8.75 10.75 6.5-3.5M8.75 13.25l6.5 3.5" />
+    </StrokeIcon>
+  );
+}

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { fetchRoadmap } from '../api';
 import type { RoadmapData, RoadmapItem } from '../types';
 import { statusLabel } from '../lib/labels';
+import { usePageMeta } from '../lib/meta';
 import { PageHeader } from '../components/PageHeader';
 import { CategoryPill, CountBadge } from '../components/Badges';
 import { ArrowUpIcon, LayersIcon } from '../components/Icons';
@@ -48,13 +49,20 @@ function RoadmapCard({ item, to }: { item: RoadmapItem; to: string }) {
   );
 }
 
-export function Roadmap() {
+export function Roadmap({ projectName }: { projectName: string }) {
   const { t } = useTranslation();
   const { projectSlug } = useParams<{ projectSlug: string }>();
   const base = `/${projectSlug ?? ''}`;
   const [data, setData] = useState<RoadmapData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+
+  usePageMeta({
+    title: t('meta.roadmapTitle', { project: projectName }),
+    description: t('roadmap.subtitle'),
+    siteName: projectName,
+    path: `${base}/roadmap`,
+  });
 
   const loadData = useCallback(async () => {
     setLoading(true);

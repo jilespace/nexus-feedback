@@ -4,7 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { fetchFeedbackDetail } from '../api';
 import type { FeedbackDetail as FeedbackDetailType } from '../types';
 import { formatDateTime, sourceLabel } from '../lib/labels';
+import { canonicalUrl, excerpt, truncateText, usePageMeta } from '../lib/meta';
+import { buildFeedbackJsonLd } from '../lib/seo';
 import { VoteButton } from '../components/VoteButton';
+import { ShareButton } from '../components/ShareButton';
 import { CommentForm } from '../components/CommentForm';
 import {
   CategoryPill,
@@ -16,13 +19,31 @@ import {
 import { ChevronLeftIcon, MessageIcon } from '../components/Icons';
 import { DetailSkeleton, ErrorState } from '../components/States';
 
-export function FeedbackDetail() {
+export function FeedbackDetail({ projectName }: { projectName: string }) {
   const { t, i18n } = useTranslation();
   const { projectSlug, id } = useParams<{ projectSlug: string; id: string }>();
   const base = `/${projectSlug ?? ''}`;
   const [data, setData] = useState<FeedbackDetailType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+
+  const pagePath = `${base}/feedback/${id ?? ''}`;
+  const pageTitle = data
+    ? t('meta.detailTitle', {
+        title: truncateText(data.title, 40),
+        project: projectName,
+      })
+    : t('meta.homeTitle', { project: projectName });
+  usePageMeta({
+    title: pageTitle,
+    description: data
+      ? excerpt(data.content, 140) || t('home.subtitle')
+      : t('home.subtitle'),
+    siteName: projectName,
+    path: pagePath,
+    type: 'article',
+    jsonLd: data ? buildFeedbackJsonLd(data, canonicalUrl(pagePath)) : null,
+  });
 
   const loadData = useCallback(async () => {
     if (!id) {
@@ -104,9 +125,16 @@ export function FeedbackDetail() {
                 </span>
               )}
             </div>
-            <h1 className="mt-2.5 text-18 font-semibold leading-snug text-ink sm:text-22">
-              {data.title}
-            </h1>
+            <div className="mt-2.5 flex items-start justify-between gap-3">
+              <h1 className="min-w-0 text-18 font-semibold leading-snug text-ink sm:text-22">
+                {data.title}
+              </h1>
+              <ShareButton
+                path={`${base}/feedback/${data.id}`}
+                title={pageTitle}
+                ariaLabel={t('share.ariaDetail')}
+              />
+            </div>
             <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-11 text-ink-tertiary">
               <time dateTime={data.created_at}>
                 {formatDateTime(data.created_at, i18n.language)}

@@ -73,10 +73,6 @@ function BoardLayout() {
   const orgName = config?.organization?.name ?? undefined;
 
   useEffect(() => {
-    document.title = `${projectName} · ${t('nav.boardSubtitle')}`;
-  }, [projectName, t]);
-
-  useEffect(() => {
     document.documentElement.lang = i18n.language.startsWith('zh')
       ? 'zh-CN'
       : 'en';
@@ -97,10 +93,16 @@ function BoardLayout() {
       <AppHeader projectName={projectName} orgName={orgName} />
       <main id="main-content" className="flex-1">
         <Routes>
-          <Route index element={<BoardHome />} />
-          <Route path="feedback/:id" element={<FeedbackDetail />} />
-          <Route path="roadmap" element={<Roadmap />} />
-          <Route path="changelog" element={<Changelog />} />
+          <Route index element={<BoardHome projectName={projectName} />} />
+          <Route
+            path="feedback/:id"
+            element={<FeedbackDetail projectName={projectName} />}
+          />
+          <Route path="roadmap" element={<Roadmap projectName={projectName} />} />
+          <Route
+            path="changelog"
+            element={<Changelog projectName={projectName} />}
+          />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>

@@ -7,6 +7,21 @@
     "mainLabel": "主导航",
     "home": "返回看板首页"
   },
+  "meta": {
+    "homeTitle": "{{project}} · 反馈看板",
+    "roadmapTitle": "路线图 · {{project}}",
+    "changelogTitle": "更新日志 · {{project}}",
+    "detailTitle": "{{title}} · {{project}}"
+  },
+  "share": {
+    "action": "分享",
+    "ariaBoard": "分享反馈看板链接",
+    "ariaDetail": "分享这条反馈链接",
+    "copied": "链接已复制",
+    "copiedAnnouncement": "链接已复制到剪贴板",
+    "error": "复制失败",
+    "errorAnnouncement": "复制失败，请手动复制地址栏链接"
+  },
   "common": {
     "loading": "加载中…",
     "retry": "重试",

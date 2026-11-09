@@ -7,6 +7,21 @@
     "mainLabel": "Main navigation",
     "home": "Back to board home"
   },
+  "meta": {
+    "homeTitle": "{{project}} · Feedback board",
+    "roadmapTitle": "Roadmap · {{project}}",
+    "changelogTitle": "Changelog · {{project}}",
+    "detailTitle": "{{title}} · {{project}}"
+  },
+  "share": {
+    "action": "Share",
+    "ariaBoard": "Share this feedback board link",
+    "ariaDetail": "Share this feedback link",
+    "copied": "Link copied",
+    "copiedAnnouncement": "Link copied to clipboard",
+    "error": "Copy failed",
+    "errorAnnouncement": "Copy failed. Please copy the address bar URL manually."
+  },
   "common": {
     "loading": "Loading…",
     "retry": "Retry",

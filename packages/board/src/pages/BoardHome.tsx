@@ -9,7 +9,9 @@ import {
   statusLabel,
 } from '../lib/labels';
 import { emptyStats, type CategoryOption, type BoardStats } from '../lib/board';
+import { usePageMeta } from '../lib/meta';
 import { PageHeader } from '../components/PageHeader';
+import { ShareButton } from '../components/ShareButton';
 import {
   BoardToolbar,
   type FilterChip,
@@ -36,7 +38,7 @@ function matchesKeyword(item: FeedbackItem, keyword: string): boolean {
     .includes(keyword);
 }
 
-export function BoardHome() {
+export function BoardHome({ projectName }: { projectName: string }) {
   const { t } = useTranslation();
   const { projectSlug } = useParams<{ projectSlug: string }>();
   const base = `/${projectSlug ?? ''}`;
@@ -50,6 +52,14 @@ export function BoardHome() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [keyword, setKeyword] = useState('');
   const [showModal, setShowModal] = useState(false);
+
+  const pageTitle = t('meta.homeTitle', { project: projectName });
+  usePageMeta({
+    title: pageTitle,
+    description: t('home.subtitle'),
+    siteName: projectName,
+    path: base,
+  });
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -156,6 +166,13 @@ export function BoardHome() {
         title={t('home.title')}
         subtitle={t('home.subtitle')}
         size="hero"
+        action={
+          <ShareButton
+            path={base}
+            title={pageTitle}
+            ariaLabel={t('share.ariaBoard')}
+          />
+        }
       />
 
       <div className="grid gap-5 lg:grid-cols-3 lg:items-start lg:gap-6">
