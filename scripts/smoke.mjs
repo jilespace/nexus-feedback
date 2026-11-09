@@ -1383,6 +1383,117 @@ async function checkCsvImport(options, context) {
   });
 }
 
+async function checkI18nSwitch(page, options, context) {
+  const name = '后台 · i18n 切换（en → zh）';
+  if (!context.auth) {
+    skipCheck(name, '未建立后台登录态，跳过 i18n 切换检查');
+    return;
+  }
+
+  await runCheck(name, async () => {
+    try {
+      await page.navigate(`${options.baseAdmin}/dashboard`, {
+        readyExpression: ADMIN_READY,
+        timeoutMs: 20000,
+      });
+      const initial = await page.evaluate(`(() => ({
+        lang: localStorage.getItem('lang'),
+        zhSidebar: document.body.innerText.includes('概览'),
+        enSidebar: document.body.innerText.includes('Overview'),
+      }))()`);
+      // 注：Chrome 9222 是共享 profile，其他并行任务可能改写 localStorage.lang；
+      // 以页面实际渲染语言为准（admin 注入脚本会在文档加载前强制 zh）。
+      assert(
+        initial.zhSidebar && !initial.enSidebar,
+        `初始界面不是中文（localStorage.lang=${initial.lang}）`,
+      );
+
+      const switchedEn = await page.evaluate(`(() => {
+        const btn = Array.from(document.querySelectorAll('button')).find(
+          (b) => b.textContent.trim() === 'EN' || (b.getAttribute('title') || '') === 'English',
+        );
+        if (!btn) return false;
+        btn.click();
+        return true;
+      })()`);
+      assert(switchedEn, '未找到语言切换按钮（EN）');
+      const enReady = await page.waitUntil(
+        `document.documentElement.lang === 'en'
+          && document.body.innerText.includes('Overview')
+          && document.body.innerText.includes('Feedback')`,
+        { timeoutMs: 6000 },
+      );
+      assert(enReady, '切到英文后 html lang / 侧边栏文案未更新');
+
+      await page.evaluate(
+        `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', metaKey: true, bubbles: true, cancelable: true }))`,
+      );
+      const paletteOpen = await page.waitUntil(
+        `!!document.querySelector('[role="dialog"][aria-label="Command palette"]')`,
+        { timeoutMs: 5000 },
+      );
+      assert(paletteOpen, '英文环境下 ⌘K 未打开命令面板');
+      const paletteEn = await page.evaluate(`(() => {
+        const dialog = document.querySelector('[role="dialog"][aria-label="Command palette"]');
+        const text = dialog?.innerText ?? '';
+        const lower = text.toLowerCase();
+        return { hasQuickActions: lower.includes('quick actions'), hasPages: lower.includes('pages'), text };
+      })()`);
+      assert(
+        paletteEn.hasQuickActions && paletteEn.hasPages,
+        `命令面板英文分组缺失（Quick actions / Pages）：${truncate(paletteEn.text, 120)}`,
+      );
+      await page.evaluate(
+        `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))`,
+      );
+      const paletteClosed = await page.waitUntil(
+        `!document.querySelector('[role="dialog"][aria-label="Command palette"]')`,
+        { timeoutMs: 4000 },
+      );
+      assert(paletteClosed, 'Esc 未关闭英文命令面板');
+      const enShot = await page.screenshot('i18n-en-dashboard');
+
+      const switchedZh = await page.evaluate(`(() => {
+        const btn = Array.from(document.querySelectorAll('button')).find(
+          (b) => b.textContent.trim() === '中' || (b.getAttribute('title') || '') === '中文',
+        );
+        if (!btn) return false;
+        btn.click();
+        return true;
+      })()`);
+      assert(switchedZh, '未找到语言切换按钮（中）');
+      const zhReady = await page.waitUntil(
+        `document.documentElement.lang !== 'en'
+          && document.body.innerText.includes('概览')
+          && !document.body.innerText.includes('Overview')`,
+        { timeoutMs: 6000 },
+      );
+      assert(zhReady, '切回中文后 html lang / 侧边栏文案未恢复');
+      page.assertClean(name);
+      const zhShot = await page.screenshot('i18n-zh-dashboard');
+      return `en: html lang=en · Overview/Feedback · Quick actions/Pages；已切回 zh（概览）${
+        enShot && zhShot ? ` · ${enShot} / ${zhShot}` : ''
+      }`;
+    } finally {
+      // 无论断言是否失败，都尽量把界面与 localStorage 恢复为中文。
+      try {
+        await page.evaluate(`(() => {
+          localStorage.setItem('lang', 'zh');
+          if (document.documentElement.lang === 'en') {
+            const btn = Array.from(document.querySelectorAll('button')).find(
+              (b) => b.textContent.trim() === '中' || (b.getAttribute('title') || '') === '中文',
+            );
+            btn && btn.click();
+          }
+          return true;
+        })()`);
+      } catch {
+        /* ignore */
+      }
+    }
+  });
+}
+
 async function checkMobile(page, options, context) {
   const targets = [
     ['移动端 390 · 仪表盘', '/dashboard', 'mobile-dashboard'],
@@ -1391,6 +1502,13 @@ async function checkMobile(page, options, context) {
   ];
   if (!context.auth) {
     for (const [name] of targets) skipCheck(name, '未建立后台登录态，跳过移动端检查');
+    for (const name of [
+      '移动端 390 · 汉堡抽屉开 / 遮罩关',
+      '移动端 390 · 通知铃铛开 / Esc 关',
+      '移动端 390 · ⌘K 输入「通知」回车跳转',
+    ]) {
+      skipCheck(name, '未建立后台登录态，跳过移动端交互检查');
+    }
     return;
   }
 
@@ -1421,7 +1539,161 @@ async function checkMobile(page, options, context) {
         return `${metrics.innerWidth}px · main ${metrics.mainText} 字 · 无横向溢出${shot ? ` · ${shot}` : ''}`;
       });
     }
+
+    await runCheck('移动端 390 · 汉堡抽屉开 / 遮罩关', async () => {
+      await page.navigate(`${options.baseAdmin}/dashboard`, {
+        readyExpression: ADMIN_READY,
+        timeoutMs: 20000,
+      });
+      const clicked = await page.evaluate(`(() => {
+        const btn = Array.from(document.querySelectorAll('header button')).find((b) =>
+          /导航|navigation/i.test(b.getAttribute('aria-label') || ''),
+        );
+        if (!btn) return false;
+        btn.click();
+        return true;
+      })()`);
+      assert(clicked, '未找到移动端汉堡按钮');
+      const drawerOpen = await page.waitUntil(
+        `(() => {
+          const aside = document.querySelector('aside');
+          return !!aside && aside.classList.contains('translate-x-0');
+        })()`,
+        { timeoutMs: 4000 },
+      );
+      assert(drawerOpen, '点击汉堡后侧边抽屉未打开');
+      await sleep(450); // 等抽屉滑入动画结束再截图
+      const shot = await page.screenshot('mobile-drawer-open');
+      const overlayClicked = await page.evaluate(`(() => {
+        const overlay = Array.from(document.querySelectorAll('div')).find((el) => {
+          const cls = typeof el.className === 'string' ? el.className : '';
+          return cls.includes('z-40') && cls.includes('inset-0');
+        });
+        if (!overlay) return false;
+        overlay.click();
+        return true;
+      })()`);
+      assert(overlayClicked, '未找到抽屉遮罩');
+      const drawerClosed = await page.waitUntil(
+        `(() => {
+          const aside = document.querySelector('aside');
+          return !!aside && aside.classList.contains('-translate-x-full');
+        })()`,
+        { timeoutMs: 4000 },
+      );
+      assert(drawerClosed, '点击遮罩后侧边抽屉未关闭');
+      page.assertClean('移动端抽屉');
+      return `抽屉打开 / 遮罩关闭 ✓${shot ? ` · ${shot}` : ''}`;
+    });
+
+    await runCheck('移动端 390 · 通知铃铛开 / Esc 关', async () => {
+      await page.navigate(`${options.baseAdmin}/dashboard`, {
+        readyExpression: ADMIN_READY,
+        timeoutMs: 20000,
+      });
+      const clicked = await page.evaluate(`(() => {
+        const btn = Array.from(document.querySelectorAll('header button')).find((b) =>
+          /通知|notification/i.test(b.getAttribute('aria-label') || ''),
+        );
+        if (!btn) return false;
+        btn.click();
+        return true;
+      })()`);
+      assert(clicked, '未找到移动端通知铃铛');
+      const opened = await page.waitUntil(
+        `Array.from(document.querySelectorAll('[role="dialog"]')).some((d) =>
+          /通知|notification/i.test(d.getAttribute('aria-label') || ''),
+        )`,
+        { timeoutMs: 5000 },
+      );
+      assert(opened, '点击铃铛后未打开通知面板');
+      await sleep(450); // 等面板动画结束再截图
+      const shot = await page.screenshot('mobile-notification-panel');
+      await page.evaluate(
+        `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))`,
+      );
+      const closed = await page.waitUntil(
+        `!Array.from(document.querySelectorAll('[role="dialog"]')).some((d) =>
+          /通知|notification/i.test(d.getAttribute('aria-label') || ''),
+        )`,
+        { timeoutMs: 4000 },
+      );
+      assert(closed, 'Esc 未关闭移动端通知面板');
+      page.assertClean('移动端通知面板');
+      return `铃铛打开 / Esc 关闭 ✓${shot ? ` · ${shot}` : ''}`;
+    });
+
+    await runCheck('移动端 390 · ⌘K 输入「通知」回车跳转', async () => {
+      await page.navigate(`${options.baseAdmin}/dashboard`, {
+        readyExpression: ADMIN_READY,
+        timeoutMs: 20000,
+      });
+      await page.evaluate(
+        `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', metaKey: true, bubbles: true, cancelable: true }))`,
+      );
+      const paletteOpen = await page.waitUntil(
+        `Array.from(document.querySelectorAll('[role="dialog"]')).some((d) =>
+          /命令面板|command palette/i.test(d.getAttribute('aria-label') || ''),
+        )`,
+        { timeoutMs: 5000 },
+      );
+      assert(paletteOpen, '移动端 ⌘K 未打开命令面板');
+      await page.evaluate(`(() => {
+        const dialog = Array.from(document.querySelectorAll('[role="dialog"]')).find((d) =>
+          /命令面板|command palette/i.test(d.getAttribute('aria-label') || ''),
+        );
+        const input = dialog && dialog.querySelector('input');
+        if (!input) return false;
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '通知');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.focus();
+        return true;
+      })()`);
+      const suggestionReady = await page.waitUntil(
+        `(() => {
+          const first = document.querySelector('#cmd-item-0');
+          return !!first && /查看通知|notification/i.test(first.innerText || '');
+        })()`,
+        { timeoutMs: 5000 },
+      );
+      assert(suggestionReady, '移动端输入「通知」后首项未切换为「查看通知」');
+      const paletteShot = await page.screenshot('mobile-command-palette');
+      await page.evaluate(`(() => {
+        const dialog = Array.from(document.querySelectorAll('[role="dialog"]')).find((d) =>
+          /命令面板|command palette/i.test(d.getAttribute('aria-label') || ''),
+        );
+        const input = dialog && dialog.querySelector('input');
+        if (!input) return false;
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true }));
+        return true;
+      })()`);
+      const navigated = await page.waitUntil(`location.pathname === '/notifications'`, {
+        timeoutMs: 8000,
+      });
+      assert(navigated, `移动端回车后 URL 未跳转到 /notifications（当前 ${await page.evaluate('location.pathname')}）`);
+      const contentReady = await page.waitUntil(
+        `(document.querySelector('main')?.innerText.trim().length ?? 0) > 10`,
+        { timeoutMs: 8000 },
+      );
+      assert(contentReady, '/notifications 页面未渲染内容');
+      const metrics = await page.evaluate(`(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        innerWidth: window.innerWidth,
+      }))()`);
+      assert(
+        metrics.scrollWidth <= metrics.innerWidth,
+        `移动端跳转后横向溢出：scrollWidth=${metrics.scrollWidth} > innerWidth=${metrics.innerWidth}`,
+      );
+      page.assertClean('移动端命令面板动作');
+      return `URL=/notifications · ${metrics.innerWidth}px 无横向溢出${paletteShot ? ` · ${paletteShot}` : ''}`;
+    });
   } finally {
+    // 恢复桌面视口与中文界面，避免影响后续/重复运行。
+    try {
+      await page.evaluate(`localStorage.setItem('lang', 'zh')`);
+    } catch {
+      /* ignore */
+    }
     await page.setViewport({ width: 1440, height: 900, mobile: false, deviceScaleFactor: 1 });
   }
 }
@@ -1505,6 +1777,7 @@ async function main() {
     await checkPublicPages(page, options, context);
     await checkWidget(page, options, context);
     await checkAdmin(page, options, context);
+    await checkI18nSwitch(page, options, context);
     await checkWriteFlows(page, options, context);
     await checkApiContract(options, context);
     await checkCsvImport(options, context);
@@ -1517,6 +1790,23 @@ async function main() {
       detail: error instanceof Error ? error.message : String(error),
     });
   } finally {
+    // 最终兜底：恢复桌面视口与中文界面（9222 profile 是共享的，其他并行任务也可能改写，
+    // 这里至少保证本脚本退出前把自己改动过的 state 复位）。
+    if (page) {
+      try {
+        await Promise.race([
+          page.setViewport({ width: 1440, height: 900, mobile: false, deviceScaleFactor: 1 }),
+          sleep(1000),
+        ]);
+      } catch {
+        /* ignore */
+      }
+      try {
+        await Promise.race([page.evaluate(`localStorage.setItem('lang', 'zh')`), sleep(1000)]);
+      } catch {
+        /* ignore */
+      }
+    }
     if (context.widgetProcess) {
       try {
         context.widgetProcess.kill();

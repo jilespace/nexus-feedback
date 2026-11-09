@@ -641,6 +641,10 @@ node scripts/smoke.mjs \
   可查到记录（过滤不支持时跳过该子断言）。
 - **移动端 390×844**：`dashboard` / `feedback` / `notifications` 三页断言
   `scrollWidth <= innerWidth`（无横向溢出）、无 console error、`main` 内容存在。
+- **i18n 切换**：后台切到 en 后断言 `html lang=en`、侧边栏 Overview/Feedback、命令面板
+  Quick actions/Pages；再切回 zh 断言 `概览` 恢复，全程无 console error。
+- **移动端交互（390×844）**：汉堡抽屉开 / 遮罩关、通知铃铛开 / Esc 关、⌘K 输入「通知」
+  回车跳转 `/notifications` 且无横向溢出；结束后恢复 1440 视口与中文界面。
 - 截图全部保存到 `.tools/shots/smoke/`。
 
 ### 输出与退出码
