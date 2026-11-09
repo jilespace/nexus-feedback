@@ -10,21 +10,28 @@
  * 前置：本地 dev server 已启动（admin 8080 / submit 8081 / board 8082 / api 3000），
  * Chrome 已在 9222 运行，或允许脚本自行启动 headless Chrome（结束时自动关闭并清理临时 profile）。
  *
+ * 口径（--mode）：
+ *   dev（默认） 采样本地 Vite dev server，绝对值偏高，适合开发期横向比较与回归；
+ *   preview     采样 vite build 产物：Node 静态服务（文本 gzip）+ /api 代理到本地 API，
+ *               接近线上静态部署口径；需先 pnpm build，端口冲突自动 +1，结束自动关闭服务。
+ *
  * 用法：
- *   pnpm perf
- *   node scripts/perf.mjs --runs=5 --settle=2000
+ *   pnpm perf                                  # dev 口径
+ *   pnpm perf:prod                             # preview 生产口径
+ *   node scripts/perf.mjs --mode=preview --runs=5 --settle=2000
  *   node scripts/perf.mjs --base-admin=http://localhost:8080 --chrome-port=9222
  *
- * 说明：测量对象是 Vite dev server（未压缩模块、按需编译），数值高于生产构建属预期，
- * 适合做页面间横向比较与回归趋势；阈值 PASS/FAIL 只做提示，不改变退出码。
- * 退出码：0 = 报告生成成功；1 = 环境/脚本错误（服务不可达、Chrome 启动失败等）。
+ * 说明：阈值 PASS/FAIL 只做提示，不改变退出码；dev 与 preview 的绝对值不可直接比较，
+ * 两侧各自做页面对比与回归趋势。退出码：0 = 报告生成成功；1 = 环境/脚本错误。
  */
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+import { gzipSync } from 'node:zlib';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const REPORT_DIR = path.join(ROOT, '.tools', 'perf');
@@ -33,6 +40,34 @@ const DEMO_API_KEY = 'nf_demo_project_key_789';
 const LOGIN = { email: 'admin@nexus.dev', password: 'admin123', org_slug: 'demo' };
 
 const THRESHOLDS = { fcp: 1800, lcp: 2500, cls: 0.1 };
+
+// preview 模式：本地静态托管 vite build 产物，并把 /api 代理到本地 API。
+const PREVIEW_SERVICES = [
+  { key: 'admin', label: 'admin', dir: 'packages/admin/dist', baseOption: 'baseAdmin' },
+  { key: 'board', label: 'board', dir: 'packages/board/dist', baseOption: 'baseBoard' },
+  { key: 'submit', label: 'submit', dir: 'packages/submit-page/dist', baseOption: 'baseSubmit' },
+];
+
+const MIME_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.map': 'application/json; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
+  '.xml': 'application/xml; charset=utf-8',
+};
 
 const VIEWPORTS = [
   { key: '1440', label: '1440×900', width: 1440, height: 900, mobile: false, deviceScaleFactor: 1 },
@@ -135,6 +170,7 @@ const COLLECT_EXPR = `(() => {
 // ---------------------------------------------------------------------------
 function parseArgs(argv) {
   const options = {
+    mode: 'dev',
     baseAdmin: 'http://localhost:8080',
     baseBoard: 'http://localhost:8082',
     baseApi: 'http://localhost:3000',
@@ -145,6 +181,7 @@ function parseArgs(argv) {
     help: false,
   };
   const keyMap = {
+    mode: 'mode',
     'base-admin': 'baseAdmin',
     'base-board': 'baseBoard',
     'base-api': 'baseApi',
@@ -174,25 +211,32 @@ function parseArgs(argv) {
   }
   if (options.runs < 1) throw new Error('--runs 至少为 1');
   if (options.settleMs < 0) throw new Error('--settle 不能为负数');
+  if (options.mode !== 'dev' && options.mode !== 'preview') {
+    throw new Error(`--mode 仅支持 dev 或 preview（当前 ${options.mode}）`);
+  }
   return options;
 }
 
 const USAGE = `Nexus Feedback 前端性能采样（CDP，零依赖）
 
 用法:
-  pnpm perf
-  node scripts/perf.mjs [参数]
+  pnpm perf                           # dev server 口径（默认）
+  pnpm perf:prod                      # 生产构建口径（preview 静态服务）
+  node scripts/perf.mjs --mode=preview [参数]
 
 参数:
-  --base-admin=<url>   管理后台地址（默认 http://localhost:8080）
-  --base-board=<url>   公开看板地址（默认 http://localhost:8082）
-  --base-api=<url>     API 地址（默认 http://localhost:3000）
-  --base-submit=<url>  公开提交页地址（默认 http://localhost:8081）
+  --mode=<dev|preview> 采样口径（默认 dev）；preview 需先 pnpm build
+  --base-admin=<url>   管理后台地址（默认 http://localhost:8080；preview 模式作为起始端口）
+  --base-board=<url>   公开看板地址（默认 http://localhost:8082；preview 模式作为起始端口）
+  --base-api=<url>     API 地址（默认 http://localhost:3000；preview 模式 /api 代理目标）
+  --base-submit=<url>  公开提交页地址（默认 http://localhost:8081；preview 模式作为起始端口）
   --chrome-port=<port> Chrome CDP 端口（默认 9222；缺失时自动启动 headless Chrome）
   --runs=<n>           每页每视口采样次数（默认 3，取中位数）
   --settle=<ms>        load 事件后额外等待时间，用于收敛 LCP/CLS（默认 1500）
   --help               显示本帮助
 
+preview 模式：检查 admin/board/submit 的 dist/index.html 是否存在（缺失提示先 build），
+用 Node http 托管构建产物（文本资源 gzip）并把 /api 代理到 --base-api；端口冲突自动 +1。
 输出: 中文表格 + FCP/LCP/CLS 阈值判定；报告写入 .tools/perf/report-{timestamp}.json/.md。
 阈值 FAIL 只做提示，不影响退出码；环境错误时退出码为 1。`;
 
@@ -579,6 +623,217 @@ class PageSession {
 }
 
 // ---------------------------------------------------------------------------
+// preview 模式：静态托管 vite build 产物 + /api 代理（零依赖，node:http）
+// ---------------------------------------------------------------------------
+function portFromBaseUrl(baseUrl) {
+  const url = new URL(baseUrl);
+  if (url.port) return Number(url.port);
+  return url.protocol === 'https:' ? 443 : 80;
+}
+
+function proxyApiRequest(req, res, apiOrigin) {
+  let target;
+  try {
+    target = new URL(req.url ?? '/', apiOrigin);
+  } catch {
+    res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ code: 50200, data: null, message: 'preview proxy: API 地址无效' }));
+    return;
+  }
+  const upstream = http.request(
+    {
+      hostname: target.hostname,
+      port: target.port || (target.protocol === 'https:' ? 443 : 80),
+      path: `${target.pathname}${target.search}`,
+      method: req.method,
+      headers: { ...req.headers, host: target.host },
+    },
+    (upstreamRes) => {
+      res.writeHead(upstreamRes.statusCode ?? 502, upstreamRes.headers);
+      upstreamRes.pipe(res);
+    },
+  );
+  upstream.on('error', (error) => {
+    if (!res.headersSent) {
+      res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+    }
+    res.end(JSON.stringify({ code: 50200, data: null, message: `preview proxy 失败: ${error.message}` }));
+  });
+  req.pipe(upstream);
+}
+
+function sendStaticFile(req, res, filePath, gzipCache) {
+  let stat;
+  try {
+    stat = statSync(filePath);
+  } catch {
+    return false;
+  }
+  if (!stat.isFile()) return false;
+  const ext = path.extname(filePath).toLowerCase();
+  const contentType = MIME_TYPES[ext] ?? 'application/octet-stream';
+  const headers = {
+    'Content-Type': contentType,
+    'Cache-Control': filePath.includes(`${path.sep}assets${path.sep}`)
+      ? 'public, max-age=31536000, immutable'
+      : 'no-cache',
+    'X-Content-Type-Options': 'nosniff',
+  };
+  const compressible = /^(text\/|application\/(javascript|json|xml|rss)|image\/svg)/.test(contentType);
+  const acceptsGzip = /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''));
+  let payload;
+  if (compressible && acceptsGzip) {
+    let gzipped = gzipCache.get(filePath);
+    if (!gzipped) {
+      gzipped = gzipSync(readFileSync(filePath));
+      gzipCache.set(filePath, gzipped);
+    }
+    payload = gzipped;
+    headers['Content-Encoding'] = 'gzip';
+  } else {
+    payload = readFileSync(filePath);
+  }
+  headers['Content-Length'] = String(payload.length);
+  res.writeHead(200, headers);
+  if (req.method === 'HEAD') res.end();
+  else res.end(payload);
+  return true;
+}
+
+function createStaticServer({ distDir, apiOrigin }) {
+  const gzipCache = new Map();
+  const indexHtml = path.join(distDir, 'index.html');
+  return http.createServer((req, res) => {
+    const requestUrl = req.url ?? '/';
+    if (requestUrl.startsWith('/api/')) {
+      proxyApiRequest(req, res, apiOrigin);
+      return;
+    }
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      res.writeHead(405);
+      res.end('Method Not Allowed');
+      return;
+    }
+    let pathname;
+    try {
+      pathname = decodeURIComponent(new URL(requestUrl, 'http://localhost').pathname);
+    } catch {
+      res.writeHead(400);
+      res.end('Bad Request');
+      return;
+    }
+    const relative = pathname.replace(/^\/+/, '');
+    const candidate = path.resolve(distDir, relative);
+    if (!candidate.startsWith(distDir)) {
+      res.writeHead(403);
+      res.end('Forbidden');
+      return;
+    }
+    if (relative !== '') {
+      if (sendStaticFile(req, res, candidate, gzipCache)) return;
+      if (path.extname(relative)) {
+        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Not Found');
+        return;
+      }
+    }
+    // SPA fallback：/dashboard、/demo-project/... 等前端路由回退到 index.html。
+    if (!sendStaticFile(req, res, indexHtml, gzipCache)) {
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('index.html not found');
+    }
+  });
+}
+
+async function listenWithFallback({ createServer, startPort, maxAttempts = 30 }) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const port = startPort + attempt;
+    const server = createServer();
+    try {
+      await new Promise((resolve, reject) => {
+        const onError = (error) => {
+          server.off('listening', onListening);
+          reject(error);
+        };
+        const onListening = () => {
+          server.off('error', onError);
+          resolve();
+        };
+        server.once('error', onError);
+        server.once('listening', onListening);
+        server.listen(port, '127.0.0.1');
+      });
+      return { server, port };
+    } catch (error) {
+      try {
+        server.close();
+      } catch {
+        /* ignore */
+      }
+      if (error?.code !== 'EADDRINUSE') throw error;
+      console.log(`preview 端口 ${port} 被占用，尝试 ${port + 1}`);
+    }
+  }
+  throw new Error(`preview 静态服务在 ${startPort}~${startPort + maxAttempts - 1} 范围内未找到空闲端口`);
+}
+
+async function stopPreviewServers(servers) {
+  await Promise.all(
+    servers.map(async ({ server }) => {
+      try {
+        server.closeIdleConnections?.();
+        server.closeAllConnections?.();
+      } catch {
+        /* ignore */
+      }
+      await new Promise((resolve) => {
+        const timer = setTimeout(resolve, 3000);
+        try {
+          server.close(() => {
+            clearTimeout(timer);
+            resolve();
+          });
+        } catch {
+          clearTimeout(timer);
+          resolve();
+        }
+      });
+    }),
+  );
+}
+
+async function startPreviewServers(options) {
+  const missing = PREVIEW_SERVICES.filter(
+    (service) => !existsSync(path.join(ROOT, service.dir, 'index.html')),
+  ).map((service) => `${service.dir}/index.html`);
+  if (missing.length) {
+    throw new Error(
+      `preview 模式需要生产构建产物，缺少 ${missing.join('、')}。请先运行 pnpm build 后重试。`,
+    );
+  }
+
+  const servers = [];
+  try {
+    for (const service of PREVIEW_SERVICES) {
+      const distDir = path.join(ROOT, service.dir);
+      const startPort = portFromBaseUrl(options[service.baseOption]);
+      const { server, port } = await listenWithFallback({
+        startPort,
+        createServer: () => createStaticServer({ distDir, apiOrigin: options.baseApi }),
+      });
+      const url = `http://localhost:${port}`;
+      options[service.baseOption] = url;
+      servers.push({ key: service.key, url, port, dist: service.dir, server });
+      console.log(`preview ${service.label}: ${url} → ${service.dir}（/api → ${options.baseApi}）`);
+    }
+    return servers;
+  } catch (error) {
+    await stopPreviewServers(servers);
+    throw error;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // 数据准备
 // ---------------------------------------------------------------------------
 async function loginDemo(options) {
@@ -812,14 +1067,22 @@ function buildMarkdown(report) {
   lines.push(`# Nexus Feedback 前端性能报告`);
   lines.push('');
   lines.push(`- 生成时间：${report.generatedAt}`);
+  lines.push(`- 口径：${report.environment.mode === 'preview' ? '**preview**（生产构建产物 + 静态 gzip + /api 代理）' : '**dev**（Vite dev server）'}`);
   lines.push(`- Chrome：CDP ${report.environment.chromePort}（${report.environment.chromeReused ? '复用已运行实例' : '脚本自动启动 headless'}）`);
   lines.push(`- 采样：每页每视口 ${report.environment.runs} 次取中位数；` +
     `load 后额外等待 ${report.environment.settleMs}ms；缓存已禁用（Network.setCacheDisabled）`);
+  if (report.environment.previewServers) {
+    lines.push(
+      `- preview 服务：${report.environment.previewServers
+        .map((server) => `${server.key} ${server.url}（${server.dist}）`)
+        .join(' / ')}`,
+    );
+  }
   lines.push(`- 地址：admin ${report.environment.baseAdmin} / board ${report.environment.baseBoard} / submit ${report.environment.baseSubmit} / api ${report.environment.baseApi}`);
   lines.push(`- 阈值：FCP ≤ ${THRESHOLDS.fcp}ms，LCP ≤ ${THRESHOLDS.lcp}ms，CLS ≤ ${THRESHOLDS.cls}`);
   lines.push('');
-  lines.push('> 说明：测量对象为本地 Vite dev server（未压缩、按需编译），数值会高于生产构建，');
-  lines.push('> 适合页面间横向比较与回归趋势；阈值 PASS/FAIL 仅提示，脚本退出码不受影响。');
+  lines.push(`> 说明：${report.environment.modeNote}`);
+  lines.push('> 阈值 PASS/FAIL 仅提示，脚本退出码不受影响。');
   lines.push('');
   lines.push('## 结果（中位数）');
   lines.push('');
@@ -921,16 +1184,19 @@ async function main() {
   }
 
   const startedAt = new Date();
+  const modeLabel =
+    options.mode === 'preview'
+      ? 'preview（生产构建 + 静态 gzip + /api 代理）'
+      : 'dev（Vite dev server）';
   console.log('Nexus Feedback 前端性能采样（CDP）');
-  console.log(
-    `admin=${options.baseAdmin}  board=${options.baseBoard}  submit=${options.baseSubmit}  api=${options.baseApi}`,
-  );
+  console.log(`模式：${modeLabel}`);
   console.log(
     `视口：${VIEWPORTS.map((viewport) => viewport.label).join(' / ')}；每组合采样 ${options.runs} 次取中位数；` +
       `阈值 FCP≤${THRESHOLDS.fcp}ms / LCP≤${THRESHOLDS.lcp}ms / CLS≤${THRESHOLDS.cls}`,
   );
 
-  const adminOrigin = new URL(options.baseAdmin).origin;
+  let adminOrigin = '';
+  let previewServers = null;
   let client = null;
   let auth = null;
   let chromeReused = false;
@@ -938,6 +1204,14 @@ async function main() {
   const browserContexts = [];
 
   try {
+    if (options.mode === 'preview') {
+      previewServers = await startPreviewServers(options);
+    }
+    adminOrigin = new URL(options.baseAdmin).origin;
+    console.log(
+      `采样地址：admin=${options.baseAdmin}  board=${options.baseBoard}  submit=${options.baseSubmit}  api=${options.baseApi}`,
+    );
+
     const { webSocketDebuggerUrl, reused } = await chromeManager.ensure(options.chromePort);
     chromeReused = reused;
     client = await CdpClient.connect(webSocketDebuggerUrl);
@@ -989,6 +1263,14 @@ async function main() {
     const report = {
       generatedAt: startedAt.toISOString(),
       environment: {
+        mode: options.mode,
+        modeNote:
+          options.mode === 'preview'
+            ? '测量对象为生产构建产物（Node 静态服务 gzip 压缩 + /api 代理到本地 API），接近线上静态部署口径；每次采样仍禁用缓存。'
+            : '测量对象为 Vite dev server（未压缩模块、按需编译），数值高于生产构建属预期，适合横向比较与回归。',
+        previewServers: previewServers
+          ? previewServers.map(({ key, url, port, dist }) => ({ key, url, port, dist }))
+          : null,
         chromePort: options.chromePort,
         chromeReused,
         runs: options.runs,
@@ -1000,8 +1282,6 @@ async function main() {
         baseApi: options.baseApi,
         viewports: VIEWPORTS.map((viewport) => ({ key: viewport.key, label: viewport.label })),
         thresholds: THRESHOLDS,
-        devServerNote:
-          '测量对象为 Vite dev server（未压缩模块、按需编译），数值高于生产构建属预期，适合横向比较与回归。',
       },
       results,
       issues,
@@ -1059,6 +1339,10 @@ async function main() {
     }
     await chromeManager.stop();
     client?.close();
+    if (previewServers) {
+      await stopPreviewServers(previewServers);
+      console.log('preview 静态服务已关闭');
+    }
   }
 }
 

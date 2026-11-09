@@ -641,6 +641,10 @@ node scripts/smoke.mjs \
 - **CSV 导入链路**：`admin/feedback/import` 混合 dry-run（`valid=1`、`invalid_rows[0].index` 正确、不写库）
   → 单条 dry-run + commit（`imported=1`）→ 按标题检索 → 软删除；`audit-logs?action=feedback.import`
   可查到记录（过滤不支持时跳过该子断言）。
+- **更新日志关联反馈**：`/org/changelog` 列表 `feedbacks` 数组契约 → POST 关联 → 列表确认 →
+  DELETE 取消关联 → 列表确认移除；finally 兜底取消，避免残留关联。
+- **通知免打扰**：保存并修改 DND 为全天窗口 → 公开 API 创建反馈 → `unread-count` 保持不变 →
+  非法时间（25:00）返回 400 且不写库；finally 恢复原 DND 并软删除测试反馈/通知。
 - **移动端 390×844**：`dashboard` / `feedback` / `notifications` 三页断言
   `scrollWidth <= innerWidth`（无横向溢出）、无 console error、`main` 内容存在。
 - **i18n 切换**：后台切到 en 后断言 `html lang=en`、侧边栏 Overview/Feedback、命令面板
@@ -655,14 +659,23 @@ node scripts/smoke.mjs \
 可直接接入 CI 或提交前检查。Chrome 9222 已有实例时脚本不会关闭它；由脚本自行启动的
 headless Chrome 会在结束时优雅关闭并清理临时 profile。
 
-## 12. 前端性能采集（`pnpm perf`）
+## 12. 前端性能采集（`pnpm perf` / `pnpm perf:prod`）
 
 零依赖性能采样脚本（Node 24 内置 WebSocket + Chrome CDP，不引入 Lighthouse），用于观察公开端与
-后台首屏的 FCP / LCP / CLS 及资源体积，做页面间横向比较和迭代回归。
+后台首屏的 FCP / LCP / CLS 及资源体积，做页面间横向比较和迭代回归。支持两种口径：
+
+| 命令 | 模式 | 测量对象 |
+|---|---|---|
+| `pnpm perf` | `--mode=dev`（默认） | 本地 Vite dev server（未压缩模块、按需编译） |
+| `pnpm perf:prod` | `--mode=preview` | `vite build` 产物 + Node 静态服务（文本 gzip）+ `/api` 代理 |
+
+两种口径的绝对值不可直接比较，各自用于页面对比与回归趋势；dev 口径偏高属预期。
 
 ### 前置条件
 
-- 本地 dev server 已启动：admin `8080`、submit `8081`、board `8082`、API `3000`；
+- `dev` 口径：本地 dev server 已启动 admin `8080`、submit `8081`、board `8082`、API `3000`；
+- `preview` 口径：先 `pnpm build` 生成 `packages/{admin,board,submit-page}/dist`（缺失时脚本会明确
+  报错提示先 build，不会自动构建）；API 服务仍需运行，`/api` 请求由本地静态服务代理；
 - Chrome 已在 `9222` 运行，或允许脚本自动启动 headless Chrome（脚本结束时自动关闭并清理临时 profile）；
 - 无 Chrome 路径时可用 `CHROME_PATH` 指定可执行文件；
 - 需要 `demo-project` 演示数据与组织账号 `admin@nexus.dev / admin123`（脚本自动登录注入登录态）。
@@ -670,24 +683,43 @@ headless Chrome 会在结束时优雅关闭并清理临时 profile。
 ### 使用
 
 ```bash
-# 默认：6 个页面 × 2 个视口 × 每组合 3 次采样
+# dev 口径：6 个页面 × 2 个视口 × 每组合 3 次采样
 pnpm perf
 
-# 增加采样次数 / 覆盖服务地址
+# preview 生产口径：先构建，再采样构建产物；结束自动关闭静态服务
+pnpm build
+pnpm perf:prod
+
+# 增加采样次数 / 覆盖地址 / 指定 Chrome 端口
 node scripts/perf.mjs --runs=5 --settle=2000
-node scripts/perf.mjs --base-admin=http://localhost:8080 --base-board=http://localhost:8082 --chrome-port=9222
+node scripts/perf.mjs --mode=preview --base-api=http://localhost:3000 --chrome-port=9222
 ```
 
 | 参数 | 默认值 | 说明 |
 |---|---|---|
-| `--base-admin` | `http://localhost:8080` | 管理后台地址（Landing / 登录 / 仪表盘） |
-| `--base-board` | `http://localhost:8082` | 公开看板地址（首页 / 详情） |
-| `--base-submit` | `http://localhost:8081` | 公开提交页地址（自动带 demo API Key） |
-| `--base-api` | `http://localhost:3000` | API 地址（取反馈 ID、登录接口） |
+| `--mode` | `dev` | 采样口径：`dev`（Vite dev server）/ `preview`（构建产物 + 静态代理） |
+| `--base-admin` | `http://localhost:8080` | 管理后台地址（Landing / 登录 / 仪表盘）；preview 模式下作为静态服务起始端口 |
+| `--base-board` | `http://localhost:8082` | 公开看板地址（首页 / 详情）；preview 模式下作为静态服务起始端口 |
+| `--base-submit` | `http://localhost:8081` | 公开提交页地址（自动带 demo API Key）；preview 模式下作为静态服务起始端口 |
+| `--base-api` | `http://localhost:3000` | API 地址（取反馈 ID、登录接口）；preview 模式的 `/api` 代理目标 |
 | `--chrome-port` | `9222` | Chrome CDP 端口；不可用时自动启动 headless Chrome |
 | `--runs` | `3` | 每页每视口采样次数（取中位数） |
 | `--settle` | `1500` | `load` 事件后额外等待毫秒数，用于收敛 LCP/CLS |
 | `--help` | — | 显示帮助 |
+
+### preview（生产口径）说明
+
+- 静态服务由脚本用 Node `http` 自行实现（零依赖）：admin / board / submit 各自托管对应 `dist`，
+  按扩展名返回 MIME；文本资源按请求头 `Accept-Encoding: gzip` 实时 gzip（进程内缓存）；前端路由
+  （如 `/dashboard`、`/demo-project/...`）回退到对应 `index.html`。
+- `/api/*` 反代到 `--base-api`（默认 `http://localhost:3000`），因此 admin/board/submit 的接口请求
+  与同源 dev 代理保持一致。
+- 端口：从各 base URL 的端口开始尝试（默认 admin `8080` / submit `8081` / board `8082`），被占用时
+  **自动 +1 重试**（最多 30 次）；实际端口打印在终端并写入报告 `environment.previewServers`。
+  dev server 正在运行时，通常 admin/board/submit 会依次落到 `8083+`。
+- 采样结束（包括异常中断的 `finally`）自动关闭全部静态服务，不残留端口或进程；Chrome 复用 9222 时
+  不关闭已有实例，由脚本自行启动的 headless 会被关闭并清理临时 profile。
+- 报告 `environment.mode = "preview"`，并附 `modeNote` 与静态服务端口列表，便于与 dev 报告区分。
 
 ### 采集范围
 
@@ -703,9 +735,9 @@ node scripts/perf.mjs --base-admin=http://localhost:8080 --base-board=http://loc
 ### 阈值与输出
 
 - 阈值：FCP ≤ `1.8s`、LCP ≤ `2.5s`、CLS ≤ `0.1`，超出标记 `FAIL` 并写入「问题线索」
-  （含最大资源与 LCP 元素），阈值 FAIL 只做提示、不改变退出码。
+  （含最大资源、LCP 元素与 CLS 位移来源），阈值 FAIL 只做提示、不改变退出码。
 - 结果写入 `.tools/perf/report-{timestamp}.json`（含每次原始采样）与 `.md`（中文表格 + 资源明细），
   `.tools/` 已 gitignore；终端同时打印汇总表与报告路径。
-- 注意：测量对象是 Vite dev server（未压缩模块、按需编译），绝对值高于生产构建属预期，
-  更适合做页面间比较与改动前后回归，而不是生产性能基线。
-- 退出码：`0` = 报告生成成功（即使存在阈值 FAIL）；`1` = 环境错误（服务不可达、Chrome 启动失败等）。
+- 注意：dev 与 preview 两种口径的绝对值不可直接比较；dev 偏高属预期，preview 更接近线上静态部署，
+  但仍是本机 loopback 数据（未做 CPU/网络节流），适合页面对比与改动前后回归，而非线上性能基线。
+- 退出码：`0` = 报告生成成功（即使存在阈值 FAIL）；`1` = 环境错误（服务不可达、dist 缺失、Chrome 启动失败等）。
