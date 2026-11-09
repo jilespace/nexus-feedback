@@ -5,6 +5,50 @@
 
 ## 轮次记录
 
+### Round 6 — 2026-11-10（CSV 导入 / 迁移基线 / 会话过期 / 冒烟写链路）
+
+**本轮完成**
+- **反馈 CSV 导入（全栈）**：`POST /admin/feedback/import`（dry_run 校验 + commit createMany
+  source='import' + 审计 `feedback.import`）；管理端导入弹窗（文件/粘贴、RFC4180 解析、预览与错误行、
+  模板下载、项目选择、成功刷新）；补 import 来源徽标与审计标签；14 条 service 测试。
+- **Prisma 迁移基线修复（重要）**：用 `migrate diff --from-migrations --shadow-database-url` 生成
+  `20261110040000_baseline_sync`，补齐历史 drift（invite_token/board_url/password_hash 可空等），
+  `migrate resolve --applied` 修正本地历史；**已验证空库 `migrate deploy` 全绿且 schema diff 为空**；
+  新增 `docs/MIGRATIONS.md` 记录流程与约定。
+- **会话过期处理**：API 401 且有 token 时清理会话、触发 `auth:expired`；AuthProvider 登出、登录页
+  展示「登录已过期，请重新登录」（修复 StrictMode 双渲染吞掉提示的问题）。
+- **Widget demo 入库 + 冒烟扩展**：`packages/widget/demo`（宿主页 + 零依赖静态代理服务器），
+  smoke 不再依赖 gitignored `.tools`；`pnpm smoke` 29 项（新增公开提交真实链路、通知 unread→read-all、
+  ⌘K 动作跳转），全部带 try/finally 清理。
+- **通知可删除**：`DELETE /org/notifications/:id`（成员归属校验）；smoke 用其清理自身产生的通知，
+  实测重复跑不积累脏数据（运行前后通知数一致）。
+
+**验证**
+- `pnpm typecheck` ✅、`pnpm test` **195/195** ✅、`pnpm build` 5 包 ✅、`pnpm lint` 0 error ✅、
+  `pnpm smoke` **29/29 PASS**（20.8s，exit 0）✅
+- 迁移：空库 deploy 12 个迁移全绿；主库 `migrate status` → up to date；fresh diff 为空。
+- CSV 导入 CDP 端到端：错误行预览 → 修正 → 导入成功 Toast → 列表刷新 → 清理；390 弹窗无溢出。
+- 会话过期 CDP：伪造 token 打开 dashboard → 自动回登录页并显示过期提示。
+- 冒烟副作用核对：运行前后 `notification` 数与活动 `[SMOKE]` 反馈数为 0 差异。
+
+**提交**：`7447082`（CSV 导入）、`b09685e`（widget demo + smoke + 通知删除）、`a145466`（会话过期 +
+迁移基线）、以及本轮 log。
+
+**遗留 / 技术债**
+- 通知页尚无「删除单条/清空全部」UI（API 已有 DELETE，前端未接）；回收站测试数据未硬删。
+- smoke 单文件 ~1200 行，后续可拆 CDP 客户端/检查模块。
+- 后台新页面（通知中心、导入弹窗、dashboard 动态卡）仍有中文硬编码，i18n 未全覆盖。
+- 导入不触发 webhook/通知（有意），后续可按批量策略提供开关。
+- admin 首次加载 386KB / Dashboard 393KB（recharts），可继续优化图表按需加载。
+
+**下一轮计划（Round 7）**
+1. 通知中心收尾：列表项删除、全部清空（复用 DELETE API）+ 通知页 i18n；回收站彻底清理入口。
+2. i18n：把 Round 3-6 新增页面文案接入 zh/en（通知中心、导入、动态卡、命令面板新动作）。
+3. 性能：Dashboard 图表动态加载/骨架、admin 构建 chunk 分析，公开端图片/字体优化。
+4. 冒烟拆分与扩展：API 契约检查（响应包裹结构）、CSV 导入链路、移动端 390 检查项。
+5. 功能候选：合并建议（相似反馈检测）、邮件模板预览、看板路线图订阅提醒。
+
+
 ### Round 5 — 2026-11-10（通知偏好 / RSS / 冒烟门禁 / 快捷筛选）
 
 **本轮完成**
