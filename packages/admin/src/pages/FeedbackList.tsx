@@ -18,6 +18,7 @@ import { Button, EmptyState, TableSkeleton } from '@/components/ui';
 import { FeedbackTable } from '@/components/feedback/FeedbackTable';
 import { FeedbackCards } from '@/components/feedback/FeedbackCards';
 import { FeedbackBulkBar } from '@/components/feedback/FeedbackBulkBar';
+import { ImportFeedbackModal } from '@/components/feedback/ImportFeedbackModal';
 import { Pagination } from '@/components/feedback/Pagination';
 import { useToast } from '@/components/Toast';
 import { SearchIcon } from '@/components/icons';
@@ -59,6 +60,7 @@ export function FeedbackList() {
   const [viewName, setViewName] = useState('');
   const [activeSavedView, setActiveSavedView] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const savedViews = useSavedViews(organization?.id);
@@ -271,18 +273,36 @@ export function FeedbackList() {
         }
         actions={
           canExport ? (
-            <Button variant="secondary" onClick={handleExport} disabled={exporting || isLoading}>
-              <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
-                <path
-                  d="M10 3v8m0 0 3-3m-3 3L7 8M4 14.5h12"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              {exporting ? '导出中...' : t('feedback.export_csv')}
-            </Button>
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => setShowImport(true)}
+                disabled={isLoading}
+              >
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <path
+                    d="M10 4v9m0 0 3.5-3.5M10 13 6.5 9.5M4 14.5v1.5a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-1.5"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                导入 CSV
+              </Button>
+              <Button variant="secondary" onClick={handleExport} disabled={exporting || isLoading}>
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+                  <path
+                    d="M10 3v8m0 0 3-3m-3 3L7 8M4 14.5h12"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                {exporting ? '导出中...' : t('feedback.export_csv')}
+              </Button>
+            </>
           ) : null
         }
       />
@@ -633,6 +653,14 @@ export function FeedbackList() {
             }}
           />
         </>
+      )}
+
+      {showImport && (
+        <ImportFeedbackModal
+          projects={projectList}
+          defaultProjectId={projectFilter || firstProject?.projectId || ''}
+          onClose={() => setShowImport(false)}
+        />
       )}
     </div>
   );

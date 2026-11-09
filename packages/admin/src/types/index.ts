@@ -2,7 +2,7 @@ export type FeedbackStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
 export type FeedbackCategory = string;
 export type FeedbackPriority = 'low' | 'medium' | 'high' | 'critical';
 
-export type FeedbackSource = 'api' | 'widget' | 'submit-page' | 'board';
+export type FeedbackSource = 'api' | 'widget' | 'submit-page' | 'board' | 'import';
 
 export type FeedbackItem = {
   id: string;

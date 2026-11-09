@@ -20,6 +20,7 @@ import { exportFeedbackCSV } from '../services/export.js';
 import { batchAssignTags, batchUnassignTags } from '../services/tag.js';
 import { mergeFeedback, previewMerge } from '../services/merge.js';
 import { listComments, deleteComment } from '../services/comment.js';
+import { previewFeedbackImport, commitFeedbackImport } from '../services/feedbackImport.js';
 import { success } from '../utils/response.js';
 import { ValidationError } from '../utils/errors.js';
 import { adminLogin } from '../services/admin.js';
@@ -116,6 +117,40 @@ adminRouter.post('/feedback/batch-tags', adminAuth, requireRole(['owner', 'admin
       updated = await batchUnassignTags(feedback_ids, tag_ids, req.orgId);
     }
     success(res, { updated });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// CSV import. Registered after the batch routes and before `/feedback/:id`
+// so the literal segment can never be captured by an `:id` route; the endpoint
+// only accepts POST, which also keeps it clear of the generic PATCH handler.
+adminRouter.post('/feedback/import', adminAuth, requireRole(['owner', 'admin']), async (req, res, next) => {
+  try {
+    const { project_id, rows, dry_run } = req.body ?? {};
+    if (typeof project_id !== 'string' || !project_id) {
+      throw new ValidationError('缺少项目 ID');
+    }
+    if (!Array.isArray(rows)) {
+      throw new ValidationError('导入数据格式错误');
+    }
+
+    const importParams = {
+      orgId: req.orgId!,
+      projectId: project_id,
+      rows,
+      memberId: req.memberId,
+    };
+
+    if (dry_run) {
+      success(res, await previewFeedbackImport(importParams));
+      return;
+    }
+
+    const result = await commitFeedbackImport(importParams);
+    // Invalid rows keep the success envelope (code: 0) so the admin client can
+    // read `data.invalid_rows`; the HTTP status still signals the rejection.
+    success(res, result, result.invalid_rows.length > 0 ? 400 : 200);
   } catch (err) {
     next(err);
   }

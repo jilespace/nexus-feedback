@@ -83,6 +83,7 @@ export function statusLabel(status: FeedbackStatus, language?: string): string {
 
 const SOURCE_LABELS: Record<FeedbackSource, { zh: string; en: string }> = {
   api: { zh: 'API', en: 'API' },
+  import: { zh: '导入', en: 'Import' },
   widget: { zh: 'Widget', en: 'Widget' },
   'submit-page': { zh: '提交页', en: 'Submit page' },
   board: { zh: '看板', en: 'Board' },

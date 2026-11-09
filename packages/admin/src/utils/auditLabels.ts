@@ -7,6 +7,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   'feedback.restore': '恢复反馈',
   'feedback.merge': '合并反馈',
   'feedback.assign': '指派反馈',
+  'feedback.import': '批量导入',
   'feedback.batch_assign': '批量指派',
   'feedback.batch_status': '批量变更状态',
   'feedback.batch_tags': '批量标签',
