@@ -745,10 +745,11 @@ node scripts/perf.mjs --mode=preview --base-api=http://localhost:3000 --chrome-p
   但仍是本机 loopback 数据（未做 CPU/网络节流），适合页面对比与改动前后回归，而非线上性能基线。
 - 退出码：`0` = 报告生成成功（即使存在阈值 FAIL）；`1` = 环境错误（服务不可达、dist 缺失、Chrome 启动失败等）。
 
-## 13. 无障碍审计（`pnpm a11y`）
+## 13. 无障碍审计（`pnpm a11y` / `pnpm a11y:check`）
 
 零依赖无障碍（a11y）审计脚本（Node 24 内置 WebSocket + Chrome CDP，不引入 axe/Lighthouse），
-对关键页面做 DOM 级近似审计，输出中文表格与 JSON/Markdown 报告，用于发现并回归无障碍问题。
+对关键页面做 DOM 级近似审计，输出中文表格与 JSON/Markdown 报告，用于发现并回归无障碍问题；
+`pnpm a11y:check` 为阈值门禁模式，可接入 CI / 提交前检查。
 
 ### 前置条件
 
@@ -759,12 +760,19 @@ node scripts/perf.mjs --mode=preview --base-api=http://localhost:3000 --chrome-p
 ### 使用
 
 ```bash
-# 全量审计（7 个页面）
+# 全量审计（7 个页面）——默认只报告，不影响退出码
 pnpm a11y
+
+# 质量门禁：存在严重问题则退出码 1（用于 CI / 提交前检查）
+pnpm a11y:check
 
 # 只审计部分页面（迭代修复时更快）
 node scripts/a11y.mjs --only=submit
 node scripts/a11y.mjs --only=board-home,board-detail
+
+# 自定义门禁阈值：严重不容忍、允许最多 2 个中等
+node scripts/a11y.mjs --fail-on=medium --max-medium=2
+node scripts/a11y.mjs --fail-on=medium --only=admin-feedback
 
 # 覆盖服务地址 / Chrome 端口
 node scripts/a11y.mjs --base-admin=http://localhost:8080 --chrome-port=9222
@@ -775,6 +783,8 @@ node scripts/a11y.mjs --base-admin=http://localhost:8080 --chrome-port=9222
 | `--base-admin` / `--base-board` / `--base-submit` / `--base-api` | 本地默认端口 | 页面与 API 地址 |
 | `--chrome-port` | `9222` | Chrome CDP 端口；不可用时自动启动 headless Chrome |
 | `--only` | 空（全部） | 只审计指定页面，逗号分隔：`submit,board-home,board-detail,admin-login,admin-dashboard,admin-feedback,admin-notifications` |
+| `--fail-on` | `none` | 门禁阈值：`none`（只报告）/ `serious`（存在严重即失败）/ `medium`（存在严重或中等超限即失败） |
+| `--max-medium` | `0` | 仅 `--fail-on=medium` 生效：允许的中等问题总数上限 |
 | `--help` | — | 显示帮助 |
 
 ### 覆盖页面
@@ -806,7 +816,27 @@ node scripts/a11y.mjs --base-admin=http://localhost:8080 --chrome-port=9222
   仅有中等 → WARN、否则 PASS。
 - 结果写入 `.tools/a11y/report-{timestamp}.json`（完整明细，含选择器/片段/比率）与 `.md`
   （中文表格 + 问题明细），`.tools/` 已 gitignore；终端同时打印汇总表与报告路径。
-- 报告只做诊断，**不修复业务代码**；`pnpm a11y` 发现问题不影响退出码（环境错误才返回 1）。
+- 报告只做诊断，**不修复业务代码**；默认 `--fail-on=none` 不影响退出码，启用门禁后按阈值返回 0/1。
 - 注意：这是 DOM 级近似审计，不是完整 WCAG 合规工具；键盘顺序/对比度为启发式结果，
   需结合人工复核。
+
+### 质量门禁（`--fail-on` / `pnpm a11y:check`）
+
+- 阈值语义：
+  - `--fail-on=none`（默认）：只输出报告，退出码始终 0；
+  - `--fail-on=serious`：总「严重」数 > 0 或任一页面采集失败 → 退出码 1，否则 0（`pnpm a11y:check` 等价于此）；
+  - `--fail-on=medium`：在 serious 规则之外，「中等」总数 > `--max-medium`（默认 0）→ 退出码 1。
+- 审计结束（报告生成后）终端打印 `门禁：PASS/FAIL`、参数、总量计数、各页计数、超阈值页面与退出码；
+  JSON 报告新增 `gate` 字段：`{ enabled, failOn, maxMedium, status, exitCode, totals, perPage, reasons, failedPages }`，
+  Markdown 报告新增「门禁」小节（参数/结果/各页计数）。
+- 页面采集失败视为门禁失败（数据不完整时不放行）；环境初始化失败仍返回 1。
+- 当前基线（2026-11，7 页）：**严重 0 / 中等 1 / 轻微 0**；`pnpm a11y:check` → PASS（exit 0），
+  唯一中等项在 feedback（登录态）页的 1 处对比度问题（动态数据相关，详见报告 `.tools/a11y/`）。
+- 常用命令：
+
+```bash
+pnpm a11y:check                                   # CI 门禁：严重 0 才通过
+node scripts/a11y.mjs --fail-on=medium --max-medium=2 --only=admin-feedback
+node scripts/a11y.mjs --only=admin-login          # 单独看某页，不影响退出码
+```
 

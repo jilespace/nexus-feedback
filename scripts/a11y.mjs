@@ -19,7 +19,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import os from 'node:os';
 import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const REPORT_DIR = path.join(ROOT, '.tools', 'a11y');
@@ -54,6 +54,8 @@ function parseArgs(argv) {
     baseSubmit: 'http://localhost:8081',
     chromePort: 9222,
     only: '',
+    failOn: 'none',
+    maxMedium: null,
     help: false,
   };
   const keyMap = {
@@ -63,6 +65,8 @@ function parseArgs(argv) {
     'base-submit': 'baseSubmit',
     'chrome-port': 'chromePort',
     only: 'only',
+    'fail-on': 'failOn',
+    'max-medium': 'maxMedium',
   };
   for (const arg of argv) {
     if (arg === '--help' || arg === '-h') {
@@ -75,16 +79,29 @@ function parseArgs(argv) {
     if (!optionKey) throw new Error(`未知参数: ${arg}（使用 --help 查看用法）`);
     const value = String(match[2] ?? '').trim().replace(/\/+$/, '');
     if (!value) throw new Error(`参数 --${match[1]} 需要一个值`);
-    options[optionKey] = optionKey === 'chromePort' ? Number(value) : value;
+    if (optionKey === 'chromePort' || optionKey === 'maxMedium') {
+      const numeric = Number(value);
+      if (!Number.isInteger(numeric)) throw new Error(`--${match[1]} 需要整数`);
+      options[optionKey] = numeric;
+      continue;
+    }
+    options[optionKey] = value;
   }
   if (Number.isNaN(options.chromePort)) throw new Error('--chrome-port 需要数字');
+  if (!['none', 'serious', 'medium'].includes(options.failOn)) {
+    throw new Error(`--fail-on 仅支持 none / serious / medium（当前 ${options.failOn}）`);
+  }
+  if (options.maxMedium !== null && options.maxMedium < 0) {
+    throw new Error('--max-medium 不能为负数');
+  }
   return options;
 }
 
 const USAGE = `Nexus Feedback 无障碍审计（CDP，零依赖）
 
 用法:
-  pnpm a11y
+  pnpm a11y                       # 仅审计并输出报告（默认 --fail-on=none）
+  pnpm a11y:check                 # 质量门禁：存在严重问题则退出码 1
   node scripts/a11y.mjs [参数]
 
 参数:
@@ -94,11 +111,13 @@ const USAGE = `Nexus Feedback 无障碍审计（CDP，零依赖）
   --base-submit=<url>  公开提交页地址（默认 http://localhost:8081）
   --chrome-port=<port> Chrome CDP 端口（默认 9222；缺失时自动启动 headless Chrome）
   --only=<keys>        只审计指定页面（逗号分隔：submit,board-home,board-detail,admin-login,admin-dashboard,admin-feedback,admin-notifications）
+  --fail-on=<mode>     门禁阈值：none（默认，不影响退出码）/ serious（存在严重即失败）/ medium（存在严重或中等超限即失败）
+  --max-medium=<n>     仅 --fail-on=medium 时生效：允许的中等问题总数上限（默认 0）
   --help               显示本帮助
 
+门禁退出码：0 = PASS（或门禁未启用）；1 = FAIL（超阈值或环境/采集错误）。
 覆盖：提交页、board 首页/详情、admin 登录页 + dashboard/feedback/notifications（登录态注入）。
-输出：终端中文表格 + .tools/a11y/report-{timestamp}.json/.md。
-发现 a11y 问题只做报告、不影响退出码；环境错误时退出码为 1。`;
+输出：终端中文表格 + 门禁结果 + .tools/a11y/report-{timestamp}.json/.md（JSON 含 gate 字段）。`;
 
 // ---------------------------------------------------------------------------
 // 小工具
@@ -1170,7 +1189,7 @@ function buildMarkdown(report) {
   lines.push(`- 视口：${report.environment.viewport.width}×${report.environment.viewport.height}`);
   lines.push(`- 页面：${report.environment.baseAdmin} / ${report.environment.baseBoard} / ${report.environment.baseSubmit} / API ${report.environment.baseApi}`);
   lines.push('- 说明：DOM 级近似审计（可访问名称/标签/ARIA/对比度为近似实现），对比度按 computed color 与其祖先背景色计算；');
-  lines.push('  发现的问题仅做报告，不影响退出码。');
+  lines.push('  默认只做报告，使用 `--fail-on`（或 `pnpm a11y:check`）可启用质量门禁，见下方「门禁」。');
   lines.push('');
   lines.push('## 汇总');
   lines.push('');
@@ -1190,6 +1209,37 @@ function buildMarkdown(report) {
     );
   }
   lines.push('');
+  const gate = report.gate;
+  if (gate) {
+    lines.push('## 门禁');
+    lines.push('');
+    const modeLabel =
+      gate.failOn === 'none'
+        ? '未启用（--fail-on=none）'
+        : gate.failOn === 'serious'
+          ? '--fail-on=serious（存在严重即失败）'
+          : `--fail-on=medium（允许中等 ≤ ${gate.maxMedium}）`;
+    const statusLabel = gate.status === 'disabled' ? '未启用' : gate.status === 'pass' ? '✅ PASS' : '❌ FAIL';
+    lines.push(`- 模式：${modeLabel}`);
+    lines.push(`- 结果：${statusLabel}（退出码 ${gate.exitCode}）`);
+    lines.push(`- 计数：严重 ${gate.totals.serious} / 中等 ${gate.totals.moderate} / 轻微 ${gate.totals.minor}`);
+    if (gate.reasons.length) {
+      lines.push('- 原因：');
+      for (const reason of gate.reasons) lines.push(`  - ${reason}`);
+    }
+    if (gate.failedPages.length) lines.push(`- 超阈值页面：${gate.failedPages.join('、')}`);
+    lines.push('');
+    lines.push('| 页面 | 严重 | 中等 | 轻微 |');
+    lines.push('|---|---|---|---|');
+    for (const page of gate.perPage) {
+      if (!page.ok) {
+        lines.push(`| ${page.label} | - | - | - |`);
+        continue;
+      }
+      lines.push(`| ${page.label} | ${page.serious} | ${page.moderate} | ${page.minor} |`);
+    }
+    lines.push('');
+  }
   lines.push('## 问题明细');
   lines.push('');
   for (const page of report.pages) {
@@ -1236,12 +1286,97 @@ function buildMarkdown(report) {
   lines.push('## 复跑方式');
   lines.push('');
   lines.push('```bash');
-  lines.push('pnpm a11y');
+  lines.push('pnpm a11y                              # 仅报告');
+  lines.push('pnpm a11y:check                        # 质量门禁（存在严重则 exit 1）');
+  lines.push('node scripts/a11y.mjs --fail-on=medium --max-medium=2 --only=admin-login');
   lines.push('```');
   lines.push('');
   lines.push('JSON 报告包含每个问题的选择器、片段与完整明细。');
   lines.push('');
   return lines.join('\n');
+}
+
+function buildGate(pages, options) {
+  const perPage = pages.map((entry) => ({
+    key: entry.page.key,
+    label: entry.page.label,
+    url: entry.page.url,
+    ok: entry.ok,
+    error: entry.error ?? null,
+    serious: entry.ok ? entry.summary.counts.serious : null,
+    moderate: entry.ok ? entry.summary.counts.moderate : null,
+    minor: entry.ok ? entry.summary.counts.minor : null,
+  }));
+  const totals = { serious: 0, moderate: 0, minor: 0 };
+  for (const page of perPage) {
+    if (!page.ok) continue;
+    totals.serious += page.serious;
+    totals.moderate += page.moderate;
+    totals.minor += page.minor;
+  }
+
+  const enabled = options.failOn !== 'none';
+  const allowedMedium = options.failOn === 'medium' ? (options.maxMedium ?? 0) : null;
+  const reasons = [];
+  const collectionErrors = perPage.filter((page) => !page.ok).map((page) => `${page.label}：${page.error ?? '采集失败'}`);
+  if (enabled) {
+    if (collectionErrors.length) reasons.push(`页面采集失败：${collectionErrors.join('；')}`);
+    if (totals.serious > 0) reasons.push(`严重问题 ${totals.serious} > 允许上限 0`);
+    if (options.failOn === 'medium' && totals.moderate > allowedMedium) {
+      reasons.push(`中等问题 ${totals.moderate} > 允许上限 ${allowedMedium}`);
+    }
+  }
+  const status = !enabled ? 'disabled' : reasons.length ? 'fail' : 'pass';
+  const failedPages =
+    enabled && status === 'fail'
+      ? perPage
+          .filter(
+            (page) =>
+              !page.ok ||
+              (page.serious ?? 0) > 0 ||
+              (options.failOn === 'medium' && (page.moderate ?? 0) > 0),
+          )
+          .map((page) => page.label)
+      : [];
+
+  return {
+    enabled,
+    failOn: options.failOn,
+    maxMedium: allowedMedium,
+    status,
+    exitCode: status === 'fail' ? 1 : 0,
+    totals,
+    perPage,
+    reasons,
+    failedPages,
+  };
+}
+
+function printGate(gate) {
+  if (!gate.enabled) {
+    console.log('门禁：未启用（--fail-on=none，仅输出报告）');
+    console.log(`  计数：严重 ${gate.totals.serious} / 中等 ${gate.totals.moderate} / 轻微 ${gate.totals.minor}`);
+    return;
+  }
+  const label =
+    gate.failOn === 'serious'
+      ? '--fail-on=serious（存在严重即失败）'
+      : `--fail-on=medium（允许中等 ≤ ${gate.maxMedium}）`;
+  console.log(`门禁：${gate.status === 'pass' ? 'PASS' : 'FAIL'}（${label}）`);
+  console.log(`  计数：严重 ${gate.totals.serious} / 中等 ${gate.totals.moderate} / 轻微 ${gate.totals.minor}`);
+  console.log('  各页计数：');
+  for (const page of gate.perPage) {
+    const counts = page.ok
+      ? `严重 ${page.serious} / 中等 ${page.moderate} / 轻微 ${page.minor}`
+      : `采集失败（${page.error ?? '未知错误'}）`;
+    console.log(`    ${padCell(page.label, 22)} ${counts}`);
+  }
+  if (gate.reasons.length) {
+    console.log('  原因：');
+    for (const reason of gate.reasons) console.log(`    - ${reason}`);
+  }
+  if (gate.failedPages.length) console.log(`  超阈值页面：${gate.failedPages.join('、')}`);
+  console.log(`  退出码：${gate.exitCode}`);
 }
 
 function printConsoleTable(report) {
@@ -1280,7 +1415,13 @@ function printConsoleTable(report) {
 // main
 // ---------------------------------------------------------------------------
 async function main() {
-  const options = parseArgs(process.argv.slice(2));
+  let options;
+  try {
+    options = parseArgs(process.argv.slice(2));
+  } catch (error) {
+    console.error(`参数错误：${error instanceof Error ? error.message : error}`);
+    return 1;
+  }
   if (options.help) {
     console.log(USAGE);
     return 0;
@@ -1348,6 +1489,7 @@ async function main() {
       }
     }
 
+    const gate = buildGate(pages, options);
     const report = {
       generatedAt: startedAt.toISOString(),
       environment: {
@@ -1358,7 +1500,10 @@ async function main() {
         baseBoard: options.baseBoard,
         baseSubmit: options.baseSubmit,
         baseApi: options.baseApi,
+        failOn: options.failOn,
+        maxMedium: options.maxMedium,
       },
+      gate,
       pages,
     };
 
@@ -1371,19 +1516,8 @@ async function main() {
 
     printConsoleTable(report);
     console.log('');
-    const total = pages.reduce(
-      (acc, page) => {
-        if (!page.ok) return acc;
-        acc.serious += page.summary.counts.serious;
-        acc.moderate += page.summary.counts.moderate;
-        acc.minor += page.summary.counts.minor;
-        return acc;
-      },
-      { serious: 0, moderate: 0, minor: 0 },
-    );
-    console.log(`合计：严重 ${total.serious} / 中等 ${total.moderate} / 轻微 ${total.minor}`);
-    const failedPages = pages.filter((page) => page.ok && page.summary.counts.serious > 0).map((page) => page.page.label);
-    if (failedPages.length) console.log(`存在严重问题的页面：${failedPages.join('、')}`);
+    console.log(`合计：严重 ${gate.totals.serious} / 中等 ${gate.totals.moderate} / 轻微 ${gate.totals.minor}`);
+    printGate(gate);
     console.log('');
     console.log(`JSON 报告：${path.relative(ROOT, jsonPath)}`);
     console.log(`Markdown 报告：${path.relative(ROOT, mdPath)}`);
@@ -1407,7 +1541,7 @@ async function main() {
       }
     }
 
-    return 0;
+    return gate.exitCode;
   } catch (error) {
     console.error('a11y 审计失败:', error instanceof Error ? error.message : error);
     return 1;
@@ -1424,26 +1558,34 @@ async function main() {
   }
 }
 
-main()
-  .then((exitCode) => {
-    process.exitCode = exitCode;
-  })
-  .catch((error) => {
-    console.error('a11y 脚本崩溃:', error);
-    process.exitCode = 1;
-  });
+export { buildGate };
 
-// 兜底：异常退出时也尽量回收本脚本启动的 headless Chrome。
-process.on('exit', () => {
-  const started = chromeManager.started;
-  if (started?.child?.pid && process.platform === 'win32') {
-    try {
-      execFileSync('taskkill', ['/pid', String(started.child.pid), '/T', '/F'], {
-        stdio: 'ignore',
-        timeout: 8000,
-      });
-    } catch {
-      /* ignore */
+const isDirectRun =
+  Boolean(process.argv[1]) &&
+  import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
+
+if (isDirectRun) {
+  main()
+    .then((exitCode) => {
+      process.exitCode = exitCode;
+    })
+    .catch((error) => {
+      console.error('a11y 脚本崩溃:', error);
+      process.exitCode = 1;
+    });
+
+  // 兜底：异常退出时也尽量回收本脚本启动的 headless Chrome。
+  process.on('exit', () => {
+    const started = chromeManager.started;
+    if (started?.child?.pid && process.platform === 'win32') {
+      try {
+        execFileSync('taskkill', ['/pid', String(started.child.pid), '/T', '/F'], {
+          stdio: 'ignore',
+          timeout: 8000,
+        });
+      } catch {
+        /* ignore */
+      }
     }
-  }
-});
+  });
+}
