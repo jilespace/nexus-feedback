@@ -5,6 +5,53 @@
 
 ## 轮次记录
 
+### Round 3 — 2026-11-10（功能迭代：命令面板 / 内联编辑 / SEO 分享 / Widget 优先级）
+
+**本轮完成（Lead + 2 teammate）**
+- **⌘K 命令面板**（Lead）：页面跳转（角色过滤）、反馈关键词搜索（状态/分类展示）、快捷操作
+  （新建更新日志、复制公开看板链接、邀请成员、切换主题/语言、快捷键帮助）；完整键盘操作
+  （↑↓/↵/Esc）、移动端适配；侧边栏与移动端顶栏入口；导航配置抽到 `config/navigation.ts` 复用。
+- **反馈内联编辑**（Lead，全栈）：新增 `PATCH /admin/feedback/:id`（owner/admin）→ zod 校验、
+  分类合法性、审计日志；详情页编辑弹窗（标题/描述/分类/优先级/联系方式、字段级错误、dirty 提交）。
+  **修复路由顺序 bug**：通用 PATCH 路由曾 shadow `/feedback/batch-status|batch-assign`，已移到批量
+  路由之后，并补了 2 条路由顺序回归测试。
+- **仪表盘运营视图**（Lead）：新增「最近动态」（审计流）与「分配给我」两卡；审计标签/色调抽到
+  `utils/auditLabels.ts` 复用。
+- **公开看板 SEO 与分享**（teammate board-seo）：`usePageMeta` 按路由维护 title/description/
+  canonical/OG/Twitter（upsert 无重复）；详情 JSON-LD（DiscussionForumPosting）、更新日志 JSON-LD
+  （Blog）；分享按钮（native share / 复制链接 + aria-live）；index.html 静态兜底。
+- **Widget 优先级字段**（teammate widget-priority）：服务端已有 `fields.priority` 但前端从未渲染；
+  新增可访问 segmented 控件（radiogroup + roving tabindex + 方向键/Home/End）、默认 medium、
+  按开关决定是否附带 payload；IIFE +1.6%（183.87KB / gzip 58.2KB）。
+- 深链：`/changelog?new=1` 自动打开创建表单、`/members?invite=1` 自动打开邀请弹窗。
+
+**验证**
+- `pnpm typecheck` ✅、`pnpm build` 5 包 ✅、`pnpm lint` 0 error ✅、`pnpm test` **167/167** ✅（新增
+  updateFeedbackContent 5 条 + 路由顺序 2 条）。
+- CDP 实测：⌘K 打开/搜索/键盘/移动端（390 无溢出）；编辑弹窗保存后详情标题即时更新并已还原；
+  命令面板「新建更新日志」→ /changelog 且表单自动展开；看板 4 条路由 title/canonical/OG/JSON-LD
+  断言全部正确且无重复；Widget 优先级 41/41 检查通过（payload/开关/键盘/移动端/主题）。
+- 截图：`.tools/shots/r3/`、`.tools/shots/seo/`、`.tools/shots/widget-priority/`。
+
+**提交**：`3229e68`（命令面板+内联编辑）、`c9d92f7`（board SEO+分享）、`e36c9ad`（widget 优先级）、
+`13aca5c`（dashboard 动态卡+路由修复）
+
+**遗留 / 技术债**
+- 命令面板反馈搜索用的是 admin 关键词接口（不支持拼音/模糊），后续可加分类/状态快捷筛选 chip。
+- 内联编辑目前只覆盖正文级字段；状态/负责人沿用操作栏（有意为之）。
+- 通知中心需要新建数据模型（未做，列入 Round 4）；audit 流只作为活动视图，不是未读通知。
+- 共享 Switch/FieldLabel/SecretInput 仍分散在多个页面，待收敛到 `components/ui.tsx`。
+- 公开端保持截图级回归；可补 Playwright/脚本冒烟到 `.tools/`。
+
+**下一轮计划（Round 4）**
+1. **应用内通知中心（全栈）**：新增 Notification 模型 + 迁移；状态变更/指派/新评论时写入；
+   API（列表/未读数/全部已读）；Layout 顶栏铃铛 + 下拉面板 + 移动端；60s 轮询或手动刷新。
+2. Dashboard 通知入口与未读角标联动；通知偏好页补充"站内通知"开关（若模型支持）。
+3. 反馈列表增加「按我负责」快捷筛选 chip；详情页状态流转补快捷备注。
+4. 收敛共享表单基元（Switch/Field/SecretInput）并替换各页重复实现。
+5. Playwright 冒烟脚本（公开端 + 关键后台流程），纳入 `pnpm test:e2e`（若环境允许）。
+
+
 ### Round 2 — 2026-11-10（后台剩余页面 + 全站暗色/移动审计 + 性能与健壮性）
 
 **本轮完成**
