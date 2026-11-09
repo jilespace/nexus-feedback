@@ -104,7 +104,14 @@ export function App() {
         <div className="grid w-full max-w-[1120px] grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:gap-14">
           <BrandPanel projectName={project?.name} boardUrl={boardUrl} />
 
-          <div id="feedback-form" className="min-w-0 scroll-mt-24">
+          <div
+            id="feedback-form"
+            className={`min-w-0 scroll-mt-24 ${
+              // Reserve the form's typical height while the access check runs so the
+              // footer does not jump when the skeleton is replaced by the real form.
+              access.status === 'checking' ? 'lg:min-h-[1056px]' : ''
+            }`}
+          >
             {access.status === 'valid' && project ? (
               <SubmitForm
                 apiUrl={API_URL}
