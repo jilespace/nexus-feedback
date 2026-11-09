@@ -40,16 +40,29 @@ type NotificationSettings = Record<NotificationType, boolean> & {
   dnd: DndSettings;
 };
 
-type DndSettings = {
-  enabled: boolean;
+type DndSlot = {
   /** HH:mm, local time. */
   start: string;
   /** HH:mm, local time. */
   end: string;
 };
 
-const DEFAULT_DND: DndSettings = { enabled: false, start: '22:00', end: '08:00' };
+type DndSettings = {
+  enabled: boolean;
+  /** Up to MAX_DND_SLOTS windows; any hit mutes in-app notifications. */
+  slots: DndSlot[];
+};
+
+const DEFAULT_DND: DndSettings = { enabled: false, slots: [] };
+const MAX_DND_SLOTS = 5;
 const DND_TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const DEFAULT_SLOT: DndSlot = { start: '22:00', end: '08:00' };
+
+const slotIsValid = (slot: DndSlot): boolean =>
+  DND_TIME_RE.test(slot.start) && DND_TIME_RE.test(slot.end) && slot.start !== slot.end;
+
+const sameSlots = (a: DndSlot[], b: DndSlot[]): boolean =>
+  JSON.stringify(a) === JSON.stringify(b);
 
 const timeInputClass =
   'h-9 w-28 rounded-lg border border-surface-3 bg-surface-1/60 px-2.5 font-mono text-[13px] tabular-nums text-gray-900 transition-colors focus:border-brand-400 focus:bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-500/15 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-100';
@@ -162,24 +175,42 @@ export function NotificationsCenter() {
     settingsMutation.mutate({ [key]: value });
   };
 
-  // DND editing is local until "save": toggling the switch or picking a time
-  // only changes the draft. Saving applies the same optimistic update strategy
-  // used by the type switches above.
+  // DND editing is local until "save": toggling the switch, editing or adding
+  // windows only changes the draft. Saving applies the same optimistic update
+  // strategy used by the type switches above.
   const serverDnd = settings?.dnd ?? DEFAULT_DND;
   const dnd = dndDraft ?? serverDnd;
   const dndDirty =
     !!dndDraft &&
-    (dndDraft.enabled !== serverDnd.enabled ||
-      dndDraft.start !== serverDnd.start ||
-      dndDraft.end !== serverDnd.end);
-  const dndTimesValid = DND_TIME_RE.test(dnd.start) && DND_TIME_RE.test(dnd.end);
+    (dndDraft.enabled !== serverDnd.enabled || !sameSlots(dndDraft.slots, serverDnd.slots));
+  const dndRowsValid = dnd.slots.every(slotIsValid);
+  const dndCanSave =
+    dnd.slots.length <= MAX_DND_SLOTS && dndRowsValid && (!dnd.enabled || dnd.slots.length > 0);
 
   const updateDnd = (patch: Partial<DndSettings>) => {
     setDndDraft({ ...dnd, ...patch });
   };
 
+  const updateSlot = (index: number, patch: Partial<DndSlot>) => {
+    setDndDraft({
+      ...dnd,
+      slots: dnd.slots.map((slot, slotIndex) =>
+        slotIndex === index ? { ...slot, ...patch } : slot,
+      ),
+    });
+  };
+
+  const addSlot = () => {
+    if (dnd.slots.length >= MAX_DND_SLOTS) return;
+    setDndDraft({ ...dnd, slots: [...dnd.slots, { ...DEFAULT_SLOT }] });
+  };
+
+  const removeSlot = (index: number) => {
+    setDndDraft({ ...dnd, slots: dnd.slots.filter((_, slotIndex) => slotIndex !== index) });
+  };
+
   const saveDnd = () => {
-    if (!settings || !dndDirty || !dndTimesValid) return;
+    if (!settings || !dndDirty || !dndCanSave) return;
     queryClient.setQueryData(['notification-settings'], { ...settings, dnd });
     settingsMutation.mutate(
       { dnd },
@@ -427,76 +458,126 @@ export function NotificationsCenter() {
                 />
               </div>
 
-              <div className="mt-3 flex flex-wrap items-end gap-3">
-                <div>
-                  <label htmlFor="dnd-start" className={fieldLabelClass}>
-                    {t('page.settings.dnd.start')}
-                  </label>
-                  <input
-                    id="dnd-start"
-                    type="time"
-                    value={dnd.start}
-                    onChange={(event) => updateDnd({ start: event.target.value })}
-                    disabled={!dnd.enabled || settingsMutation.isPending}
-                    aria-invalid={!DND_TIME_RE.test(dnd.start)}
-                    className={clsx(
-                      timeInputClass,
-                      !DND_TIME_RE.test(dnd.start) &&
-                        'border-rose-400 focus:border-rose-400 focus:ring-rose-500/15',
-                    )}
-                  />
-                </div>
-                <span className="pb-2 text-xs text-gray-400 dark:text-gray-500">–</span>
-                <div>
-                  <label htmlFor="dnd-end" className={fieldLabelClass}>
-                    {t('page.settings.dnd.end')}
-                  </label>
-                  <input
-                    id="dnd-end"
-                    type="time"
-                    value={dnd.end}
-                    onChange={(event) => updateDnd({ end: event.target.value })}
-                    disabled={!dnd.enabled || settingsMutation.isPending}
-                    aria-invalid={!DND_TIME_RE.test(dnd.end)}
-                    className={clsx(
-                      timeInputClass,
-                      !DND_TIME_RE.test(dnd.end) &&
-                        'border-rose-400 focus:border-rose-400 focus:ring-rose-500/15',
-                    )}
-                  />
-                </div>
-                {dndDirty && (
-                  <div className="ml-auto flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setDndDraft(null)}
-                      disabled={settingsMutation.isPending}
+              <div className="mt-3 space-y-2">
+                {dnd.slots.map((slot, index) => {
+                  const timesInvalid =
+                    !DND_TIME_RE.test(slot.start) || !DND_TIME_RE.test(slot.end);
+                  const sameTime = !timesInvalid && slot.start === slot.end;
+                  const rowInvalid = timesInvalid || sameTime;
+                  return (
+                    <div
+                      key={index}
+                      className="rounded-lg border border-surface-3/70 bg-surface-1/40 px-3 py-2 dark:border-gray-700/60 dark:bg-gray-900/20"
                     >
-                      {t('page.settings.dnd.cancel')}
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={saveDnd}
-                      disabled={!dndTimesValid || settingsMutation.isPending}
-                    >
-                      {settingsMutation.isPending
-                        ? t('page.settings.dnd.saving')
-                        : t('page.settings.dnd.save')}
-                    </Button>
-                  </div>
+                      <div className="flex flex-wrap items-end gap-2.5">
+                        <span className="pb-2 text-[11px] font-medium text-gray-400 dark:text-gray-500">
+                          {t('page.settings.dnd.slotLabel', { index: index + 1 })}
+                        </span>
+                        <div>
+                          <label htmlFor={`dnd-slot-${index}-start`} className={fieldLabelClass}>
+                            {t('page.settings.dnd.start')}
+                          </label>
+                          <input
+                            id={`dnd-slot-${index}-start`}
+                            type="time"
+                            value={slot.start}
+                            onChange={(event) => updateSlot(index, { start: event.target.value })}
+                            disabled={!dnd.enabled || settingsMutation.isPending}
+                            aria-invalid={rowInvalid}
+                            className={clsx(
+                              timeInputClass,
+                              rowInvalid &&
+                                'border-rose-400 focus:border-rose-400 focus:ring-rose-500/15',
+                            )}
+                          />
+                        </div>
+                        <span className="pb-2 text-xs text-gray-400 dark:text-gray-500">–</span>
+                        <div>
+                          <label htmlFor={`dnd-slot-${index}-end`} className={fieldLabelClass}>
+                            {t('page.settings.dnd.end')}
+                          </label>
+                          <input
+                            id={`dnd-slot-${index}-end`}
+                            type="time"
+                            value={slot.end}
+                            onChange={(event) => updateSlot(index, { end: event.target.value })}
+                            disabled={!dnd.enabled || settingsMutation.isPending}
+                            aria-invalid={rowInvalid}
+                            className={clsx(
+                              timeInputClass,
+                              rowInvalid &&
+                                'border-rose-400 focus:border-rose-400 focus:ring-rose-500/15',
+                            )}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeSlot(index)}
+                          disabled={settingsMutation.isPending}
+                          aria-label={t('page.settings.dnd.removeSlot', { index: index + 1 })}
+                          title={t('page.settings.dnd.removeSlot', { index: index + 1 })}
+                          className="mb-0.5 ml-auto flex h-8 w-8 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-rose-500/10 dark:hover:text-rose-400"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      </div>
+                      {rowInvalid && (
+                        <p role="alert" className="mt-1.5 text-[11px] text-rose-600 dark:text-rose-400">
+                          {sameTime
+                            ? t('page.settings.dnd.sameTimeError')
+                            : t('page.settings.dnd.invalidTime')}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={addSlot}
+                    disabled={
+                      dnd.slots.length >= MAX_DND_SLOTS ||
+                      !dnd.enabled ||
+                      settingsMutation.isPending
+                    }
+                  >
+                    + {t('page.settings.dnd.addSlot')}
+                  </Button>
+                  {dnd.slots.length >= MAX_DND_SLOTS && (
+                    <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                      {t('page.settings.dnd.maxSlotsHint', { count: MAX_DND_SLOTS })}
+                    </span>
+                  )}
+                  {dndDirty && (
+                    <div className="ml-auto flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDndDraft(null)}
+                        disabled={settingsMutation.isPending}
+                      >
+                        {t('page.settings.dnd.cancel')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={saveDnd}
+                        disabled={!dndCanSave || settingsMutation.isPending}
+                      >
+                        {settingsMutation.isPending
+                          ? t('page.settings.dnd.saving')
+                          : t('page.settings.dnd.save')}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                {dnd.enabled && dnd.slots.length === 0 && (
+                  <p role="alert" className="text-[11px] text-accent-600 dark:text-accent-300">
+                    {t('page.settings.dnd.emptySlotsHint')}
+                  </p>
                 )}
               </div>
-              {!dndTimesValid && (
-                <p role="alert" className="mt-2 text-[11px] text-rose-600 dark:text-rose-400">
-                  {t('page.settings.dnd.invalidTime')}
-                </p>
-              )}
-              {dnd.enabled && dndTimesValid && dnd.start === dnd.end && (
-                <p className="mt-2 text-[11px] text-accent-600 dark:text-accent-300">
-                  {t('page.settings.dnd.sameTimeHint')}
-                </p>
-              )}
             </li>
           </ul>
         )}

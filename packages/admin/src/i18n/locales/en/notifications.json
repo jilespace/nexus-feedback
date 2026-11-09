@@ -80,15 +80,20 @@
       },
       "dnd": {
         "title": "Do not disturb",
-        "description": "While enabled, in-app notifications are muted during this window (it may cross midnight). Email subscriptions are not affected.",
-        "switchLabel": "Do not disturb window",
+        "description": "While enabled, in-app notifications are muted during any of the windows below (they may cross midnight). Email subscriptions are not affected.",
+        "switchLabel": "Do not disturb windows",
         "start": "Start time",
         "end": "End time",
-        "save": "Save window",
+        "slotLabel": "Window {{index}}",
+        "addSlot": "Add window",
+        "removeSlot": "Remove window {{index}}",
+        "save": "Save windows",
         "saving": "Saving…",
         "cancel": "Cancel",
         "invalidTime": "Enter a valid time (HH:mm)",
-        "sameTimeHint": "Start and end are equal, so the window will not apply."
+        "sameTimeError": "Start and end cannot be the same",
+        "emptySlotsHint": "Add at least one window for quiet hours to take effect",
+        "maxSlotsHint": "Up to {{count}} windows"
       }
     },
     "clear": {

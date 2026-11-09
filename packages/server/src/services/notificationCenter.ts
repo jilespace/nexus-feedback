@@ -9,13 +9,20 @@ export type NotificationType =
   | 'feedback.status_changed'
   | 'feedback.comment';
 
-/** Do-not-disturb window for in-app notifications (local server time). */
+/** One do-not-disturb window (inclusive `start`, exclusive `end`, HH:mm local time). */
+export interface DndSlot {
+  start: string;
+  end: string;
+}
+
+/** Do-not-disturb configuration for in-app notifications (local server time). */
 export interface DndSettings {
   enabled: boolean;
-  /** Start of the quiet window, inclusive, as HH:mm (local time). */
-  start: string;
-  /** End of the quiet window, exclusive, as HH:mm (local time). */
-  end: string;
+  /**
+   * Up to MAX_DND_SLOTS quiet windows. Any hit mutes in-app notifications.
+   * An enabled config with no slots has no effect.
+   */
+  slots: DndSlot[];
 }
 
 export interface NotificationSettings extends Record<NotificationType, boolean> {
@@ -29,14 +36,16 @@ export const NOTIFICATION_TYPE_KEYS: NotificationType[] = [
   'feedback.comment',
 ];
 
-export const DEFAULT_DND: DndSettings = { enabled: false, start: '22:00', end: '08:00' };
+export const MAX_DND_SLOTS = 5;
+
+export const DEFAULT_DND: DndSettings = { enabled: false, slots: [] };
 
 const DEFAULT_SETTINGS: NotificationSettings = {
   'feedback.created': true,
   'feedback.assigned': true,
   'feedback.status_changed': true,
   'feedback.comment': true,
-  dnd: { ...DEFAULT_DND },
+  dnd: { enabled: false, slots: [] },
 };
 
 const DND_TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -51,29 +60,62 @@ function timeToMinutes(value: string): number {
   return Number(match[1]) * 60 + Number(match[2]);
 }
 
+function isSlotHit(slot: DndSlot | undefined, nowMinutes: number): boolean {
+  if (!slot || !isValidDndTime(slot.start) || !isValidDndTime(slot.end)) return false;
+  const start = timeToMinutes(slot.start);
+  const end = timeToMinutes(slot.end);
+  // start === end would mute 24h by accident; treat it as "no window".
+  if (start === end) return false;
+  return start < end ? nowMinutes >= start && nowMinutes < end : nowMinutes >= start || nowMinutes < end;
+}
+
 /**
- * Whether `date` (server-local time) falls inside the DND window.
- * Handles windows that cross midnight (e.g. 23:00–07:00) and treats
- * start === end as "no quiet window" to avoid muting the whole day by accident.
- * Pure helper so the boundary rules are unit-testable.
+ * Whether `date` (server-local time) falls inside any DND slot.
+ * Slots are half-open ([start, end)), may cross midnight and are independent of
+ * each other; a config with no valid slots never mutes (so "enabled" alone is a
+ * no-op until a window is added). Pure helper so boundary rules stay testable.
  */
 export function isWithinDnd(dnd: DndSettings, date: Date = new Date()): boolean {
-  if (!dnd.enabled) return false;
-  if (!isValidDndTime(dnd.start) || !isValidDndTime(dnd.end)) return false;
-  const start = timeToMinutes(dnd.start);
-  const end = timeToMinutes(dnd.end);
-  if (start === end) return false;
+  if (!dnd.enabled || !Array.isArray(dnd.slots) || dnd.slots.length === 0) return false;
   const now = date.getHours() * 60 + date.getMinutes();
-  return start < end ? now >= start && now < end : now >= start || now < end;
+  return dnd.slots.some((slot) => isSlotHit(slot, now));
+}
+
+function normalizeSlots(raw: unknown): DndSlot[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((slot): slot is DndSlot => {
+      if (!slot || typeof slot !== 'object' || Array.isArray(slot)) return false;
+      const candidate = slot as Record<string, unknown>;
+      return (
+        isValidDndTime(candidate.start) &&
+        isValidDndTime(candidate.end) &&
+        candidate.start !== candidate.end
+      );
+    })
+    .slice(0, MAX_DND_SLOTS)
+    .map((slot) => ({ start: slot.start, end: slot.end }));
 }
 
 function normalizeDnd(raw: unknown): DndSettings {
   const source = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  let slots: DndSlot[];
+  if (Array.isArray(source.slots)) {
+    // Invalid or surplus stored slots are dropped instead of breaking fan-out.
+    slots = normalizeSlots(source.slots);
+  } else if (
+    isValidDndTime(source.start) &&
+    isValidDndTime(source.end) &&
+    source.start !== source.end
+  ) {
+    // Backward compatibility: the previous single-window shape { enabled, start, end }.
+    slots = [{ start: source.start, end: source.end }];
+  } else {
+    slots = [];
+  }
   return {
     enabled: typeof source.enabled === 'boolean' ? source.enabled : DEFAULT_DND.enabled,
-    // Invalid stored times fall back to the defaults instead of breaking fan-out.
-    start: isValidDndTime(source.start) ? source.start : DEFAULT_DND.start,
-    end: isValidDndTime(source.end) ? source.end : DEFAULT_DND.end,
+    slots,
   };
 }
 
@@ -321,6 +363,71 @@ export async function getNotificationSettings(
   return normalizeSettings(member.notification_settings);
 }
 
+type DndPatch = { enabled?: boolean; slots?: DndSlot[] };
+
+/**
+ * Validate a (partial) DND payload. Slots replace the whole list when present.
+ * The legacy single-window { start, end } payload is still accepted and folded
+ * into a one-item slot list so older clients keep working during upgrades.
+ */
+function readDndPatch(value: unknown): DndPatch {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new ValidationError('免打扰设置格式不正确');
+  }
+  const patch = value as Record<string, unknown>;
+  const result: DndPatch = {};
+
+  if ('enabled' in patch) {
+    if (typeof patch.enabled !== 'boolean') {
+      throw new ValidationError('免打扰开关必须是布尔值');
+    }
+    result.enabled = patch.enabled;
+  }
+
+  if ('slots' in patch) {
+    if (!Array.isArray(patch.slots)) {
+      throw new ValidationError('免打扰时段必须是数组');
+    }
+    if (patch.slots.length > MAX_DND_SLOTS) {
+      throw new ValidationError(`最多添加 ${MAX_DND_SLOTS} 个免打扰时段`);
+    }
+    result.slots = patch.slots.map((slot, index) => {
+      if (!slot || typeof slot !== 'object' || Array.isArray(slot)) {
+        throw new ValidationError(`第 ${index + 1} 个免打扰时段格式不正确`);
+      }
+      const candidate = slot as Record<string, unknown>;
+      if (!isValidDndTime(candidate.start)) {
+        throw new ValidationError(
+          `第 ${index + 1} 个免打扰时段的开始时间格式无效，请使用 HH:mm`,
+        );
+      }
+      if (!isValidDndTime(candidate.end)) {
+        throw new ValidationError(
+          `第 ${index + 1} 个免打扰时段的结束时间格式无效，请使用 HH:mm`,
+        );
+      }
+      if (candidate.start === candidate.end) {
+        throw new ValidationError(`第 ${index + 1} 个免打扰时段的开始和结束时间不能相同`);
+      }
+      return { start: candidate.start, end: candidate.end };
+    });
+  } else if ('start' in patch || 'end' in patch) {
+    // Legacy payload: { enabled?, start, end }.
+    if (!isValidDndTime(patch.start)) {
+      throw new ValidationError('免打扰开始时间格式无效，请使用 HH:mm');
+    }
+    if (!isValidDndTime(patch.end)) {
+      throw new ValidationError('免打扰结束时间格式无效，请使用 HH:mm');
+    }
+    if (patch.start === patch.end) {
+      throw new ValidationError('免打扰时段的开始和结束时间不能相同');
+    }
+    result.slots = [{ start: patch.start, end: patch.end }];
+  }
+
+  return result;
+}
+
 export async function updateNotificationSettings(
   memberId: string,
   orgId: string,
@@ -330,25 +437,10 @@ export async function updateNotificationSettings(
     throw new ValidationError('通知偏好格式不正确');
   }
   const patch = input as Record<string, unknown>;
+  let validatedDndPatch: DndPatch | undefined;
   for (const [key, value] of Object.entries(patch)) {
     if (key === 'dnd') {
-      if (!value || typeof value !== 'object' || Array.isArray(value)) {
-        throw new ValidationError('免打扰设置格式不正确');
-      }
-      const dndPatch = value as Record<string, unknown>;
-      if ('enabled' in dndPatch && typeof dndPatch.enabled !== 'boolean') {
-        throw new ValidationError('免打扰开关必须是布尔值');
-      }
-      for (const field of ['start', 'end'] as const) {
-        if (!(field in dndPatch)) continue;
-        if (!isValidDndTime(dndPatch[field])) {
-          throw new ValidationError(
-            field === 'start'
-              ? '免打扰开始时间格式无效，请使用 HH:mm'
-              : '免打扰结束时间格式无效，请使用 HH:mm',
-          );
-        }
-      }
+      validatedDndPatch = readDndPatch(value);
       continue;
     }
     if (!NOTIFICATION_TYPE_KEYS.includes(key as NotificationType)) {
@@ -360,15 +452,16 @@ export async function updateNotificationSettings(
   }
 
   const current = await getNotificationSettings(memberId, orgId);
-  const next: NotificationSettings = { ...current, dnd: { ...current.dnd } };
+  const next: NotificationSettings = {
+    ...current,
+    dnd: { enabled: current.dnd.enabled, slots: [...current.dnd.slots] },
+  };
   for (const key of NOTIFICATION_TYPE_KEYS) {
     if (typeof patch[key] === 'boolean') next[key] = patch[key] as boolean;
   }
-  if (patch.dnd && typeof patch.dnd === 'object' && !Array.isArray(patch.dnd)) {
-    const dndPatch = patch.dnd as Record<string, unknown>;
-    if (typeof dndPatch.enabled === 'boolean') next.dnd.enabled = dndPatch.enabled;
-    if (isValidDndTime(dndPatch.start)) next.dnd.start = dndPatch.start;
-    if (isValidDndTime(dndPatch.end)) next.dnd.end = dndPatch.end;
+  if (validatedDndPatch) {
+    if (validatedDndPatch.enabled !== undefined) next.dnd.enabled = validatedDndPatch.enabled;
+    if (validatedDndPatch.slots !== undefined) next.dnd.slots = validatedDndPatch.slots;
   }
 
   await prisma.member.update({

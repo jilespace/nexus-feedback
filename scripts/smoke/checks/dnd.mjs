@@ -16,7 +16,7 @@ export async function checkDnd(options, context) {
   const jsonHeaders = { 'Content-Type': 'application/json', ...authHeaders };
   const settingsUrl = `${options.baseApi}/api/v1/org/notifications/settings`;
   const unreadUrl = `${options.baseApi}/api/v1/org/notifications/unread-count`;
-  const dndWindow = { enabled: true, start: '00:00', end: '23:59' };
+  const dndWindow = { enabled: true, slots: [{ start: '00:00', end: '23:59' }] };
   let originalDnd = null;
   let feedbackId = null;
 
@@ -44,8 +44,9 @@ export async function checkDnd(options, context) {
       assert(put.status === 200 && put.json?.code === 0, `开启免打扰失败 HTTP ${put.status}`);
       assert(
         put.json?.data?.dnd?.enabled === true &&
-          put.json?.data?.dnd?.start === dndWindow.start &&
-          put.json?.data?.dnd?.end === dndWindow.end,
+          Array.isArray(put.json?.data?.dnd?.slots) &&
+          put.json?.data?.dnd?.slots[0]?.start === dndWindow.slots[0].start &&
+          put.json?.data?.dnd?.slots[0]?.end === dndWindow.slots[0].end,
         '免打扰设置未生效',
       );
 
@@ -84,7 +85,7 @@ export async function checkDnd(options, context) {
       const invalid = await httpJson(settingsUrl, {
         method: 'PUT',
         headers: jsonHeaders,
-        body: JSON.stringify({ settings: { dnd: { enabled: true, start: '25:00', end: '23:59' } } }),
+        body: JSON.stringify({ settings: { dnd: { enabled: true, slots: [{ start: '25:00', end: '23:59' }] } } }),
       });
       assert(
         invalid.status === 400 && typeof invalid.json?.code === 'number' && invalid.json.code !== 0,
@@ -92,7 +93,7 @@ export async function checkDnd(options, context) {
       );
       const afterInvalid = await httpJson(settingsUrl, { headers: authHeaders });
       assert(
-        afterInvalid.json?.data?.dnd?.start === dndWindow.start,
+        afterInvalid.json?.data?.dnd?.slots?.[0]?.start === dndWindow.slots[0].start,
         '非法免打扰时间不应被写入',
       );
       return `unread ${unreadBefore} 保持不变 · 非法时间 400(code=${invalid.json.code}) · 已软删测试反馈`;
