@@ -1,9 +1,13 @@
+import '@fontsource-variable/instrument-sans/wght.css';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
 import './i18n';
 import './index.css';
+import { applyTheme, getInitialTheme } from './lib/theme';
+
+applyTheme(getInitialTheme());
 
 const root = document.getElementById('root');
 if (root) {

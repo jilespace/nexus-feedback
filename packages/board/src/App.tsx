@@ -1,35 +1,42 @@
-import { Routes, Route, NavLink } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { fetchBoardConfig } from './api';
+import type { BoardConfig } from './types';
+import { AppHeader } from './components/AppHeader';
 import { BoardHome } from './pages/BoardHome';
 import { FeedbackDetail } from './pages/FeedbackDetail';
 import { Roadmap } from './pages/Roadmap';
 import { Changelog } from './pages/Changelog';
-import type { ReactNode } from 'react';
 
-function NotFound() {
+function NotFoundPage({ showReturn = true }: { showReturn?: boolean }) {
+  const { t } = useTranslation();
+  const { projectSlug } = useParams<{ projectSlug?: string }>();
+  const base = `/${projectSlug ?? ''}`;
+
   return (
-    <div className="flex flex-col items-center justify-center py-24 text-center">
-      <p className="text-5xl font-bold text-gray-300">404</p>
-      <p className="mt-4 text-lg text-gray-500">页面不存在</p>
+    <div className="mx-auto flex max-w-3xl flex-col items-center px-4 py-20 text-center">
+      <p className="tnum text-34 font-semibold text-ink-tertiary">404</p>
+      <h1 className="mt-2 text-22 font-semibold text-ink">
+        {t('notFound.title')}
+      </h1>
+      <p className="mt-1.5 max-w-sm text-13 text-ink-secondary">
+        {t('notFound.description')}
+      </p>
+      {showReturn && (
+        <Link to={base} className="btn-primary mt-6">
+          {t('notFound.action')}
+        </Link>
+      )}
     </div>
   );
 }
 
-function NavTab({ to, children }: { to: string; children: ReactNode }) {
+function RootNotFound() {
   return (
-    <NavLink
-      to={to}
-      end
-      className={({ isActive }) =>
-        `rounded-md px-3 py-1.5 text-sm font-medium transition ${
-          isActive
-            ? 'bg-brand-50 text-brand-600'
-            : 'text-gray-500 hover:text-gray-700'
-        }`
-      }
-    >
-      {children}
-    </NavLink>
+    <div className="min-h-screen bg-canvas">
+      <NotFoundPage showReturn={false} />
+    </div>
   );
 }
 
@@ -37,49 +44,77 @@ export function App() {
   return (
     <Routes>
       <Route path="/:projectSlug/*" element={<BoardLayout />} />
-      <Route path="*" element={<NotFound />} />
+      <Route path="*" element={<RootNotFound />} />
     </Routes>
   );
 }
 
 function BoardLayout() {
   const { t, i18n } = useTranslation();
+  const { projectSlug } = useParams<{ projectSlug: string }>();
+  const location = useLocation();
+  const [config, setConfig] = useState<BoardConfig | null>(null);
 
-  const toggleLang = () => {
-    const next = i18n.language === 'zh' ? 'en' : 'zh';
-    i18n.changeLanguage(next);
-    localStorage.setItem('lang', next);
-  };
+  useEffect(() => {
+    let active = true;
+    void fetchBoardConfig()
+      .then((next) => {
+        if (active) setConfig(next);
+      })
+      .catch(() => {
+        /* header falls back to slug */
+      });
+    return () => {
+      active = false;
+    };
+  }, [projectSlug]);
+
+  const projectName = config?.project.name || projectSlug || 'Nexus Feedback';
+  const orgName = config?.organization?.name ?? undefined;
+
+  useEffect(() => {
+    document.title = `${projectName} · ${t('nav.boardSubtitle')}`;
+  }, [projectName, t]);
+
+  useEffect(() => {
+    document.documentElement.lang = i18n.language.startsWith('zh')
+      ? 'zh-CN'
+      : 'en';
+  }, [i18n.language]);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
 
   return (
-    <div className="min-h-screen bg-surface-1">
-      <header className="sticky top-0 z-40 border-b border-surface-3 bg-surface-0/80 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-6xl items-center px-4 py-3">
-          <h1 className="mr-8 text-base font-semibold text-gray-900">
-            Feedback
-          </h1>
-          <nav className="flex flex-1 gap-1">
-            <NavTab to=".">{t('nav.feedback')}</NavTab>
-            <NavTab to="roadmap">{t('nav.roadmap')}</NavTab>
-            <NavTab to="changelog">{t('nav.changelog')}</NavTab>
-          </nav>
-          <button
-            onClick={toggleLang}
-            className="rounded-md px-2 py-1 text-xs font-bold text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-          >
-            {i18n.language === 'zh' ? 'EN' : '中'}
-          </button>
-        </div>
-      </header>
-      <main>
+    <div className="flex min-h-screen flex-col">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-50 focus:rounded-control focus:border focus:border-line-subtle focus:bg-surface focus:px-3 focus:py-2 focus:text-13 focus:text-ink focus:shadow-pop"
+      >
+        {t('common.skipToContent')}
+      </a>
+      <AppHeader projectName={projectName} orgName={orgName} />
+      <main id="main-content" className="flex-1">
         <Routes>
           <Route index element={<BoardHome />} />
           <Route path="feedback/:id" element={<FeedbackDetail />} />
           <Route path="roadmap" element={<Roadmap />} />
           <Route path="changelog" element={<Changelog />} />
-          <Route path="*" element={<NotFound />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
+      <footer className="border-t border-line-subtle">
+        <div className="mx-auto flex max-w-5xl flex-col gap-1 px-4 py-6 text-11 text-ink-tertiary sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            {t('common.copyright', {
+              year: new Date().getFullYear(),
+              name: orgName || projectName,
+            })}
+          </p>
+          <p>{t('common.poweredBy')}</p>
+        </div>
+      </footer>
     </div>
   );
 }

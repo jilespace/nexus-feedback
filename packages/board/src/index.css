@@ -3,27 +3,191 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    color-scheme: light;
+
+    /* Light palette — docs/UI_REDESIGN.md §2.1 */
+    --canvas: 246 247 249;
+    --surface: 255 255 255;
+    --surface-subtle: 249 250 251;
+    --line-subtle: 229 232 238;
+    --line-strong: 203 210 222;
+    --ink: 15 23 42;
+    --ink-secondary: 71 85 105;
+    --ink-tertiary: 123 135 148;
+    --brand: 61 90 254;
+    --brand-strong: 47 71 214;
+    --brand-soft: 238 241 255;
+    --accent: 245 158 11;
+    --success: 16 185 129;
+    --danger: 239 68 68;
+    --info: 14 165 233;
+  }
+
+  .dark {
+    color-scheme: dark;
+
+    --canvas: 11 15 25;
+    --surface: 17 24 39;
+    --surface-subtle: 21 29 46;
+    --line-subtle: 31 41 55;
+    --line-strong: 51 65 85;
+    --ink: 241 245 249;
+    --ink-secondary: 148 163 184;
+    --ink-tertiary: 100 116 139;
+    --brand: 61 90 254;
+    --brand-strong: 91 114 255;
+    --brand-soft: 24 34 71;
+    --accent: 245 158 11;
+    --success: 52 211 153;
+    --danger: 248 113 113;
+    --info: 56 189 248;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
   body {
+    @apply bg-canvas font-sans text-ink antialiased;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.01em;
+  }
+
+  /* Contract §3: visible 2px brand ring + 2px offset everywhere. */
+  :focus-visible {
+    outline: 2px solid rgb(var(--brand));
+    outline-offset: 2px;
+  }
+
+  /* Inputs use their own brand border + soft ring, see .field. */
+  .field:focus-visible {
+    outline: none;
+  }
+
+  ::selection {
+    background: rgb(var(--brand) / 0.16);
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    font: inherit;
+  }
+
+  ::placeholder {
+    @apply text-ink-tertiary;
+  }
+
+  /* The board renders its own clear button for the search field. */
+  input[type='search']::-webkit-search-cancel-button,
+  input[type='search']::-webkit-search-decoration {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-card border border-line-subtle bg-surface shadow-card;
+  }
+
+  .btn {
+    @apply inline-flex h-9 select-none items-center justify-center gap-1.5 rounded-control px-3.5
+      text-13 font-medium transition-colors duration-150
+      disabled:pointer-events-none disabled:opacity-55;
+  }
+
+  .btn-sm {
+    @apply h-8 px-3 text-12;
+  }
+
+  .btn-primary {
+    @apply btn bg-brand text-white hover:bg-brand-strong;
+  }
+
+  .btn-secondary {
+    @apply btn border border-line-strong bg-surface text-ink hover:bg-surface-subtle;
+  }
+
+  .btn-ghost {
+    @apply btn text-ink-secondary hover:bg-surface-subtle hover:text-ink;
+  }
+
+  .icon-btn {
+    @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-control
+      text-ink-secondary transition-colors duration-150 hover:bg-surface-subtle hover:text-ink;
+  }
+
+  .field {
+    @apply h-10 w-full rounded-control border border-line-strong bg-surface px-3 text-13 text-ink
+      transition-colors duration-150
+      placeholder:text-ink-tertiary
+      focus:border-brand focus:outline-none focus:ring-[3px] focus:ring-brand/15
+      disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .field-area {
+    @apply field h-auto resize-none py-2.5 leading-relaxed;
+  }
+
+  .chip {
+    @apply inline-flex h-8 shrink-0 items-center gap-1.5 rounded-pill border px-3 text-12 font-medium
+      transition-colors duration-150;
+  }
+
+  .chip-idle {
+    @apply chip border-line-subtle bg-surface text-ink-secondary hover:border-line-strong hover:text-ink;
+  }
+
+  .chip-active {
+    @apply chip border-brand/30 bg-brand-soft text-brand;
+  }
+
+  .skeleton {
+    @apply animate-pulse rounded-md bg-line-subtle;
+  }
+
+  .eyebrow {
+    @apply text-11 font-semibold uppercase tracking-[0.14em] text-ink-tertiary;
   }
 }
 
 @layer utilities {
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
+  .tnum {
+    font-variant-numeric: tabular-nums;
   }
 
-  @keyframes slideUp {
-    from { opacity: 0; transform: translateY(16px); }
-    to { opacity: 1; transform: translateY(0); }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 
-  .animate-fade-in {
-    animation: fadeIn 0.3s ease-out both;
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 
-  .animate-slide-up {
-    animation: slideUp 0.4s ease-out both;
+  .text-balance {
+    text-wrap: balance;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+

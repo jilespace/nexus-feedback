@@ -18,14 +18,24 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
     }
     const k = `${keyPrefix}-${key++}`;
     if (match[1] !== undefined) {
-      nodes.push(createElement('strong', { key: k }, match[1]));
+      nodes.push(
+        createElement(
+          'strong',
+          { key: k, className: 'font-semibold text-ink' },
+          match[1],
+        ),
+      );
     } else if (match[2] !== undefined) {
       nodes.push(createElement('em', { key: k }, match[2]));
     } else if (match[3] !== undefined) {
       nodes.push(
         createElement(
           'code',
-          { key: k, className: 'rounded bg-surface-2 px-1 py-0.5 text-[0.85em] text-gray-800' },
+          {
+            key: k,
+            className:
+              'rounded border border-line-subtle bg-surface-subtle px-1 py-0.5 font-mono text-[0.85em] text-ink',
+          },
           match[3],
         ),
       );
@@ -39,7 +49,8 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
               href: match[5],
               target: '_blank',
               rel: 'noopener noreferrer',
-              className: 'text-brand-600 underline underline-offset-2 hover:text-brand-700',
+              className:
+                'font-medium text-brand underline underline-offset-2 transition-colors hover:text-brand-strong',
             },
             match[4],
           ),
@@ -85,7 +96,7 @@ export default function Markdown({ content }: { content: string }) {
           {
             key: key++,
             className:
-              'my-3 overflow-x-auto rounded-lg bg-gray-900 p-3 text-xs leading-relaxed text-gray-100',
+              'my-3 overflow-x-auto rounded-control border border-line-strong/40 bg-slate-950 p-3 font-mono text-12 leading-relaxed text-slate-100 dark:bg-black/50',
           },
           createElement('code', null, codeLines.join('\n')),
         ),
@@ -101,12 +112,16 @@ export default function Markdown({ content }: { content: string }) {
       const level = hashes.length;
       const cls =
         level === 1
-          ? 'mt-4 mb-2 text-base font-bold text-gray-900'
+          ? 'mb-2 mt-5 text-16 font-semibold text-ink first:mt-0'
           : level === 2
-            ? 'mt-3 mb-2 text-sm font-semibold text-gray-900'
-            : 'mt-2 mb-1 text-sm font-medium text-gray-800';
+            ? 'mb-1.5 mt-4 text-14 font-semibold text-ink first:mt-0'
+            : 'mb-1 mt-3 text-13 font-semibold text-ink first:mt-0';
       blocks.push(
-        createElement(('h' + level) as 'h1' | 'h2' | 'h3', { key: key++, className: cls }, renderInline(text, `h${key}`)),
+        createElement(
+          ('h' + level) as 'h1' | 'h2' | 'h3',
+          { key: key++, className: cls },
+          renderInline(text, `h${key}`),
+        ),
       );
       i++;
       continue;
@@ -124,9 +139,17 @@ export default function Markdown({ content }: { content: string }) {
       blocks.push(
         createElement(
           'ul',
-          { key: key++, className: 'my-2 list-disc space-y-1 pl-5 text-sm leading-relaxed text-gray-600' },
+          {
+            key: key++,
+            className:
+              'my-2 list-disc space-y-1.5 pl-5 text-14 leading-relaxed text-ink-secondary marker:text-ink-tertiary',
+          },
           items.map((item, idx) =>
-            createElement('li', { key: idx }, renderInline(item, `li${key}-${idx}`)),
+            createElement(
+              'li',
+              { key: idx },
+              renderInline(item, `li${key}-${idx}`),
+            ),
           ),
         ),
       );
@@ -143,18 +166,22 @@ export default function Markdown({ content }: { content: string }) {
         /^(#{1,3})\s+/.test(cur) ||
         /^\s*-\s+/.test(cur) ||
         cur.trimStart().startsWith('```')
-      ) break;
+      )
+        break;
       paraLines.push(cur);
       i++;
     }
     blocks.push(
       createElement(
         'p',
-        { key: key++, className: 'my-2 text-sm leading-relaxed text-gray-600' },
+        {
+          key: key++,
+          className: 'my-2 text-14 leading-relaxed text-ink-secondary',
+        },
         renderInline(paraLines.join('\n'), `p${key}`),
       ),
     );
   }
 
-  return <div className="markdown">{blocks}</div>;
+  return <div className="markdown [overflow-wrap:anywhere]">{blocks}</div>;
 }

@@ -1,31 +1,88 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { vote, unvote } from '../api';
+import { ArrowUpIcon, SpinnerIcon } from './Icons';
+
+const VOTED_STORAGE_KEY = 'voted_feedback_ids';
+const EMAIL_STORAGE_KEY = 'voter_email';
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function readVotedIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(VOTED_STORAGE_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((item): item is string => typeof item === 'string'));
+  } catch {
+    return new Set();
+  }
+}
+
+function writeVotedState(feedbackId: string, voted: boolean): void {
+  try {
+    const ids = readVotedIds();
+    if (voted) ids.add(feedbackId);
+    else ids.delete(feedbackId);
+    localStorage.setItem(VOTED_STORAGE_KEY, JSON.stringify([...ids]));
+  } catch {
+    /* storage may be unavailable */
+  }
+}
+
+function getStoredEmail(): string | null {
+  try {
+    return localStorage.getItem(EMAIL_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function storeEmail(email: string): void {
+  try {
+    localStorage.setItem(EMAIL_STORAGE_KEY, email);
+  } catch {
+    /* ignore */
+  }
+}
 
 interface VoteButtonProps {
   feedbackId: string;
   count: number;
+  /** 外部已知投票状态；缺省时从本机记录推断。 */
   voted?: boolean;
   onVoted?: () => void;
 }
 
-function getStoredEmail(): string | null {
-  return localStorage.getItem('voter_email');
-}
-
-function storeEmail(email: string): void {
-  localStorage.setItem('voter_email', email);
-}
-
-export function VoteButton({ feedbackId, count, voted = false, onVoted }: VoteButtonProps) {
-  const [isVoted, setIsVoted] = useState(voted);
+export function VoteButton({
+  feedbackId,
+  count,
+  voted,
+  onVoted,
+}: VoteButtonProps) {
+  const { t } = useTranslation();
+  const [isVoted, setIsVoted] = useState(
+    () => voted ?? readVotedIds().has(feedbackId),
+  );
   const [voteCount, setVoteCount] = useState(count);
   const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  function flashFailure() {
+    setFailed(true);
+    window.setTimeout(() => setFailed(false), 2200);
+  }
 
   async function handleVote() {
+    if (loading) return;
     let email = getStoredEmail();
     if (!email) {
-      email = window.prompt('请输入您的邮箱以投票：\n（邮箱仅用于标识投票身份，不会公开显示）');
-      if (!email) return;
+      const input = window.prompt(t('vote.emailPrompt'));
+      if (!input) return;
+      email = input.trim();
+      if (!EMAIL_PATTERN.test(email)) {
+        flashFailure();
+        return;
+      }
       storeEmail(email);
     }
 
@@ -33,16 +90,18 @@ export function VoteButton({ feedbackId, count, voted = false, onVoted }: VoteBu
     try {
       if (isVoted) {
         await unvote(feedbackId, email);
-        setVoteCount((c) => c - 1);
+        setVoteCount((current) => Math.max(0, current - 1));
         setIsVoted(false);
+        writeVotedState(feedbackId, false);
       } else {
         await vote(feedbackId, email);
-        setVoteCount((c) => c + 1);
+        setVoteCount((current) => current + 1);
         setIsVoted(true);
+        writeVotedState(feedbackId, true);
       }
       onVoted?.();
     } catch {
-      // silently fail
+      flashFailure();
     } finally {
       setLoading(false);
     }
@@ -53,29 +112,31 @@ export function VoteButton({ feedbackId, count, voted = false, onVoted }: VoteBu
       type="button"
       onClick={handleVote}
       disabled={loading}
-      className={`
-        flex flex-col items-center justify-center gap-0.5 rounded-lg border px-3 py-2
-        text-sm font-semibold transition-all duration-200
-        ${isVoted
-          ? 'border-brand-200 bg-brand-50 text-brand-600 shadow-sm'
-          : 'border-surface-3 bg-surface-0 text-gray-500 hover:border-brand-200 hover:text-brand-600'
-        }
-        ${loading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}
-      `}
+      aria-pressed={isVoted}
+      aria-label={
+        isVoted
+          ? t('vote.ariaLabelVoted', { count: voteCount })
+          : t('vote.ariaLabel', { count: voteCount })
+      }
+      title={isVoted ? t('vote.titleVoted') : t('vote.title')}
+      className={[
+        'group/vote flex h-[60px] w-[52px] shrink-0 flex-col items-center justify-center gap-1 rounded-pill border transition-all duration-150',
+        isVoted
+          ? 'border-brand bg-brand text-white shadow-card hover:bg-brand-strong'
+          : 'border-line-subtle bg-surface text-ink-secondary hover:border-brand/40 hover:bg-brand-soft/60 hover:text-brand',
+        loading ? 'cursor-wait opacity-70' : '',
+        failed ? 'ring-1 ring-danger' : '',
+      ].join(' ')}
     >
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        fill="none"
-        className={`transition-transform duration-200 ${isVoted ? 'scale-110' : ''}`}
-      >
-        <path
-          d="M8 3L12 9H4L8 3Z"
-          fill="currentColor"
-        />
-      </svg>
-      <span>{voteCount}</span>
+      {loading ? (
+        <SpinnerIcon className="h-4 w-4" />
+      ) : (
+        <ArrowUpIcon className="h-4 w-4 transition-transform duration-150 group-hover/vote:-translate-y-0.5" />
+      )}
+      <span className="tnum text-14 font-semibold leading-none">{voteCount}</span>
+      <span aria-live="polite" className="sr-only">
+        {failed ? t('vote.error') : ''}
+      </span>
     </button>
   );
 }

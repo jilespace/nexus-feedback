@@ -2,14 +2,167 @@
   "nav": {
     "feedback": "Feedback",
     "roadmap": "Roadmap",
-    "changelog": "Changelog"
+    "changelog": "Changelog",
+    "boardSubtitle": "Public feedback board",
+    "mainLabel": "Main navigation",
+    "home": "Back to board home"
   },
   "common": {
-    "loading": "Loading...",
-    "empty": "No content",
-    "vote": "Vote",
-    "comment": "Comment",
-    "submit": "Submit",
-    "cancel": "Cancel"
+    "loading": "Loading…",
+    "retry": "Retry",
+    "all": "All",
+    "clearSearch": "Clear search",
+    "clearFilters": "Clear filters",
+    "removeFilter": "Remove filter: {{label}}",
+    "close": "Close",
+    "cancel": "Cancel",
+    "skipToContent": "Skip to main content",
+    "toggleTheme": "Toggle theme",
+    "switchLanguage": "Switch language",
+    "comments": "comments",
+    "commentCount": "comments",
+    "voteCount": "votes",
+    "copyright": "© {{year}} {{name}}",
+    "poweredBy": "Powered by Nexus Feedback"
+  },
+  "category": {
+    "bug": "Bug fix",
+    "feature": "Feature request",
+    "performance": "Performance",
+    "ui": "UI/UX",
+    "other": "Other"
+  },
+  "status": {
+    "open": "Open",
+    "in_progress": "In progress",
+    "resolved": "Resolved",
+    "closed": "Closed"
+  },
+  "source": {
+    "label": "Source",
+    "prefix": "Source: {{value}}",
+    "board": "Board",
+    "api": "API",
+    "widget": "Widget",
+    "email": "Email",
+    "import": "Import"
+  },
+  "time": {
+    "justNow": "Just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago"
+  },
+  "home": {
+    "title": "Feedback",
+    "subtitle": "Browse community feedback, vote for what matters, or share your own idea.",
+    "searchPlaceholder": "Search feedback…",
+    "searchLabel": "Search feedback",
+    "sortLabel": "Sort by",
+    "sortHottest": "Top",
+    "sortNewest": "Newest",
+    "filtersLabel": "Filters and sorting",
+    "filterByCategory": "Filter by category",
+    "resultCount": "{{count}} items",
+    "resultCountFiltered": "{{visible}} of {{total}}",
+    "activeFilters": "Filters",
+    "keywordChip": "Search: {{keyword}}",
+    "emptyTitle": "No feedback yet",
+    "emptyDescription": "Be the first to share an idea — we read every suggestion.",
+    "emptyAction": "Submit feedback",
+    "errorTitle": "Couldn't load feedback",
+    "errorDescription": "Something went wrong. Please try again.",
+    "noResultsTitle": "No matching feedback",
+    "noResultsDescription": "Try a different keyword, or clear the current filters.",
+    "skeletonLabel": "Loading feedback"
+  },
+  "sidebar": {
+    "ctaTitle": "Have an idea?",
+    "ctaDescription": "Share a feature request or report a problem. We review every submission.",
+    "ctaAction": "Submit feedback",
+    "statsTitle": "Overview",
+    "statsTotal": "Total feedback",
+    "statsInProgress": "In progress",
+    "statsResolved": "Completed",
+    "statsVotes": "Total votes",
+    "categoriesTitle": "Categories",
+    "allCategories": "All categories"
+  },
+  "vote": {
+    "ariaLabel": "Vote, currently {{count}} votes",
+    "ariaLabelVoted": "Voted, currently {{count}} votes. Click to remove your vote",
+    "title": "Upvote",
+    "titleVoted": "Remove vote",
+    "emailPrompt": "Enter your email to vote:\nYour email is only used to identify your vote and is never shown publicly.",
+    "error": "Something went wrong. Please try again."
+  },
+  "roadmap": {
+    "title": "Product roadmap",
+    "subtitle": "See what we're planning, building and have shipped.",
+    "planned": "Planned",
+    "inProgress": "In progress",
+    "completed": "Completed",
+    "emptyColumn": "Nothing here yet",
+    "emptyTitle": "Nothing on the roadmap yet",
+    "emptyDescription": "Feedback selected for the roadmap will appear here.",
+    "errorTitle": "Couldn't load the roadmap",
+    "errorDescription": "Please try again later.",
+    "skeletonLabel": "Loading roadmap"
+  },
+  "changelog": {
+    "title": "Changelog",
+    "subtitle": "What we've shipped recently.",
+    "emptyTitle": "No updates yet",
+    "emptyDescription": "Product updates will appear here as soon as they are released.",
+    "errorTitle": "Couldn't load the changelog",
+    "errorDescription": "Please try again later.",
+    "skeletonLabel": "Loading changelog"
+  },
+  "detail": {
+    "back": "Back to feedback",
+    "officialReplies": "Official replies",
+    "teamReply": "Team",
+    "comments": "Comments",
+    "noComments": "No comments yet — share your thoughts.",
+    "notFoundTitle": "Couldn't load this feedback",
+    "notFoundDescription": "It may have been removed, or the link is incorrect.",
+    "anonymous": "Anonymous"
+  },
+  "submit": {
+    "title": "Submit feedback",
+    "subtitle": "We read every submission.",
+    "email": "Email",
+    "emailHint": "Used for updates only — never shown publicly.",
+    "titleLabel": "Title",
+    "titlePlaceholder": "One line describing your idea or issue",
+    "category": "Category",
+    "content": "Details",
+    "contentPlaceholder": "Describe your use case and what you'd like to see…",
+    "errorRequired": "This field is required",
+    "errorEmail": "Enter a valid email address",
+    "errorSubmit": "Submission failed. Please try again.",
+    "submitting": "Submitting…",
+    "submit": "Submit feedback",
+    "successTitle": "Feedback submitted",
+    "successDescription": "Thanks! The team will review it soon. You can follow progress on the feedback board.",
+    "successDone": "Done"
+  },
+  "comment": {
+    "title": "Add a comment",
+    "hint": "Your email is only used for verification and is never shown publicly.",
+    "email": "Email",
+    "emailPlaceholder": "you@example.com",
+    "name": "Name (optional)",
+    "namePlaceholder": "How should we call you?",
+    "content": "Comment",
+    "contentPlaceholder": "Share your thoughts…",
+    "submit": "Post comment",
+    "submitting": "Posting…",
+    "errorSubmit": "Couldn't post your comment. Please try again."
+  },
+  "notFound": {
+    "title": "Page not found",
+    "description": "The link you followed may be broken.",
+    "action": "Back to board"
   }
 }

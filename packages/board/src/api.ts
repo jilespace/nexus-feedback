@@ -1,10 +1,12 @@
 import type {
   ApiResponse,
+  BoardConfig,
   ChangelogEntry,
   Comment as FeedbackComment,
   FeedbackDetail,
   FeedbackItem,
   PaginatedResponse,
+  ProjectCategory,
   RoadmapData,
 } from './types';
 
@@ -37,7 +39,6 @@ export interface FeedbackListParams {
   sort_by?: 'votes' | 'created_at';
   status?: string;
   category?: string;
-  keyword?: string;
   page?: number;
   page_size?: number;
 }
@@ -49,7 +50,6 @@ export function fetchFeedbackList(
   if (params.sort_by) query.set('sort_by', params.sort_by);
   if (params.status) query.set('status', params.status);
   if (params.category) query.set('category', params.category);
-  if (params.keyword) query.set('keyword', params.keyword);
   if (params.page) query.set('page', String(params.page));
   if (params.page_size) query.set('page_size', String(params.page_size));
   const qs = query.toString();
@@ -60,6 +60,10 @@ export function fetchFeedbackList(
 
 export function fetchFeedbackDetail(id: string): Promise<FeedbackDetail> {
   return request<FeedbackDetail>(`/feedback/${id}`);
+}
+
+export function fetchBoardConfig(): Promise<BoardConfig> {
+  return request<BoardConfig>('/config');
 }
 
 export function submitFeedback(body: {
@@ -107,21 +111,16 @@ export function fetchChangelog(): Promise<ChangelogEntry[]> {
   return request<ChangelogEntry[]>('/changelog');
 }
 
-export interface ProjectCategory {
-  name: string;
-  color: string;
-}
-
 export async function fetchProjectCategories(): Promise<ProjectCategory[]> {
   try {
-    const res = await request<ProjectCategory[]>('/categories');
-    return res;
+    return await request<ProjectCategory[]>('/categories');
   } catch {
     return [
-      { name: 'feature', color: '#6366f1' },
-      { name: 'bug', color: '#ef4444' },
-      { name: 'improvement', color: '#f59e0b' },
-      { name: 'other', color: '#6b7280' },
+      { name: 'bug', color: '#6366f1' },
+      { name: 'feature', color: '#f59e0b' },
+      { name: 'performance', color: '#0ea5e9' },
+      { name: 'ui', color: '#10b981' },
+      { name: 'other', color: '#64748b' },
     ];
   }
 }
