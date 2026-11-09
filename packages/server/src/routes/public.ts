@@ -38,6 +38,119 @@ function toPublicFeedback(f: {
   };
 }
 
+const RSS_ITEM_LIMIT = 20;
+const RSS_DESCRIPTION_MAX = 300;
+
+interface RssChangelogEntry {
+  id: string;
+  title: string;
+  content: string;
+  published_at: Date | null;
+}
+
+function escapeXml(value: string): string {
+  return value
+    // XML 1.0 forbids most control characters.
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+/** Flatten Markdown changelog content into plain text for the RSS description. */
+function markdownToPlainText(markdown: string): string {
+  return markdown
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/!\[[^\]]*]\([^)]*\)/g, ' ')
+    .replace(/\[([^\]]+)]\([^)]*\)/g, '$1')
+    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+    .replace(/^\s{0,3}>\s?/gm, '')
+    .replace(/^\s{0,3}[-*+]\s+/gm, '')
+    .replace(/^\s{0,3}\d+\.\s+/gm, '')
+    .replace(/(\*\*|__)(.*?)\1/g, '$2')
+    .replace(/(\*|_)(.*?)\1/g, '$2')
+    .replace(/~~(.*?)~~/g, '$1')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function truncatePlainText(text: string, max: number): string {
+  const chars = Array.from(text);
+  return chars.length > max ? `${chars.slice(0, max).join('')}…` : text;
+}
+
+/**
+ * Absolute base URL for board links. Prefer the organization's configured board
+ * URL (admin 项目接入/组织设置), fall back to the board page that opened the feed
+ * (dev board proxies /api), then the API request origin.
+ */
+function resolveBoardBaseUrl(req: Request, configured: string | null | undefined): string {
+  const configuredUrl = configured?.trim();
+  if (configuredUrl) return configuredUrl.replace(/\/+$/, '');
+  const referer = req.get('referer');
+  if (referer) {
+    try {
+      return new URL(referer).origin;
+    } catch {
+      /* ignore malformed referer */
+    }
+  }
+  const host = req.get('host');
+  return host ? `${req.protocol}://${host}` : '';
+}
+
+function buildChangelogRss(options: {
+  projectName: string;
+  projectSlug: string;
+  boardBaseUrl: string;
+  entries: RssChangelogEntry[];
+}): string {
+  const { projectName, projectSlug, boardBaseUrl, entries } = options;
+  const changelogUrl = `${boardBaseUrl}/${projectSlug}/changelog`;
+  const items = entries
+    .map((entry) => {
+      const publishedAt = entry.published_at;
+      if (!publishedAt) return '';
+      const itemUrl = `${changelogUrl}#changelog-${entry.id}`;
+      const description = truncatePlainText(
+        markdownToPlainText(entry.content),
+        RSS_DESCRIPTION_MAX,
+      );
+      return [
+        '    <item>',
+        `      <title>${escapeXml(entry.title)}</title>`,
+        `      <link>${escapeXml(itemUrl)}</link>`,
+        `      <guid isPermaLink="true">${escapeXml(itemUrl)}</guid>`,
+        `      <pubDate>${publishedAt.toUTCString()}</pubDate>`,
+        `      <description>${escapeXml(description)}</description>`,
+        '    </item>',
+      ].join('\n');
+    })
+    .filter(Boolean)
+    .join('\n');
+  const lastBuildDate = entries[0]?.published_at;
+
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<rss version="2.0">',
+    '  <channel>',
+    `    <title>${escapeXml(`${projectName} 更新日志`)}</title>`,
+    `    <link>${escapeXml(changelogUrl)}</link>`,
+    `    <description>${escapeXml(projectName)}</description>`,
+    ...(lastBuildDate
+      ? [`    <lastBuildDate>${lastBuildDate.toUTCString()}</lastBuildDate>`]
+      : []),
+    ...(items ? [items] : []),
+    '  </channel>',
+    '</rss>',
+    '',
+  ].join('\n');
+}
+
 export const publicRouter = Router({ mergeParams: true });
 
 async function resolveProject(req: Request, _res: Response, next: NextFunction) {
@@ -351,6 +464,39 @@ publicRouter.get('/changelog', async (req, res, next) => {
       orderBy: { published_at: 'desc' },
     });
     success(res, changelogs);
+  } catch (err) {
+    next(err);
+  }
+});
+
+publicRouter.get('/changelog.rss', async (req, res, next) => {
+  try {
+    const project = req.project!;
+    const [organization, changelogs] = await Promise.all([
+      prisma.organization.findUnique({
+        where: { id: project.org_id },
+        select: { board_url: true },
+      }),
+      prisma.changelog.findMany({
+        where: {
+          project_id: project.id,
+          published: true,
+          published_at: { lte: new Date() },
+        },
+        orderBy: { published_at: 'desc' },
+        take: RSS_ITEM_LIMIT,
+      }),
+    ]);
+
+    const xml = buildChangelogRss({
+      projectName: project.name,
+      projectSlug: project.slug,
+      boardBaseUrl: resolveBoardBaseUrl(req, organization?.board_url),
+      entries: changelogs,
+    });
+
+    res.set('Content-Type', 'application/rss+xml; charset=utf-8');
+    res.status(200).send(xml);
   } catch (err) {
     next(err);
   }

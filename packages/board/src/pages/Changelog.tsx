@@ -6,6 +6,7 @@ import type { ChangelogEntry } from '../types';
 import { formatDate } from '../lib/labels';
 import { canonicalUrl, usePageMeta } from '../lib/meta';
 import { buildChangelogJsonLd } from '../lib/seo';
+import { changelogFeedPath, changelogRssLabel } from '../lib/changelogFeed';
 import Markdown from '../components/Markdown';
 import { PageHeader } from '../components/PageHeader';
 import { SparkIcon } from '../components/Icons';
@@ -24,6 +25,7 @@ export function Changelog({ projectName }: { projectName: string }) {
   const [error, setError] = useState(false);
 
   const pageTitle = t('meta.changelogTitle', { project: projectName });
+  const rssLabels = changelogRssLabel(i18n.language);
   usePageMeta({
     title: pageTitle,
     description: t('changelog.subtitle'),
@@ -61,6 +63,18 @@ export function Changelog({ projectName }: { projectName: string }) {
       <PageHeader
         title={t('changelog.title')}
         subtitle={t('changelog.subtitle')}
+        action={
+          <a
+            href={changelogFeedPath(projectSlug)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-secondary"
+            aria-label={rssLabels.ariaLabel}
+            title={rssLabels.ariaLabel}
+          >
+            {rssLabels.action}
+          </a>
+        }
       />
 
       {loading ? (
@@ -88,7 +102,8 @@ export function Changelog({ projectName }: { projectName: string }) {
             {entries.map((entry) => (
               <article
                 key={entry.id}
-                className="relative pl-6 md:grid md:grid-cols-[132px_1fr] md:gap-8 md:pl-0"
+                id={`changelog-${entry.id}`}
+                className="relative scroll-mt-20 pl-6 md:grid md:grid-cols-[132px_1fr] md:gap-8 md:pl-0"
               >
                 <span
                   className="absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-brand bg-surface md:left-[143px] md:top-[9px]"
