@@ -5,6 +5,45 @@
 
 ## 轮次记录
 
+### Round 12 — 2026-11-10（复制为 Markdown / 性能双口径 / CLS 清零 / smoke 41）
+
+**本轮完成（Lead + 3 个 teammate 并行）**
+- **反馈「复制为 Markdown」（Lead）**：新增纯函数 `buildFeedbackMarkdown`（标题/元信息/内容/回复/链接），
+  详情页新增复制按钮（中英文案、Toast），3 条单测；Markdown 特殊多行内容保持原样。
+- **看板首页 CLS 修复（teammate）**：CDP 帧级定位发现骨架 5 卡时 footer 在首屏内、数据到位后页高
+  4500px 导致主位移；改为骨架 8 卡 + 统计骨架与最终 StatCell 完全等高 → 1440 CLS **0.093 → 0.000**，
+  移动端 0，详情页 0.024 保持 ≤0.05。
+- **perf 生产口径模式（teammate）**：`pnpm perf:prod`（`--mode=preview`）零依赖静态服务托 dist +
+  `/api` 反代、端口冲突自动 +1、结束清理；报告区分 mode。生产基线 12/12 PASS：
+  首屏传输 **94–309KB / 3–16 请求**（dev 口径 1.6–4.35MB / 31–83），FCP/LCP 76–256ms。
+- **smoke 39 → 41（teammate）**：新增「更新日志关联反馈」链路（feedbacks 数组契约 + 关联/取消幂等，
+  finally 兜底）与「通知免打扰静默丢弃」（保存/恢复原设置、全天窗口下 unread 不变、非法时间 400）。
+- 过程发现并记录：dev 口径提交页 CLS 0.214 在 preview 未复现（dev 冷模块时序问题，Round 11 已修复
+  且生产口径本就不受影响）。
+
+**验证**
+- `pnpm typecheck` ✅、`pnpm test` **257/257**（server 230 + admin 27）✅、`pnpm build` 5 包 ✅、
+  `pnpm lint` 0 error ✅、`pnpm smoke` **41/41 PASS**（29.5s）✅、`pnpm perf` dev 12/12 PASS ✅、
+  `pnpm perf:prod` 12/12 PASS ✅
+- CLS：看板首页 0.0002–0.0003（3 次复测）、看板详情 0.0245、移动端 0；提交页 0.000。
+
+**提交**：`a03a443`（复制为 Markdown）、`f88e94b`（smoke 41）、`e026c07`（perf preview 模式）、
+`29e0755`（看板 CLS）
+
+**遗留 / 技术债**
+- 看板详情残余 CLS 0.0245（骨架→内容页高变化），达标但可再优化。
+- 关联更新日志前端一次最多取 100 条；DND 使用服务器时区；通知内容仍为服务端中文。
+- admin index CSS ~79KB；smoke chrome.mjs 405 行可再拆。
+- 未做系统化无障碍审计（焦点顺序/对比度/aria 覆盖率）。
+
+**下一轮计划（Round 13：无障碍 + 打磨）**
+1. 无障碍审计：新增 `scripts/a11y.mjs`（CDP 采集焦点顺序、可访问名称缺失、对比度、标题层级、
+   表单 label 关联），覆盖后台关键页 + 公开端；修复发现的问题。
+2. smoke 增加无障碍基础断言（按钮可访问名称、图片 alt、lang 属性）。
+3. 看板详情 CLS 优化（骨架等高）。
+4. 功能候选：通知多时段免打扰、合并建议展示已合并来源、更新日志 RSS 增强。
+
+
 ### Round 11 — 2026-11-10（前端测试基建 / 合并建议外的新功能 / 性能观测）
 
 **本轮完成（Lead + 4 个 teammate 并行）**
