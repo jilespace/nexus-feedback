@@ -3,7 +3,8 @@
     "eyebrow": "Feedback detail · {{project}}",
     "backToList": "Feedback list",
     "edit": "Edit",
-    "copyLink": "Copy link"
+    "copyLink": "Copy link",
+    "copyMarkdown": "Copy as Markdown"
   },
   "merged": {
     "prefix": "This feedback was merged into"
@@ -135,6 +136,18 @@
     "tagRemoved": "Tag removed",
     "tagRemoveFailed": "Failed to remove tag",
     "linkCopied": "Link copied",
-    "copyFailed": "Copy failed"
+    "copyFailed": "Copy failed",
+    "markdownCopied": "Copied as Markdown",
+    "markdownCopyFailed": "Copy failed"
+  },
+  "markdown": {
+    "status": "Status",
+    "category": "Category",
+    "priority": "Priority",
+    "source": "Source",
+    "project": "Project",
+    "created": "Created",
+    "contentHeading": "Content",
+    "repliesHeading": "Replies"
   }
 }

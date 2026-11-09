@@ -15,7 +15,15 @@ import { InternalNotes } from '@/components/feedback/InternalNotes';
 import { StatusHistory } from '@/components/feedback/StatusHistory';
 import { useToast } from '@/components/Toast';
 import { formatRelativeTime } from '@/utils/formatRelativeTime';
-import { STATUS_META, categoryColor, statusLabel } from '@/utils/labels';
+import { buildFeedbackMarkdown } from '@/utils/feedbackMarkdown';
+import {
+  STATUS_META,
+  categoryColor,
+  categoryLabel,
+  priorityLabel,
+  sourceLabel,
+  statusLabel,
+} from '@/utils/labels';
 import { useAuth } from '@/hooks/useAuth';
 import type { FeedbackDetail as FeedbackDetailType, FeedbackStatus } from '@/types';
 const STATUS_TRANSITIONS: Record<string, FeedbackStatus[]> = {
@@ -141,6 +149,40 @@ export function FeedbackDetail() {
     }
   };
 
+  const copyMarkdown = async () => {
+    const locale = i18n.language.startsWith('en') ? 'en-US' : 'zh-CN';
+    const formatTime = (value: string) => new Date(value).toLocaleString(locale);
+    const markdown = buildFeedbackMarkdown({
+      title: data.title,
+      content: data.content,
+      meta: [
+        { label: t('markdown.status'), value: statusLabel(data.status, i18n.language) },
+        { label: t('markdown.category'), value: categoryLabel(data.category, i18n.language) },
+        { label: t('markdown.priority'), value: priorityLabel(data.priority, i18n.language) },
+        { label: t('markdown.source'), value: sourceLabel(data.source, i18n.language) },
+        { label: t('markdown.project'), value: data.project.name },
+        { label: t('markdown.created'), value: formatTime(data.created_at) },
+      ],
+      replies: data.replies.map((reply) => ({
+        author: reply.member?.display_name || t('replies.system'),
+        time: formatTime(reply.created_at),
+        content: reply.content,
+      })),
+      link: window.location.href,
+      headings: {
+        content: t('markdown.contentHeading'),
+        replies: t('markdown.repliesHeading'),
+      },
+    });
+
+    try {
+      await navigator.clipboard.writeText(markdown);
+      toast.show(t('toasts.markdownCopied'));
+    } catch {
+      toast.show(t('toasts.markdownCopyFailed'), 'error');
+    }
+  };
+
   const sendReply = () => {
     if (replyContent.trim()) replyMutation.mutate(replyContent.trim());
   };
@@ -187,6 +229,17 @@ export function FeedbackDetail() {
                 />
               </svg>
               {t('header.copyLink')}
+            </Button>
+            <Button variant="secondary" size="sm" onClick={copyMarkdown}>
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <path
+                  d="M2.5 3.5h7M2.5 7.5h11M2.5 11.5h8"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                />
+              </svg>
+              {t('header.copyMarkdown')}
             </Button>
             <StatusBadge status={data.status} />
           </>

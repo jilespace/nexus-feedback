@@ -3,7 +3,8 @@
     "eyebrow": "反馈详情 · {{project}}",
     "backToList": "反馈列表",
     "edit": "编辑",
-    "copyLink": "复制链接"
+    "copyLink": "复制链接",
+    "copyMarkdown": "复制为 Markdown"
   },
   "merged": {
     "prefix": "此反馈已合并到"
@@ -135,6 +136,18 @@
     "tagRemoved": "标签已移除",
     "tagRemoveFailed": "移除标签失败",
     "linkCopied": "链接已复制",
-    "copyFailed": "复制失败"
+    "copyFailed": "复制失败",
+    "markdownCopied": "已复制为 Markdown",
+    "markdownCopyFailed": "复制失败"
+  },
+  "markdown": {
+    "status": "状态",
+    "category": "分类",
+    "priority": "优先级",
+    "source": "来源",
+    "project": "项目",
+    "created": "创建时间",
+    "contentHeading": "内容",
+    "repliesHeading": "回复"
   }
 }
