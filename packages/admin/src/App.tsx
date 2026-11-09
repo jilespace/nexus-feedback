@@ -5,8 +5,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { Layout } from '@/components/Layout';
 import { PageFallback } from '@/components/PageFallback';
 import type { OrgMemberRole } from '@/types';
-import { Landing } from '@/pages/Landing';
 import { Login } from '@/pages/Login';
+
+// The public landing page is its own chunk: logged-in users who go straight to
+// /dashboard never download the marketing markup or its page-scoped CSS.
+const Landing = lazy(() =>
+  import('@/pages/Landing').then((m) => ({ default: m.Landing })),
+);
 
 // Route chunks keep the first paint small; recharts and the settings-heavy
 // pages only load when they are actually opened.
@@ -87,7 +92,14 @@ function PublicRoute({ children }: { children: ReactNode }) {
 export function App() {
   return (
     <Routes>
-      <Route path="/" element={<Landing />} />
+      <Route
+        path="/"
+        element={
+          <Suspense fallback={<PageFallback />}>
+            <Landing />
+          </Suspense>
+        }
+      />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/feedback" element={<ProtectedRoute><FeedbackList /></ProtectedRoute>} />
       <Route path="/feedback/:id" element={<ProtectedRoute><FeedbackDetail /></ProtectedRoute>} />
