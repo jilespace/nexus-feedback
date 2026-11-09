@@ -645,6 +645,9 @@ node scripts/smoke.mjs \
   DELETE 取消关联 → 列表确认移除；finally 兜底取消，避免残留关联。
 - **通知免打扰**：保存并修改 DND 为全天窗口 → 公开 API 创建反馈 → `unread-count` 保持不变 →
   非法时间（25:00）返回 400 且不写库；finally 恢复原 DND 并软删除测试反馈/通知。
+- **无障碍基础**：后台 dashboard / feedback / notifications 与公开端 board 首页 / submit 页断言
+  `html lang` 合法、`h1` 唯一、可见交互元素均有可访问名称（排除 `aria-hidden` 与 `tabindex=-1`）、
+  `img` 均有 `alt`。
 - **移动端 390×844**：`dashboard` / `feedback` / `notifications` 三页断言
   `scrollWidth <= innerWidth`（无横向溢出）、无 console error、`main` 内容存在。
 - **i18n 切换**：后台切到 en 后断言 `html lang=en`、侧边栏 Overview/Feedback、命令面板
@@ -741,3 +744,69 @@ node scripts/perf.mjs --mode=preview --base-api=http://localhost:3000 --chrome-p
 - 注意：dev 与 preview 两种口径的绝对值不可直接比较；dev 偏高属预期，preview 更接近线上静态部署，
   但仍是本机 loopback 数据（未做 CPU/网络节流），适合页面对比与改动前后回归，而非线上性能基线。
 - 退出码：`0` = 报告生成成功（即使存在阈值 FAIL）；`1` = 环境错误（服务不可达、dist 缺失、Chrome 启动失败等）。
+
+## 13. 无障碍审计（`pnpm a11y`）
+
+零依赖无障碍（a11y）审计脚本（Node 24 内置 WebSocket + Chrome CDP，不引入 axe/Lighthouse），
+对关键页面做 DOM 级近似审计，输出中文表格与 JSON/Markdown 报告，用于发现并回归无障碍问题。
+
+### 前置条件
+
+- 本地 dev server 已启动：admin `8080`、board `8082`、submit `8081`、API `3000`；
+- Chrome 已在 `9222` 运行，或允许脚本自动启动 headless Chrome（结束时自动关闭并清理临时 profile）；
+- 需要 `demo-project` 演示数据与账号 `admin@nexus.dev / admin123`（脚本自动登录并注入登录态）。
+
+### 使用
+
+```bash
+# 全量审计（7 个页面）
+pnpm a11y
+
+# 只审计部分页面（迭代修复时更快）
+node scripts/a11y.mjs --only=submit
+node scripts/a11y.mjs --only=board-home,board-detail
+
+# 覆盖服务地址 / Chrome 端口
+node scripts/a11y.mjs --base-admin=http://localhost:8080 --chrome-port=9222
+```
+
+| 参数 | 默认值 | 说明 |
+|---|---|---|
+| `--base-admin` / `--base-board` / `--base-submit` / `--base-api` | 本地默认端口 | 页面与 API 地址 |
+| `--chrome-port` | `9222` | Chrome CDP 端口；不可用时自动启动 headless Chrome |
+| `--only` | 空（全部） | 只审计指定页面，逗号分隔：`submit,board-home,board-detail,admin-login,admin-dashboard,admin-feedback,admin-notifications` |
+| `--help` | — | 显示帮助 |
+
+### 覆盖页面
+
+- `submit`：提交页（带 demo API Key，实际渲染表单）
+- `board-home` / `board-detail`：公开看板首页与反馈详情（详情 ID 由公开 API 动态获取）
+- `admin-login`：未登录访问 `/dashboard` 时渲染的登录页
+- `admin-dashboard` / `admin-feedback` / `admin-notifications`：注入 demo token 后的登录态页面
+- 视口：桌面 `1440×900`；每个页面独立浏览器上下文（存储互不污染）。
+
+### 检查项（DOM 级近似）
+
+- **文档/标题**：`<html lang>`、`<title>`、h1 唯一性、标题层级不跳级、重复 id。
+- **可访问名称**：`a[href]` / `button` / `input` / `select` / `textarea` / `[role=…]` 等交互元素
+  是否有文本、`aria-label`、`aria-labelledby` 或关联 label；`role="img"` SVG 是否有名称。
+- **表单**：控件是否有 label / aria-label、`aria-describedby` 引用是否存在、是否只有 title。
+- **图片**：`<img>` 是否缺少 `alt`。
+- **ARIA**：role/aria-* 属性名与取值合法性、`aria-*` 引用 id 是否存在、`aria-hidden` 容器内
+  是否包含可聚焦元素、常见 role（checkbox/switch/radio/dialog）的必填属性。
+- **焦点**：正 `tabindex` 滥用；通过真实 `Tab` 键遍历（CDP `Input.dispatchKeyEvent`）记录焦点顺序，
+  与 DOM 预期顺序比对；对比聚焦前后 computed `outline` / `box-shadow` 判断焦点指示是否可见。
+- **颜色对比度**：遍历可见文本，按 computed `color` 与祖先背景色（含半透明叠加）近似计算对比度，
+  WCAG AA：正文 ≥ `4.5:1`、大字（≥24px 或 ≥18.66px 加粗）≥ `3:1`；渐变/背景图无法可靠还原时
+  跳过并计数（避免误报）。
+
+### 输出与判定
+
+- 严重程度：`serious`（严重）/ `moderate`（中等）/ `minor`（轻微）；页面判定：有严重 → FAIL、
+  仅有中等 → WARN、否则 PASS。
+- 结果写入 `.tools/a11y/report-{timestamp}.json`（完整明细，含选择器/片段/比率）与 `.md`
+  （中文表格 + 问题明细），`.tools/` 已 gitignore；终端同时打印汇总表与报告路径。
+- 报告只做诊断，**不修复业务代码**；`pnpm a11y` 发现问题不影响退出码（环境错误才返回 1）。
+- 注意：这是 DOM 级近似审计，不是完整 WCAG 合规工具；键盘顺序/对比度为启发式结果，
+  需结合人工复核。
+

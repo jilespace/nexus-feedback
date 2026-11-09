@@ -45,7 +45,7 @@ export function PriorityPicker({ value, onChange }: PriorityPickerProps) {
                   aria-hidden
                 />
                 {option.label}
-                <span className={`text-[10.5px] font-normal ${selected ? 'text-ink-3' : 'text-ink-3/80'}`}>
+                <span className="text-[10.5px] font-normal text-ink-3">
                   {option.hint}
                 </span>
               </label>

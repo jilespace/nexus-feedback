@@ -60,6 +60,7 @@ export function AttachmentField({
         accept="image/png,image/jpeg,image/gif,image/webp,application/pdf"
         className="sr-only"
         tabIndex={-1}
+        aria-label="添加附件"
         onChange={(event) => {
           if (event.target.files?.length) onAdd(event.target.files);
           event.target.value = '';

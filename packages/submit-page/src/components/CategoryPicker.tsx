@@ -73,7 +73,7 @@ export function CategoryPicker({ options, value, loading, onChange }: CategoryPi
                     <span className="truncate">{option.label}</span>
                   </span>
                   <span
-                    className={`hidden truncate pl-[22px] text-[11px] leading-4 sm:block ${selected ? 'text-brand-600/80' : 'text-ink-3'}`}
+                    className={`hidden truncate pl-[22px] text-[11px] leading-4 sm:block ${selected ? 'text-brand-700' : 'text-ink-3'}`}
                   >
                     {option.description}
                   </span>

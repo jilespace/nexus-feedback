@@ -156,7 +156,7 @@ export function SubmitForm({ apiUrl, apiKey, projectSlug, projectName, boardUrl 
             <p className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-brand-600">反馈表单</p>
             <h2 className="mt-1.5 text-[20px] font-semibold tracking-[-0.015em] text-ink-1">告诉我们发生了什么</h2>
             <p className="mt-1 text-[12.5px] leading-5 text-ink-2">
-              约 2 分钟完成，带 <span className="font-semibold text-danger-500">*</span> 的为必填项。
+              约 2 分钟完成，带 <span className="font-semibold text-danger-600">*</span> 的为必填项。
             </p>
           </div>
           <span className="hidden flex-shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1 text-[11px] font-medium text-ink-3 sm:inline-flex">
