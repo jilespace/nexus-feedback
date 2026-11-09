@@ -89,9 +89,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setMember(loadStoredJSON<OrgMember>('org_member'));
       setOrganization(loadStoredJSON<Organization>('org_info'));
     };
+    const handleExpired = () => {
+      logout();
+    };
     window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, []);
+    window.addEventListener('auth:expired', handleExpired);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('auth:expired', handleExpired);
+    };
+  }, [logout]);
 
   return (
     <AuthContext.Provider value={{ token, isAuthenticated: !!token, member, organization, login, register, logout }}>

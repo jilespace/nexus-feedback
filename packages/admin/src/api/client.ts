@@ -36,6 +36,16 @@ export async function apiRequest<T>(
     headers,
   });
 
+  // An expired/invalid session should land the user back on the login screen
+  // instead of leaving the workspace in a half-broken state.
+  if (res.status === 401 && token) {
+    clearToken();
+    localStorage.removeItem('org_member');
+    localStorage.removeItem('org_info');
+    sessionStorage.setItem('auth_expired', '1');
+    window.dispatchEvent(new Event('auth:expired'));
+  }
+
   const text = await res.text();
   if (!text) {
     throw new ApiError(50000, `服务器响应为空 (HTTP ${res.status})`, res.status);

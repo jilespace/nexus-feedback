@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
@@ -345,7 +345,15 @@ export function Login() {
   const copy = i18n.language.startsWith('en') ? EN_COPY : ZH_COPY;
 
   const [tab, setTab] = useState<Tab>('login');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(() =>
+    typeof sessionStorage !== 'undefined' && sessionStorage.getItem('auth_expired') === '1'
+      ? '登录已过期，请重新登录'
+      : '',
+  );
+  // Consume the flag after mount so React StrictMode's double render still shows the banner.
+  useEffect(() => {
+    sessionStorage.removeItem('auth_expired');
+  }, []);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(false);
 
