@@ -60,6 +60,25 @@
     "empty": "No highly similar feedback found. Search manually to pick a target.",
     "score": "{{percent}}% similar"
   },
+  "changelog": {
+    "title": "Linked changelogs",
+    "linkedCount": "{{num}} linked",
+    "emptyDescription": "Link this feedback to a published changelog so users can see the outcome in release notes.",
+    "link": "Link changelog",
+    "unlink": "Unlink",
+    "unlinkAria": "Unlink {{title}}",
+    "modalTitle": "Link changelog",
+    "modalDescription": "Pick a published changelog from this project. Click to link it.",
+    "searchPlaceholder": "Search changelog titles…",
+    "noCandidates": "No changelogs available to link",
+    "loading": "Loading…",
+    "published": "Published",
+    "draft": "Draft",
+    "linked": "Linked “{{title}}”",
+    "unlinked": "Changelog unlinked",
+    "linkFailed": "Failed to link changelog",
+    "unlinkFailed": "Failed to unlink changelog"
+  },
   "notes": {
     "title": "Internal notes",
     "teamOnly": "Team only",

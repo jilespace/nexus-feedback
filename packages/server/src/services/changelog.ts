@@ -89,11 +89,18 @@ export async function listChangelogs(
       orderBy: { created_at: 'desc' },
       skip: pagination?.skip,
       take: pagination?.take,
+      include: { feedbacks: { select: { feedback: { select: { id: true, title: true } } } } },
     }),
     prisma.changelog.count({ where }),
   ]);
 
-  return paginatedResult(items, total, pagination?.page ?? 1, pagination?.pageSize ?? 20);
+  // Flatten the join table so admin clients receive `feedbacks: [{ id, title }]` directly.
+  const changelogs = items.map(({ feedbacks, ...changelog }) => ({
+    ...changelog,
+    feedbacks: (feedbacks ?? []).map((link) => link.feedback),
+  }));
+
+  return paginatedResult(changelogs, total, pagination?.page ?? 1, pagination?.pageSize ?? 20);
 }
 
 export async function getChangelog(changelogId: string) {

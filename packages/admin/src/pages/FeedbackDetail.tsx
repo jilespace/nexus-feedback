@@ -9,6 +9,7 @@ import { CategoryBadge, PriorityBadge, SourceBadge } from '@/components/badges';
 import { PageHeader } from '@/components/PageHeader';
 import { Button, Card, EmptyState, Skeleton } from '@/components/ui';
 import { MergeDialog } from '@/components/feedback/MergeDialog';
+import { LinkedChangelog } from '@/components/feedback/LinkedChangelog';
 import { EditFeedback } from '@/components/feedback/EditFeedback';
 import { InternalNotes } from '@/components/feedback/InternalNotes';
 import { StatusHistory } from '@/components/feedback/StatusHistory';
@@ -516,6 +517,8 @@ export function FeedbackDetail() {
               </select>
             )}
           </Card>
+
+          <LinkedChangelog feedbackId={data.id} projectId={data.project.id} />
         </aside>
       </div>
 

@@ -60,6 +60,25 @@
     "empty": "暂无高度相似的反馈，可输入关键词手动搜索",
     "score": "{{percent}}% 相似"
   },
+  "changelog": {
+    "title": "关联更新日志",
+    "linkedCount": "{{num}} 条关联",
+    "emptyDescription": "把这条反馈关联到已发布的更新日志，用户可以在更新说明里看到处理结果。",
+    "link": "关联更新",
+    "unlink": "取消关联",
+    "unlinkAria": "取消关联 {{title}}",
+    "modalTitle": "关联更新日志",
+    "modalDescription": "选择同一项目下已发布的更新日志，点击即可关联。",
+    "searchPlaceholder": "搜索更新日志标题...",
+    "noCandidates": "没有可关联的更新日志",
+    "loading": "加载中...",
+    "published": "已发布",
+    "draft": "草稿",
+    "linked": "已关联「{{title}}」",
+    "unlinked": "已取消关联",
+    "linkFailed": "关联失败",
+    "unlinkFailed": "取消关联失败"
+  },
   "notes": {
     "title": "内部备注",
     "teamOnly": "仅团队可见",
