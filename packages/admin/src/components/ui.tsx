@@ -49,7 +49,7 @@ type BadgeTone = 'brand' | 'amber' | 'blue' | 'green' | 'gray' | 'red' | 'violet
 
 const BADGE_TONES: Record<BadgeTone, string> = {
   brand: 'bg-brand-50 text-brand-700 ring-brand-200/70 dark:bg-brand-600/15 dark:text-brand-300 dark:ring-brand-500/25',
-  amber: 'bg-accent-50 text-accent-600 ring-accent-200/80 dark:bg-accent-500/15 dark:text-accent-300 dark:ring-accent-500/25',
+  amber: 'bg-accent-50 text-amber-700 ring-accent-200/80 dark:bg-accent-500/15 dark:text-accent-300 dark:ring-accent-500/25',
   blue: 'bg-sky-50 text-sky-700 ring-sky-200/80 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/25',
   green: 'bg-emerald-50 text-emerald-700 ring-emerald-200/80 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/25',
   gray: 'bg-surface-2 text-gray-600 ring-surface-3 dark:bg-gray-700/60 dark:text-gray-300 dark:ring-gray-600/60',

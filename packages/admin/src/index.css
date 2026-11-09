@@ -174,3 +174,11 @@
   }
 }
 
+
+/* a11y: gray-500 secondary text must clear AA on the lightest admin surfaces (was 4.44:1). */
+@layer utilities {
+  .text-gray-500 {
+    color: #5f6b7a;
+  }
+}
+
