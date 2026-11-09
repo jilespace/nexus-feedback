@@ -142,3 +142,83 @@ ${data.topFeedback.length > 0 ? `<h2 style="margin:0 0 12px;font-size:15px;font-
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${topList}</table>` : '<p style="margin:0;font-size:14px;color:#9ca3af">本周暂无反馈</p>'}`;
   return emailWrapper(content);
 }
+
+/* ------------------------------------------------------------------------- *
+ * Email template preview (admin "preview templates" modal)
+ *
+ * Samples use a fictional organization ("Demo Org") and example.com links so
+ * owners can inspect the exact markup without exposing real data. Rendering is
+ * pure: no email provider configuration is required.
+ * ------------------------------------------------------------------------- */
+
+export const EMAIL_PREVIEW_TYPES = ['invite', 'reset', 'status', 'digest'] as const;
+export type EmailPreviewType = (typeof EMAIL_PREVIEW_TYPES)[number];
+
+const SAMPLE_ORG_NAME = 'Demo Org';
+const SAMPLE_INVITE_URL = 'https://example.com/invite/demo-invite-token';
+const SAMPLE_RESET_URL = 'https://example.com/reset-password?token=demo-reset-token';
+const SAMPLE_FEEDBACK_TITLE = '登录后页面白屏';
+const SAMPLE_FEEDBACK_ID = 'sample-feedback-1';
+
+export function isEmailPreviewType(value: string): value is EmailPreviewType {
+  return (EMAIL_PREVIEW_TYPES as readonly string[]).includes(value);
+}
+
+/**
+ * Branded password-reset email. The current reset flow still sends a minimal
+ * inline HTML body (services/orgSettings.ts); this template keeps the same copy
+ * so the preview matches what recipients read today.
+ */
+export function buildPasswordResetEmail(resetUrl: string): string {
+  const content = `<h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827">重置密码</h1>
+<p style="margin:0 0 24px;color:#6b7280;font-size:14px">您好，您请求了密码重置。点击下方按钮设置新密码。</p>
+<div style="text-align:center;margin:32px 0">
+${ctaButton('重置密码', resetUrl)}
+</div>
+<p style="margin:0 0 8px;color:#9ca3af;font-size:13px;text-align:center">或复制以下链接到浏览器打开：</p>
+<p style="margin:0 0 32px;color:${BRAND_COLOR};font-size:12px;word-break:break-all;text-align:center">${escapeHtml(resetUrl)}</p>
+<div style="background:${BRAND_COLOR_LIGHT};border-radius:10px;padding:16px 20px;margin-bottom:8px">
+<p style="margin:0;font-size:13px;color:#374151">此链接将在 <strong>1 小时</strong>后过期，请尽快完成重置</p>
+</div>
+<p style="margin:0;font-size:12px;color:#9ca3af">如果您没有请求重置密码，请忽略此邮件</p>`;
+  return emailWrapper(content);
+}
+
+export interface SampleEmailPreview {
+  html: string;
+  subject: string;
+}
+
+/** Render one of the four customer-facing emails with sample data. */
+export function buildSampleEmailPreview(type: EmailPreviewType): SampleEmailPreview {
+  switch (type) {
+    case 'invite':
+      return {
+        html: buildInviteEmail(SAMPLE_ORG_NAME, SAMPLE_INVITE_URL),
+        subject: `加入 ${SAMPLE_ORG_NAME} - Nexus Feedback`,
+      };
+    case 'reset':
+      return {
+        html: buildPasswordResetEmail(SAMPLE_RESET_URL),
+        subject: '重置密码 - Nexus Feedback',
+      };
+    case 'status':
+      return {
+        html: buildStatusChangeEmail(SAMPLE_FEEDBACK_TITLE, 'in_progress', SAMPLE_FEEDBACK_ID),
+        subject: `Feedback status updated: ${SAMPLE_FEEDBACK_TITLE}`,
+      };
+    case 'digest':
+      return {
+        html: buildDigestEmail({
+          newCount: 12,
+          resolvedCount: 8,
+          topFeedback: [
+            { title: '希望支持暗色模式', votes: 23 },
+            { title: '导出 CSV 时标题乱码', votes: 15 },
+            { title: '移动端筛选面板难用', votes: 9 },
+          ],
+        }),
+        subject: `Weekly Digest: ${SAMPLE_ORG_NAME}`,
+      };
+  }
+}

@@ -1,6 +1,11 @@
 import { Router } from 'express';
 import { orgAuth, requireRole } from '../middleware/orgAuth.js';
 import { getAllConfigs, setConfig } from '../services/systemConfig.js';
+import {
+  EMAIL_PREVIEW_TYPES,
+  buildSampleEmailPreview,
+  isEmailPreviewType,
+} from '../utils/emailTemplates.js';
 import { success } from '../utils/response.js';
 import { ValidationError } from '../utils/errors.js';
 
@@ -28,6 +33,28 @@ systemConfigRouter.get('/system-config', orgAuth, requireRole(['owner']), async 
     next(err);
   }
 });
+
+systemConfigRouter.get(
+  '/system-config/email-preview',
+  orgAuth,
+  requireRole(['owner']),
+  async (req, res, next) => {
+    try {
+      const type = String(req.query.type ?? '');
+      if (!isEmailPreviewType(type)) {
+        throw new ValidationError(
+          `无效的邮件模板类型，可选值：${EMAIL_PREVIEW_TYPES.join('、')}`,
+        );
+      }
+      // Pure template rendering with sample data: works even when no email
+      // provider is configured and never touches the database.
+      const { html, subject } = buildSampleEmailPreview(type);
+      success(res, { html, subject, type });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 systemConfigRouter.put('/system-config', orgAuth, requireRole(['owner']), async (req, res, next) => {
   try {

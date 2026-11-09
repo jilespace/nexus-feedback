@@ -334,5 +334,23 @@
       "apiKeyHintBetween": "页复制，再替换代码中的",
       "apiKeyHintAfter": "。"
     }
+  },
+  "preview": {
+    "button": "预览模板",
+    "title": "邮件模板预览",
+    "description": "选择邮件类型，预览用户实际收到的邮件内容。示例数据不会发送邮件。",
+    "frameTitle": "邮件内容预览",
+    "subjectLabel": "邮件主题",
+    "loading": "模板加载中…",
+    "errorTitle": "模板加载失败",
+    "errorDescription": "请检查网络后重试。",
+    "retry": "重试",
+    "close": "关闭",
+    "types": {
+      "invite": "邀请成员",
+      "reset": "重置密码",
+      "status": "状态变更",
+      "digest": "周报摘要"
+    }
   }
 }

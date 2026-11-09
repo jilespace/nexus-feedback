@@ -334,5 +334,23 @@
       "apiKeyHintBetween": "page, then replace",
       "apiKeyHintAfter": "in the snippet."
     }
+  },
+  "preview": {
+    "button": "Preview templates",
+    "title": "Email template preview",
+    "description": "Pick an email type to preview what recipients actually receive. Sample data is never sent.",
+    "frameTitle": "Email content preview",
+    "subjectLabel": "Subject",
+    "loading": "Loading template…",
+    "errorTitle": "Failed to load template",
+    "errorDescription": "Check your connection and try again.",
+    "retry": "Retry",
+    "close": "Close",
+    "types": {
+      "invite": "Invite",
+      "reset": "Password reset",
+      "status": "Status change",
+      "digest": "Weekly digest"
+    }
   }
 }

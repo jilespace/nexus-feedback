@@ -4,6 +4,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import { apiRequest } from '@/api/client';
 import { useToast } from '@/components/Toast';
+import { Modal } from '@/components/Modal';
 import { PageHeader } from '@/components/PageHeader';
 import {
   Badge,
@@ -154,6 +155,7 @@ export function SystemConfig() {
   const [form, setForm] = useState<ConfigForm>(EMPTY_FORM);
   const [saved, setSaved] = useState<ConfigForm>(EMPTY_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const storageOptions = STORAGE_TYPES.map((value) => ({
     value,
@@ -307,11 +309,25 @@ export function SystemConfig() {
             title={t('system.email.title')}
             description={t('system.email.description')}
             action={
-              <Badge tone={saved.emailApiKey ? 'green' : 'gray'}>
-                {saved.emailApiKey
-                  ? t('system.email.configured')
-                  : t('system.email.unconfigured')}
-              </Badge>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Badge tone={saved.emailApiKey ? 'green' : 'gray'}>
+                  {saved.emailApiKey
+                    ? t('system.email.configured')
+                    : t('system.email.unconfigured')}
+                </Badge>
+                <Button variant="secondary" size="sm" onClick={() => setPreviewOpen(true)}>
+                  <svg width="13" height="13" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path
+                      d="M2.5 10S5.5 4.5 10 4.5 17.5 10 17.5 10 14.5 15.5 10 15.5 2.5 10 2.5 10Z"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinejoin="round"
+                    />
+                    <circle cx="10" cy="10" r="2.4" stroke="currentColor" strokeWidth="1.5" />
+                  </svg>
+                  {t('preview.button')}
+                </Button>
+              </div>
             }
             footer={<SaveStatus dirty={emailDirty} />}
           >
@@ -498,6 +514,112 @@ export function SystemConfig() {
           </SectionCard>
         </>
       )}
+
+      {previewOpen && <EmailPreviewModal onClose={() => setPreviewOpen(false)} />}
     </div>
+  );
+}
+
+type EmailPreviewType = 'invite' | 'reset' | 'status' | 'digest';
+
+const PREVIEW_TYPES: EmailPreviewType[] = ['invite', 'reset', 'status', 'digest'];
+
+interface EmailPreviewResponse {
+  html: string;
+  subject: string;
+  type: EmailPreviewType;
+}
+
+function EmailPreviewModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation('settings');
+  const toast = useToast();
+  const [type, setType] = useState<EmailPreviewType>('invite');
+
+  const { data, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ['email-preview', type],
+    queryFn: () =>
+      apiRequest<EmailPreviewResponse>(`/org/system-config/email-preview?type=${type}`),
+  });
+
+  useEffect(() => {
+    if (isError) toast.show(t('preview.errorTitle'), 'error');
+  }, [isError, toast, t]);
+
+  return (
+    <Modal
+      title={t('preview.title')}
+      description={t('preview.description')}
+      onClose={onClose}
+      size="lg"
+      footer={
+        <Button variant="secondary" size="sm" onClick={onClose}>
+          {t('preview.close')}
+        </Button>
+      }
+    >
+      <div className="space-y-4">
+        <div
+          role="group"
+          aria-label={t('preview.title')}
+          className="inline-flex max-w-full flex-wrap gap-1 rounded-lg border border-surface-3 bg-surface-1/70 p-0.5 dark:border-gray-700 dark:bg-gray-900/40"
+        >
+          {PREVIEW_TYPES.map((item) => (
+            <button
+              key={item}
+              type="button"
+              aria-pressed={type === item}
+              onClick={() => setType(item)}
+              className={clsx(
+                'h-7 rounded-md px-2.5 text-xs font-medium transition-all',
+                type === item
+                  ? 'bg-surface-0 text-gray-900 shadow-sm dark:bg-gray-700 dark:text-gray-100'
+                  : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200',
+              )}
+            >
+              {t(`preview.types.${item}`)}
+            </button>
+          ))}
+        </div>
+
+        {isLoading ? (
+          <div className="space-y-2">
+            <p className="text-[11px] text-gray-400 dark:text-gray-500">{t('preview.loading')}</p>
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-[380px] w-full" />
+          </div>
+        ) : isError ? (
+          <div className="flex flex-col items-center gap-2 rounded-lg border border-rose-200 bg-rose-50/60 px-4 py-10 text-center dark:border-rose-500/30 dark:bg-rose-500/10">
+            <p className="text-sm font-medium text-rose-700 dark:text-rose-300">
+              {t('preview.errorTitle')}
+            </p>
+            <p className="max-w-sm text-[11px] leading-relaxed text-rose-600 dark:text-rose-400">
+              {error instanceof Error ? error.message : t('preview.errorDescription')}
+            </p>
+            <Button variant="secondary" size="sm" onClick={() => refetch()}>
+              {t('preview.retry')}
+            </Button>
+          </div>
+        ) : (
+          <>
+            <div>
+              <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500">
+                {t('preview.subjectLabel')}
+              </p>
+              <p className="break-words text-[13px] font-medium text-gray-800 dark:text-gray-200">
+                {data?.subject}
+              </p>
+            </div>
+            <div className="overflow-hidden rounded-lg border border-surface-3 bg-white dark:border-gray-700">
+              <iframe
+                title={t('preview.frameTitle')}
+                sandbox=""
+                srcDoc={data?.html ?? ''}
+                className="h-[420px] w-full bg-white"
+              />
+            </div>
+          </>
+        )}
+      </div>
+    </Modal>
   );
 }
