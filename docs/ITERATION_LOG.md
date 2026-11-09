@@ -5,6 +5,45 @@
 
 ## 轮次记录
 
+### Round 5 — 2026-11-10（通知偏好 / RSS / 冒烟门禁 / 快捷筛选）
+
+**本轮完成**
+- **通知偏好（全栈）**：`member.notification_settings` JSON 列 + 增量迁移；通知 fan-out 时按类型过滤
+  （缺省全开，向后兼容）；`GET/PUT /org/notifications/settings`（成员级、校验类型与布尔值）；
+  通知页新增「通知偏好」卡（共享 Switch 四类开关，乐观更新）；5 条新 service 测试。
+- **反馈列表「分配给我」快捷筛选**：工具栏一键 chip（aria-pressed、激活态高亮），与负责人筛选联动。
+- **公开看板 RSS 订阅**（teammate board-seo）：`GET /api/v1/public/:slug/changelog.rss`（RSS 2.0，
+  仅已发布且到时间的最多 20 条、XML 转义、Markdown 转纯文本、RFC822 时间、看板链接基址解析）；
+  board 更新日志页头「RSS 订阅」入口 + 条目锚点；2 条路由测试。
+- **端到端冒烟门禁**（teammate public-polish）：`scripts/smoke.mjs`（零依赖、Node 内置 WebSocket 实现
+  最小 CDP、可自动起停 headless Chrome）；`pnpm smoke` 覆盖 26 项（API 2 + 公开端 6 + 后台 18），
+  全绿 16.3s，截图落 `.tools/shots/smoke/`；用法写入 `DEVELOPMENT.md`。
+- 清理了迭代过程中产生的测试反馈/通知，demo 数据保持干净（29 条活跃反馈，含 1 条真实感新反馈）。
+
+**验证**
+- `pnpm typecheck` ✅、`pnpm test` **180/180** ✅、`pnpm build` 5 包 ✅、`pnpm lint` 0 error ✅、
+  `pnpm smoke` **PASS 26 / FAIL 0 / SKIP 0** ✅
+- 通知偏好实测：关闭「新反馈」后公开提交不产生通知，重新开启后恢复；UI 开关 aria-checked/状态文字/API 持久化通过。
+- RSS 实测：`Content-Type: application/rss+xml; charset=utf-8`、`[xml]` 解析通过、3 条 item、未知 slug 404 JSON。
+- 冒烟失败注入（错误 API 端口）exit 1、widget demo 缺失时 SKIP 且 exit 0（门禁语义正确）。
+
+**提交**：`417c0cd`（通知偏好+快捷筛选）、`bef54a9`（RSS）、`f39e898`（smoke 套件）
+
+**遗留 / 技术债**
+- Prisma migration 历史 baseline 仍未整理（drift 存在，本轮继续用 diff+execute；生产 deploy 需先处理）。
+- 冒烟未覆盖写操作（提交反馈、通知已读、命令面板动作）与登录过期场景（401 不会自动登出）。
+- widget demo 依赖 gitignored `.tools/`，clean checkout 会 SKIP；建议内置最小宿主页。
+- 通知偏好目前只支持「类型开关」，不支持按项目静音/免打扰时段。
+- 布局与文案在新功能处仍为中文硬编码（i18n 覆盖不完全），后续统一。
+
+**下一轮计划（Round 6）**
+1. Prisma migration baseline 整理（shadow DB 生成 baseline + `migrate resolve`，先备份 DB；文档化流程）。
+2. 扩展 smoke：写操作流程（公开提交→后台看到→标记已读→命令面板执行）、token 过期后 401 处理/引导重登。
+3. widget demo 宿主页入库（`packages/widget/demo/`）让 CI 冒烟可覆盖 Widget。
+4. 功能候选：CSV 导入（预览+校验+错误报告）、通知免打扰/按项目静音、邮件模板预览。
+5. 工程：API 响应类型收口（admin 端手写类型 vs server 共享）、i18n 补齐新页面文案。
+
+
 ### Round 4 — 2026-11-10（应用内通知中心 + 表单基元收敛）
 
 **本轮完成**
