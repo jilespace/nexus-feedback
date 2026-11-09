@@ -3,6 +3,11 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '../db/client.js';
 import { ValidationError, NotFoundError, ConflictError } from '../utils/errors.js';
 import { notifyStatusChange, notifyReply } from './notification.js';
+import {
+  notifyFeedbackCreated,
+  notifyFeedbackAssigned,
+  notifyFeedbackStatusChanged,
+} from './notificationCenter.js';
 import { fireWebhooks } from './webhook.js';
 import { validateStatusForProject } from './statusConfig.js';
 import { getProjectCategories } from './categoryConfig.js';
@@ -104,6 +109,17 @@ export async function createFeedback(input: CreateFeedbackInput, projectId: stri
       priority: feedback.priority,
       status: feedback.status,
     }).catch(() => {});
+
+    if (project) {
+      notifyFeedbackCreated({
+        orgId: project.org_id,
+        feedbackId: feedback.id,
+        title: feedback.title,
+        category: feedback.category,
+        priority: feedback.priority,
+        source,
+      }).catch(() => {});
+    }
   }
 
   return {
@@ -269,6 +285,18 @@ export async function updateFeedbackStatus(
   }
 
   notifyStatusChange(id, newStatus).catch(() => {});
+
+  if (orgId) {
+    notifyFeedbackStatusChanged({
+      orgId,
+      feedbackId: id,
+      title: feedback.title,
+      oldStatus,
+      newStatus,
+      assigneeId: feedback.assignee_id,
+      actorId: memberId,
+    }).catch(() => {});
+  }
 
   // Fire webhooks
   if (feedback.project_id) {
@@ -620,6 +648,15 @@ export async function assignFeedback(
     assignee_id: assigneeId,
   }).catch(() => {});
 
+  if (assigneeId) {
+    notifyFeedbackAssigned({
+      orgId,
+      feedbackId,
+      title: updated.title,
+      assigneeId,
+    }).catch(() => {});
+  }
+
   return updated;
 }
 
@@ -657,6 +694,15 @@ export async function batchAssignFeedback(
       targetId: ids.join(','),
       metadata: { count: result.count, assignee_id: assigneeId },
     }).catch(() => {});
+
+    if (assigneeId && result.count > 0) {
+      notifyFeedbackAssigned({
+        orgId,
+        feedbackId: ids[0]!,
+        title: `有 ${result.count} 条反馈指派给你`,
+        assigneeId,
+      }).catch(() => {});
+    }
   }
 
   return { updated: result.count };

@@ -1,6 +1,7 @@
 import { prisma } from '../db/client.js';
 import { NotFoundError } from '../utils/errors.js';
 import { fireWebhooks } from './webhook.js';
+import { notifyFeedbackComment } from './notificationCenter.js';
 import { assertFeedbackInOrg, type OrgScopedFeedbackRef } from '../utils/orgScope.js';
 
 export async function addComment(
@@ -25,6 +26,20 @@ export async function addComment(
     comment_id: comment.id,
     author_email: email,
   }).catch(() => {});
+
+  prisma.project
+    .findUnique({ where: { id: feedback.project_id }, select: { org_id: true } })
+    .then((project) => {
+      if (!project) return;
+      return notifyFeedbackComment({
+        orgId: project.org_id,
+        feedbackId,
+        title: feedback.title,
+        excerpt: content,
+        assigneeId: feedback.assignee_id,
+      });
+    })
+    .catch(() => {});
 
   return comment;
 }

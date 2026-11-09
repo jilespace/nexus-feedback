@@ -17,31 +17,33 @@ model Organization {
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
-  members  Member[]
-  projects Project[]
-  tags     Tag[]
+  members       Member[]
+  projects      Project[]
+  tags          Tag[]
+  notifications Notification[]
 
   @@map("organization")
 }
 
 model Member {
-  id                 String    @id @default(cuid())
-  email              String
-  password_hash      String?
-  display_name       String    @default("")
-  role               String    @default("member")
-  org_id             String
-  reset_token        String?
-  reset_token_expiry DateTime?
-  invite_token       String?
+  id                  String    @id @default(cuid())
+  email               String
+  password_hash       String?
+  display_name        String    @default("")
+  role                String    @default("member")
+  org_id              String
+  reset_token         String?
+  reset_token_expiry  DateTime?
+  invite_token        String?
   invite_token_expiry DateTime?
-  created_at         DateTime  @default(now())
-  updated_at         DateTime  @updatedAt
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
 
-  organization     Organization    @relation(fields: [org_id], references: [id], onDelete: Cascade)
-  replies          Reply[]
-  internal_notes   InternalNote[]
-  status_histories StatusHistory[]
+  organization       Organization    @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  replies            Reply[]
+  internal_notes     InternalNote[]
+  status_histories   StatusHistory[]
+  notifications      Notification[]
   assigned_feedbacks Feedback[]
 
   @@unique([email, org_id])
@@ -60,41 +62,41 @@ model Project {
   created_at      DateTime @default(now())
   updated_at      DateTime @updatedAt
 
-  organization   Organization   @relation(fields: [org_id], references: [id], onDelete: Cascade)
-  feedbacks      Feedback[]
-  attachments    Attachment[]
-  changelogs     Changelog[]
-  webhooks       Webhook[]
-  status_configs     StatusConfig[]
-  category_configs   CategoryConfig[]
+  organization     Organization     @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  feedbacks        Feedback[]
+  attachments      Attachment[]
+  changelogs       Changelog[]
+  webhooks         Webhook[]
+  status_configs   StatusConfig[]
+  category_configs CategoryConfig[]
 
   @@unique([slug, org_id])
   @@map("project")
 }
 
 model Feedback {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   title          String
   content        String
   category       String
-  priority       String   @default("medium")
-  status         String   @default("open")
-  source         String   @default("api")
+  priority       String    @default("medium")
+  status         String    @default("open")
+  source         String    @default("api")
   contact        String?
   app_version    String?
   metadata       Json?
-  vote_count     Int      @default(0)
+  vote_count     Int       @default(0)
   project_id     String
   assignee_id    String?
   merged_into_id String?
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
   deleted_at     DateTime?
 
-  project          Project              @relation(fields: [project_id], references: [id], onDelete: Cascade)
-  assignee         Member?              @relation(fields: [assignee_id], references: [id])
-  merged_into      Feedback?            @relation("FeedbackMerge", fields: [merged_into_id], references: [id])
-  merged_from      Feedback[]           @relation("FeedbackMerge")
+  project          Project             @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  assignee         Member?             @relation(fields: [assignee_id], references: [id])
+  merged_into      Feedback?           @relation("FeedbackMerge", fields: [merged_into_id], references: [id])
+  merged_from      Feedback[]          @relation("FeedbackMerge")
   attachments      Attachment[]
   replies          Reply[]
   votes            Vote[]
@@ -103,6 +105,7 @@ model Feedback {
   comments         Comment[]
   internal_notes   InternalNote[]
   status_histories StatusHistory[]
+  notifications    Notification[]
 
   @@index([deleted_at])
   @@index([assignee_id])
@@ -110,17 +113,17 @@ model Feedback {
 }
 
 model Attachment {
-  id             String   @id @default(cuid())
-  filename       String
-  url            String
-  size           Int
-  mime_type      String
-  feedback_id    String?
-  project_id     String
-  created_at     DateTime @default(now())
+  id          String   @id @default(cuid())
+  filename    String
+  url         String
+  size        Int
+  mime_type   String
+  feedback_id String?
+  project_id  String
+  created_at  DateTime @default(now())
 
-  feedback    Feedback?    @relation(fields: [feedback_id], references: [id])
-  project     Project      @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  feedback Feedback? @relation(fields: [feedback_id], references: [id])
+  project  Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
 
   @@map("attachment")
 }
@@ -166,7 +169,7 @@ model Tag {
   org_id     String
   created_at DateTime @default(now())
 
-  organization Organization @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  organization Organization  @relation(fields: [org_id], references: [id], onDelete: Cascade)
   feedbackTags FeedbackTag[]
 
   @@unique([name, org_id])
@@ -197,7 +200,7 @@ model Changelog {
   created_at   DateTime  @default(now())
   updated_at   DateTime  @updatedAt
 
-  project   Project              @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  project   Project             @relation(fields: [project_id], references: [id], onDelete: Cascade)
   feedbacks ChangelogFeedback[]
 
   @@map("changelog")
@@ -215,12 +218,12 @@ model ChangelogFeedback {
 }
 
 model Comment {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   content      String
   author_email String
   author_name  String?
   feedback_id  String
-  created_at   DateTime @default(now())
+  created_at   DateTime  @default(now())
   deleted_at   DateTime?
 
   feedback Feedback @relation(fields: [feedback_id], references: [id], onDelete: Cascade)
@@ -230,11 +233,11 @@ model Comment {
 }
 
 model NotificationPreference {
-  id             String  @id @default(cuid())
+  id             String   @id @default(cuid())
   email          String
   project_id     String
-  status_updates Boolean @default(true)
-  weekly_digest  Boolean @default(true)
+  status_updates Boolean  @default(true)
+  weekly_digest  Boolean  @default(true)
   created_at     DateTime @default(now())
 
   @@unique([email, project_id])
@@ -242,13 +245,13 @@ model NotificationPreference {
 }
 
 model SSOConfig {
-  id            String  @id @default(cuid())
-  project_id    String  @unique
+  id            String   @id @default(cuid())
+  project_id    String   @unique
   jwt_secret    String
-  user_id_claim String  @default("sub")
-  email_claim   String  @default("email")
-  name_claim    String  @default("name")
-  enabled       Boolean @default(false)
+  user_id_claim String   @default("sub")
+  email_claim   String   @default("email")
+  name_claim    String   @default("name")
+  enabled       Boolean  @default(false)
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt
 
@@ -292,7 +295,7 @@ model Webhook {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  project Project      @relation(fields: [project_id], references: [id], onDelete: Cascade)
   logs    WebhookLog[]
 
   @@map("webhook")
@@ -367,4 +370,25 @@ model AuditLog {
   @@index([org_id, created_at])
   @@index([org_id, action])
   @@map("audit_log")
+}
+
+model Notification {
+  id          String    @id @default(cuid())
+  org_id      String
+  member_id   String
+  type        String
+  title       String
+  body        String?
+  link        String?
+  feedback_id String?
+  read_at     DateTime?
+  created_at  DateTime  @default(now())
+
+  organization Organization @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  member       Member       @relation(fields: [member_id], references: [id], onDelete: Cascade)
+  feedback     Feedback?    @relation(fields: [feedback_id], references: [id], onDelete: Cascade)
+
+  @@index([member_id, read_at])
+  @@index([org_id, created_at])
+  @@map("notification")
 }
