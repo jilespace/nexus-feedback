@@ -138,6 +138,7 @@ describe('Board/Widget Config Routes', () => {
   });
 
   it('PUT /api/v1/admin/projects/:id/widget-config persists a full valid payload as stringified JSON', async () => {
+    mockPrisma.project.findFirst.mockResolvedValue(testProject);
     mockPrisma.project.update.mockResolvedValue(testProject);
     const token = jwt.sign({ sub: 'admin-1', typ: 'admin' }, JWT_SECRET);
 

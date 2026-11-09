@@ -68,11 +68,20 @@ describe('adminAuth', () => {
     expect(req.adminId).toBe('admin1');
   });
 
-  it('rejects an org member token with AuthError 40110', () => {
+  it('accepts an org member token and maps member context', () => {
     const token = jwt.sign({ memberId: 'm1', orgId: 'org1', role: 'owner', typ: 'org' }, SECRET);
-    const { error } = run(adminAuth, token);
-    expect(error).toBeInstanceOf(AppError);
-    expect((error as AppError).code).toBe(40110);
+    const { req, error } = run(adminAuth, token);
+    expect(error).toBeUndefined();
+    expect(req.memberId).toBe('m1');
+    expect(req.orgId).toBe('org1');
+    expect(req.memberRole).toBe('owner');
+  });
+
+  it('treats a legacy admin token as an owner', () => {
+    const token = jwt.sign({ sub: 'admin1', typ: 'admin' }, SECRET);
+    const { req, error } = run(adminAuth, token);
+    expect(error).toBeUndefined();
+    expect(req.memberRole).toBe('owner');
   });
 
   it('rejects a token without typ discriminator', () => {

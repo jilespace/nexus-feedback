@@ -177,7 +177,7 @@ describe('Feedback Routes - Auth', () => {
     const res = await request(app)
       .post('/api/v1/upload')
       .set('X-API-Key', 'project-key')
-      .attach('file', Buffer.from('test'), {
+      .attach('file', Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64'), {
         filename: 'test.png',
         contentType: 'image/png',
       });

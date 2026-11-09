@@ -52,7 +52,9 @@ export function adminAuth(req: Request, _res: Response, next: NextFunction): voi
     req.adminId = payload.sub;
     req.memberId = payload.memberId || payload.sub;
     req.orgId = payload.orgId;
-    req.memberRole = payload.role;
+    // Legacy platform-admin tokens carry no org role; treat them as owners so
+    // role-gated admin routes keep working for the global admin account.
+    req.memberRole = payload.role || (payload.typ === 'admin' ? 'owner' : undefined);
     next();
   } catch {
     next(new AuthError(40110, '认证令牌无效或已过期'));

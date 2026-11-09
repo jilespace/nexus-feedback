@@ -141,11 +141,10 @@ export async function inviteMember(orgId: string, input: InviteMemberInput, call
   const org = await prisma.organization.findUnique({ where: { id: orgId } });
   if (!org) throw new NotFoundError('组织不存在');
 
-  // Check email config before proceeding
+  // Email delivery is optional: without it the invite link is returned so an
+  // admin can share it manually instead of being blocked from inviting.
   const emailConfig = await getEmailConfig(orgId);
-  if (!emailConfig.apiKey) {
-    throw new ValidationError('未配置邮件服务，请先在「系统配置」中设置 Resend API Key');
-  }
+  const emailConfigured = Boolean(emailConfig?.apiKey);
 
   // Generate invite token
   const rawToken = crypto.randomBytes(32).toString('hex');
@@ -173,6 +172,17 @@ export async function inviteMember(orgId: string, input: InviteMemberInput, call
   }).catch(() => {});
 
   const inviteUrl = `${env.BASE_URL}/invite-accept?token=${rawToken}`;
+  if (!emailConfigured) {
+    return {
+      id: member.id,
+      email: member.email,
+      role: member.role,
+      invited: true,
+      email_sent: false,
+      invite_url: inviteUrl,
+    };
+  }
+
   try {
     await sendEmail(
       input.email,
