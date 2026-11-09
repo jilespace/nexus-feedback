@@ -5,6 +5,44 @@
 
 ## 轮次记录
 
+### Round 14 — 2026-11-10（对比度清零 / 免打扰多时段 / 合并来源）
+
+**本轮完成（Lead + 3 个 teammate 并行）**
+- **board 对比度 token（teammate）**：亮色 `--ink-tertiary` #7B8794→#5F6B7A（3.4–3.7→5.0–5.4:1）、
+  `--danger`→#DC2626、暗色 tertiary 提亮、新增 `--brand-ink` 修复暗色激活态（3.01→6.54:1）；
+  board 首页/详情对比度违规 **125/12 → 0/0**（亮暗双口径均 0）。
+- **admin 对比度（Lead）**：浅色 `text-gray-500` 加深（4.44→5.0+）、amber badge 文本改 amber-700
+  （3.07→5.0）；后台三页中等 **56 → 1**（唯一剩余为数据驱动的标签颜色）。
+- **通知免打扰多时段（teammate）**：`dnd {enabled, slots[]}` 最多 5 段、跨午夜、旧 `{start,end}`
+  自动归一、PUT 逐段校验且只持久化 slots；前端时段列表增删/行内错误/空列表拦截；34 条 service 测试。
+- **合并弹窗展示已合并来源（teammate）**：similar 响应增加 `mergedSources`（最多 10 条），
+  弹窗顶部展示来源标题/状态/相对时间；4 条测试。
+- smoke DND 检查同步升级为 slots 契约（43/43 全绿）。
+
+**验证**
+- `pnpm typecheck` ✅、`pnpm test` **269/269**（server 242 + admin 27）✅、`pnpm build` 5 包 ✅、
+  `pnpm lint` 0 error ✅、`pnpm smoke` **43/43 PASS**（32.4s）✅
+- `pnpm a11y` 全量：**严重 0 / 中等 5 / 轻微 0**（登录页 4、反馈列表 1 为数据驱动标签色），
+  提交页、board 首页/详情、dashboard、notifications 全 PASS。
+- CDP：多时段 DND 配置→提交静默→关闭恢复；合并来源区块 zh/en/390；对比度修复后视觉仅轻微加深。
+
+**提交**：`ddea457`（admin 对比度）、`83253c6`（合并来源）、`388cc10`（board 对比度）、
+`f270809`（多时段 DND + smoke 契约）
+
+**遗留 / 技术债**
+- a11y 中等 5 处：admin 登录页 4（辅助文字对比度）+ 反馈列表 1（数据驱动标签颜色）；可继续处理。
+- a11y 审计为 DOM 近似，非 WCAG 认证；渐变背景对比度跳过。
+- 通知标题/正文/邮件内容仍服务端中文；DND 服务器时区；合并来源上限 10。
+- 主 locale 历史冗余 key 未清理；Landing 仍内置双语字典（未接命名空间）。
+
+**下一轮计划（Round 15）**
+1. 收尾 admin 登录页对比度（4 处）+ 反馈列表数据标签色兜底（深色文字底）。
+2. 新功能候选：公开看板邮件订阅（weekly digest opt-in）、反馈详情「复制为 Markdown」增强（附件列表）、
+   通知「按项目静音」。
+3. 质量：将 `pnpm a11y` 阈值化（严重>0 失败）接入 smoke 或 CI 脚本。
+4. 主 locale 冗余 key 清理 + landing 文案接入命名空间（可选）。
+
+
 ### Round 13 — 2026-11-10（无障碍审计与修复 / 看板详情 CLS）
 
 **本轮完成（Lead + 3 个 teammate 并行）**
