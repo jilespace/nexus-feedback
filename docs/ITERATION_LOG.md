@@ -5,6 +5,48 @@
 
 ## 轮次记录
 
+### Round 11 — 2026-11-10（前端测试基建 / 合并建议外的新功能 / 性能观测）
+
+**本轮完成（Lead + 4 个 teammate 并行）**
+- **前端单元测试基建（Lead）**：admin 引入 vitest（devDependency）+ vitest.config + 轻量浏览器全局 setup
+  （无需 jsdom）；新增 7 个测试文件 24 条：labels / ISO 周序列 / API 错误本地化 / 相对时间 /
+  审计标签 / markdown 工具 / **locale 一致性校验**（zh-en key 对齐、复数变体、插值占位符、空值）。
+  `pnpm test` 现在同时跑 server 230 + admin 24。
+- **反馈详情关联更新日志（teammate）**：`listChangelogs` include 并扁平化 `feedbacks:[{id,title}]`；
+  详情页新增卡片（已关联列表/发布 badge/日期/展开摘要/取消关联）+「关联更新」Modal（搜索、排除已关联、
+  点击关联）；detail 命名空间 +18 key。真实 API 实测 link/unlink 幂等行为。
+- **通知免打扰时段（teammate，full-stack）**：`notification_settings.dnd {enabled,start,end}`（复用
+  JSON，无迁移），`isWithinDnd` 左闭右开/支持跨午夜，fan-out 静默跳过命中收件人（仅站内通知）；
+  设置接口校验非法时间；通知偏好卡新增开关 + 两个时间输入 + draft 保存 + 无效提示；13 条测试。
+- **smoke 模块化（teammate）**：1848 行单文件 → 73 行入口 + 15 个职责模块（config/util/report/cli/
+  chrome/lifecycle + 9 个 checks）；重构前后 39 项输出逐项 IDENTICAL，CLI/退出码/Chrome 管理不变。
+- **性能观测脚本（teammate）**：新增 `pnpm perf`（零依赖 CDP，6 页面 × 2 视口 × 3 次中位数，
+  FCP/LCP/CLS/DCL/Load/TTFB/资源体积，PASS/FAIL + 问题线索，JSON+MD 报告）。
+  实测 11/12 组合 PASS，唯一 FAIL：提交页桌面 CLS 0.214。Lead 修复：校验期预留下单表单高度 →
+  **CLS 0.214 → 0.000**，复测 12/12 PASS。
+
+**验证**
+- `pnpm typecheck` ✅、`pnpm test` **254/254**（server 230 + admin 24）✅、`pnpm build` 5 包 ✅、
+  `pnpm lint` 0 error ✅、`pnpm smoke` **39/39 PASS**（28.0s）✅、`pnpm perf` 12/12 PASS ✅
+- CDP：关联/取消关联更新日志（zh/en/390/暗色）、DND 开启后提交不产生通知/关闭恢复、性能报告对比；
+  全程 0 console error/exception。
+
+**提交**：`1160d40`（前端测试基建）、`ef6034b`（关联更新日志）、`a12c94a`（通知免打扰）、
+`ccc5929`（smoke 模块化）、`46677c6`（性能脚本）、`67939f9`（提交页 CLS 修复）
+
+**遗留 / 技术债**
+- 看板首页桌面 CLS 0.094（接近阈值 0.1），首屏卡片加载高度变化，可下一步用预留高度消除。
+- 性能实测基于 Vite dev server，生产基线需对 `vite preview`/部署环境再跑（可作为发布检查）。
+- 关联更新日志前端一次拉取最多 100 条 changelog；DND 按服务器时区；通知内容仍是服务端中文。
+- smoke chrome.mjs 405 行可再拆；admin index CSS ~79KB 可继续拆分。
+
+**下一轮计划（Round 12）**
+1. 看板首页 CLS 修复（预留首屏卡片高度）+ 生产口径性能基线（vite preview 端口）。
+2. 功能候选：反馈详情「复制为 Markdown」、通知免打扰按星期/多时段、合并建议展示已合并来源。
+3. smoke 增加「关联更新日志」「免打扰」链路检查（复用 API 断言，不依赖 UI）。
+4. 清理主 locale 中已迁移的冗余 key（配合 locale parity 测试防回归）。
+
+
 ### Round 10 — 2026-11-10（合并建议 / 邮件预览 / 错误本地化 / 性能与冒烟）
 
 **本轮完成（Lead + 4 个 teammate 并行）**
