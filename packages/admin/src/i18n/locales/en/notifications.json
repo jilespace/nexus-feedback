@@ -77,6 +77,18 @@
           "label": "New comments",
           "description": "Notify me when feedback receives a new comment"
         }
+      },
+      "dnd": {
+        "title": "Do not disturb",
+        "description": "While enabled, in-app notifications are muted during this window (it may cross midnight). Email subscriptions are not affected.",
+        "switchLabel": "Do not disturb window",
+        "start": "Start time",
+        "end": "End time",
+        "save": "Save window",
+        "saving": "Saving…",
+        "cancel": "Cancel",
+        "invalidTime": "Enter a valid time (HH:mm)",
+        "sameTimeHint": "Start and end are equal, so the window will not apply."
       }
     },
     "clear": {
@@ -97,6 +109,7 @@
     "clearFailed": "Couldn't clear notifications",
     "cleared_one": "Cleared {{count}} notification",
     "cleared_other": "Cleared {{count}} notifications",
-    "settingsSaveFailed": "Couldn't save notification preferences"
+    "settingsSaveFailed": "Couldn't save notification preferences",
+    "dndSaved": "Quiet hours saved"
   }
 }

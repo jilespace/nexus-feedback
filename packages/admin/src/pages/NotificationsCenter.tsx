@@ -36,7 +36,26 @@ const TYPE_META: Record<
   'feedback.comment': { tone: 'green', dot: '#10B981' },
 };
 
-type NotificationSettings = Record<NotificationType, boolean>;
+type NotificationSettings = Record<NotificationType, boolean> & {
+  dnd: DndSettings;
+};
+
+type DndSettings = {
+  enabled: boolean;
+  /** HH:mm, local time. */
+  start: string;
+  /** HH:mm, local time. */
+  end: string;
+};
+
+const DEFAULT_DND: DndSettings = { enabled: false, start: '22:00', end: '08:00' };
+const DND_TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+const timeInputClass =
+  'h-9 w-28 rounded-lg border border-surface-3 bg-surface-1/60 px-2.5 font-mono text-[13px] tabular-nums text-gray-900 transition-colors focus:border-brand-400 focus:bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-500/15 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-100';
+
+const fieldLabelClass =
+  'mb-1.5 block text-[11px] font-semibold tracking-[0.04em] text-gray-500 dark:text-gray-400';
 
 const SETTING_ROWS: Array<{
   key: NotificationType;
@@ -73,6 +92,7 @@ export function NotificationsCenter() {
   const [filter, setFilter] = useState<Filter>('all');
   const [page, setPage] = useState(1);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [dndDraft, setDndDraft] = useState<DndSettings | null>(null);
 
   const { data, isLoading, isError, refetch } = useNotificationPage(filter, page);
   const markRead = useMarkNotificationRead();
@@ -140,6 +160,36 @@ export function NotificationsCenter() {
     if (!settings) return;
     queryClient.setQueryData(['notification-settings'], { ...settings, [key]: value });
     settingsMutation.mutate({ [key]: value });
+  };
+
+  // DND editing is local until "save": toggling the switch or picking a time
+  // only changes the draft. Saving applies the same optimistic update strategy
+  // used by the type switches above.
+  const serverDnd = settings?.dnd ?? DEFAULT_DND;
+  const dnd = dndDraft ?? serverDnd;
+  const dndDirty =
+    !!dndDraft &&
+    (dndDraft.enabled !== serverDnd.enabled ||
+      dndDraft.start !== serverDnd.start ||
+      dndDraft.end !== serverDnd.end);
+  const dndTimesValid = DND_TIME_RE.test(dnd.start) && DND_TIME_RE.test(dnd.end);
+
+  const updateDnd = (patch: Partial<DndSettings>) => {
+    setDndDraft({ ...dnd, ...patch });
+  };
+
+  const saveDnd = () => {
+    if (!settings || !dndDirty || !dndTimesValid) return;
+    queryClient.setQueryData(['notification-settings'], { ...settings, dnd });
+    settingsMutation.mutate(
+      { dnd },
+      {
+        onSuccess: () => {
+          setDndDraft(null);
+          toast.show(t('toast.dndSaved'));
+        },
+      },
+    );
   };
 
   const items = data?.items ?? [];
@@ -357,6 +407,97 @@ export function NotificationsCenter() {
                 />
               </li>
             ))}
+            <li className="py-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium text-gray-800 dark:text-gray-200">
+                    {t('page.settings.dnd.title')}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500">
+                    {t('page.settings.dnd.description')}
+                  </p>
+                </div>
+                <Switch
+                  checked={dnd.enabled}
+                  onChange={(value) => updateDnd({ enabled: value })}
+                  label={t('page.settings.dnd.switchLabel')}
+                  showState
+                  stateLabels={[t('page.settings.enabled'), t('page.settings.disabled')]}
+                  disabled={settingsMutation.isPending}
+                />
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-end gap-3">
+                <div>
+                  <label htmlFor="dnd-start" className={fieldLabelClass}>
+                    {t('page.settings.dnd.start')}
+                  </label>
+                  <input
+                    id="dnd-start"
+                    type="time"
+                    value={dnd.start}
+                    onChange={(event) => updateDnd({ start: event.target.value })}
+                    disabled={!dnd.enabled || settingsMutation.isPending}
+                    aria-invalid={!DND_TIME_RE.test(dnd.start)}
+                    className={clsx(
+                      timeInputClass,
+                      !DND_TIME_RE.test(dnd.start) &&
+                        'border-rose-400 focus:border-rose-400 focus:ring-rose-500/15',
+                    )}
+                  />
+                </div>
+                <span className="pb-2 text-xs text-gray-400 dark:text-gray-500">–</span>
+                <div>
+                  <label htmlFor="dnd-end" className={fieldLabelClass}>
+                    {t('page.settings.dnd.end')}
+                  </label>
+                  <input
+                    id="dnd-end"
+                    type="time"
+                    value={dnd.end}
+                    onChange={(event) => updateDnd({ end: event.target.value })}
+                    disabled={!dnd.enabled || settingsMutation.isPending}
+                    aria-invalid={!DND_TIME_RE.test(dnd.end)}
+                    className={clsx(
+                      timeInputClass,
+                      !DND_TIME_RE.test(dnd.end) &&
+                        'border-rose-400 focus:border-rose-400 focus:ring-rose-500/15',
+                    )}
+                  />
+                </div>
+                {dndDirty && (
+                  <div className="ml-auto flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDndDraft(null)}
+                      disabled={settingsMutation.isPending}
+                    >
+                      {t('page.settings.dnd.cancel')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={saveDnd}
+                      disabled={!dndTimesValid || settingsMutation.isPending}
+                    >
+                      {settingsMutation.isPending
+                        ? t('page.settings.dnd.saving')
+                        : t('page.settings.dnd.save')}
+                    </Button>
+                  </div>
+                )}
+              </div>
+              {!dndTimesValid && (
+                <p role="alert" className="mt-2 text-[11px] text-rose-600 dark:text-rose-400">
+                  {t('page.settings.dnd.invalidTime')}
+                </p>
+              )}
+              {dnd.enabled && dndTimesValid && dnd.start === dnd.end && (
+                <p className="mt-2 text-[11px] text-accent-600 dark:text-accent-300">
+                  {t('page.settings.dnd.sameTimeHint')}
+                </p>
+              )}
+            </li>
           </ul>
         )}
       </Card>

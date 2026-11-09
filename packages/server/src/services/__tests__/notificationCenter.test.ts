@@ -24,6 +24,8 @@ const {
   clearNotifications,
   getNotificationSettings,
   updateNotificationSettings,
+  isWithinDnd,
+  DEFAULT_DND,
 } = await import('../notificationCenter.js');
 const { prisma } = await import('../../db/client.js');
 
@@ -179,6 +181,11 @@ describe('notification center service', () => {
         'feedback.assigned': true,
         'feedback.status_changed': true,
         'feedback.comment': true,
+        dnd: {
+          enabled: false,
+          start: '22:00',
+          end: '08:00',
+        },
       });
     });
 
@@ -241,6 +248,175 @@ describe('notification center service', () => {
       });
 
       expect(prisma.notification.createMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('do not disturb window', () => {
+    const crossMidnight = { enabled: true, start: '23:00', end: '07:00' };
+    const sameDay = { enabled: true, start: '09:00', end: '18:00' };
+
+    function mockMembersWithDnd(dndEnabled: boolean) {
+      (prisma.member.findMany as ReturnType<typeof vi.fn>).mockImplementation(
+        async (args?: { where?: { id?: { in?: string[] } } }) => {
+          if (args?.where?.id?.in) {
+            return [
+              {
+                id: 'owner-1',
+                notification_settings: {
+                  dnd: { enabled: dndEnabled, start: '23:00', end: '07:00' },
+                },
+              },
+              { id: 'admin-1', notification_settings: null },
+            ];
+          }
+          return [{ id: 'owner-1' }, { id: 'admin-1' }];
+        },
+      );
+    }
+
+    function createFeedbackNotification() {
+      return notifyFeedbackCreated({
+        orgId: 'org-1',
+        feedbackId: 'fb-1',
+        title: 'Login is slow',
+        category: 'performance',
+        priority: 'high',
+        source: 'api',
+      });
+    }
+
+    it('detects a cross-midnight window (23:00-07:00)', () => {
+      expect(isWithinDnd(crossMidnight, new Date(2026, 10, 10, 2, 0))).toBe(true);
+      expect(isWithinDnd(crossMidnight, new Date(2026, 10, 10, 23, 0))).toBe(true);
+      expect(isWithinDnd(crossMidnight, new Date(2026, 10, 10, 6, 59))).toBe(true);
+      expect(isWithinDnd(crossMidnight, new Date(2026, 10, 10, 7, 0))).toBe(false);
+      expect(isWithinDnd(crossMidnight, new Date(2026, 10, 10, 12, 0))).toBe(false);
+    });
+
+    it('detects a same-day window with an exclusive end', () => {
+      expect(isWithinDnd(sameDay, new Date(2026, 10, 10, 9, 0))).toBe(true);
+      expect(isWithinDnd(sameDay, new Date(2026, 10, 10, 12, 0))).toBe(true);
+      expect(isWithinDnd(sameDay, new Date(2026, 10, 10, 17, 59))).toBe(true);
+      expect(isWithinDnd(sameDay, new Date(2026, 10, 10, 18, 0))).toBe(false);
+      expect(isWithinDnd(sameDay, new Date(2026, 10, 10, 8, 59))).toBe(false);
+    });
+
+    it('is inactive when disabled or when start equals end', () => {
+      expect(isWithinDnd({ ...crossMidnight, enabled: false }, new Date(2026, 10, 10, 2, 0))).toBe(
+        false,
+      );
+      expect(
+        isWithinDnd({ enabled: true, start: '08:00', end: '08:00' }, new Date(2026, 10, 10, 8, 0)),
+      ).toBe(false);
+    });
+
+    it('skips a recipient inside the quiet window at 02:00', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2026, 10, 10, 2, 0, 0));
+      try {
+        mockMembersWithDnd(true);
+
+        await createFeedbackNotification();
+
+        expect(prisma.notification.createMany).toHaveBeenCalledWith({
+          data: [expect.objectContaining({ member_id: 'admin-1' })],
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('notifies everyone outside the quiet window at 12:00', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2026, 10, 10, 12, 0, 0));
+      try {
+        mockMembersWithDnd(true);
+
+        await createFeedbackNotification();
+
+        const data = (prisma.notification.createMany as ReturnType<typeof vi.fn>).mock
+          .calls[0]?.[0] as { data: Array<{ member_id: string }> };
+        expect(data.data.map((item) => item.member_id).sort()).toEqual(['admin-1', 'owner-1']);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('does not filter anyone when DND is disabled', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2026, 10, 10, 2, 0, 0));
+      try {
+        mockMembersWithDnd(false);
+
+        await createFeedbackNotification();
+
+        const data = (prisma.notification.createMany as ReturnType<typeof vi.fn>).mock
+          .calls[0]?.[0] as { data: Array<{ member_id: string }> };
+        expect(data.data.map((item) => item.member_id).sort()).toEqual(['admin-1', 'owner-1']);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('normalizes invalid stored DND times back to the defaults', async () => {
+      (prisma.member.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+        notification_settings: { dnd: { enabled: true, start: '25:00', end: '07:00' } },
+      });
+
+      const settings = await getNotificationSettings('admin-1', 'org-1');
+
+      expect(settings.dnd).toEqual({ enabled: true, start: DEFAULT_DND.start, end: '07:00' });
+    });
+
+    it('persists a full DND update', async () => {
+      (prisma.member.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+        notification_settings: null,
+      });
+      (prisma.member.update as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+      const settings = await updateNotificationSettings('admin-1', 'org-1', {
+        dnd: { enabled: true, start: '23:00', end: '07:00' },
+      });
+
+      expect(settings.dnd).toEqual({ enabled: true, start: '23:00', end: '07:00' });
+      expect(prisma.member.update).toHaveBeenCalledWith({
+        where: { id: 'admin-1' },
+        data: { notification_settings: expect.objectContaining({ dnd: settings.dnd }) },
+      });
+    });
+
+    it('keeps stored times when only the DND switch changes', async () => {
+      (prisma.member.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+        notification_settings: { dnd: { enabled: false, start: '21:00', end: '06:00' } },
+      });
+      (prisma.member.update as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+      const settings = await updateNotificationSettings('admin-1', 'org-1', {
+        dnd: { enabled: true },
+      });
+
+      expect(settings.dnd).toEqual({ enabled: true, start: '21:00', end: '06:00' });
+    });
+
+    it.each([
+      ['start hour out of range', { start: '25:00' }, '免打扰开始时间格式无效'],
+      ['start missing leading zero', { start: '7:00' }, '免打扰开始时间格式无效'],
+      ['end minutes out of range', { end: '08:60' }, '免打扰结束时间格式无效'],
+    ])('rejects invalid time (%s)', async (_name, dnd, message) => {
+      await expect(
+        updateNotificationSettings('admin-1', 'org-1', { dnd }),
+      ).rejects.toThrow(message);
+      expect(prisma.member.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects a non-boolean enabled flag and a non-object dnd payload', async () => {
+      await expect(
+        updateNotificationSettings('admin-1', 'org-1', { dnd: { enabled: 'yes' } }),
+      ).rejects.toThrow('免打扰开关必须是布尔值');
+      await expect(
+        updateNotificationSettings('admin-1', 'org-1', { dnd: 'on' }),
+      ).rejects.toThrow('免打扰设置格式不正确');
+      expect(prisma.member.update).not.toHaveBeenCalled();
     });
   });
 });

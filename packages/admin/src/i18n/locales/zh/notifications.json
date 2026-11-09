@@ -76,6 +76,18 @@
           "label": "新评论",
           "description": "反馈收到新评论时通知我"
         }
+      },
+      "dnd": {
+        "title": "免打扰时段",
+        "description": "开启后，此时段内不会收到站内通知，可跨午夜；邮件订阅不受影响。",
+        "switchLabel": "免打扰时段",
+        "start": "开始时间",
+        "end": "结束时间",
+        "save": "保存时段",
+        "saving": "保存中…",
+        "cancel": "取消",
+        "invalidTime": "请输入有效的时间（HH:mm）",
+        "sameTimeHint": "起止时间相同，免打扰将不生效"
       }
     },
     "clear": {
@@ -95,6 +107,7 @@
     "operationFailed": "操作失败",
     "clearFailed": "清空通知失败",
     "cleared_other": "已清空 {{count}} 条通知",
-    "settingsSaveFailed": "通知偏好保存失败"
+    "settingsSaveFailed": "通知偏好保存失败",
+    "dndSaved": "免打扰时段已保存"
   }
 }
