@@ -7,7 +7,6 @@ import '@fontsource-variable/instrument-sans/wght.css';
 import '@/styles/auth.css';
 
 type Tab = 'login' | 'register' | 'forgot';
-type FieldKey = keyof FieldErrors;
 
 type FieldErrors = Partial<Record<
   | 'org_slug'

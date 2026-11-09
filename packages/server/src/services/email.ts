@@ -58,7 +58,7 @@ export async function sendBatchEmails(
     subject,
     html,
   }));
-  const { data, error } = await client.batch.send(batch);
+  const { error } = await client.batch.send(batch);
   if (error) {
     throw new Error(`批量邮件发送失败: ${error.message || error.name || JSON.stringify(error)}`);
   }
