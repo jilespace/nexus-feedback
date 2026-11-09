@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { fetchBoardConfig } from './api';
 import type { BoardConfig } from './types';
 import { AppHeader } from './components/AppHeader';
+import { SubscribeCard } from './components/SubscribeCard';
 import { BoardHome } from './pages/BoardHome';
 import { FeedbackDetail } from './pages/FeedbackDetail';
 import { Roadmap } from './pages/Roadmap';
@@ -107,14 +108,17 @@ function BoardLayout() {
         </Routes>
       </main>
       <footer className="border-t border-line-subtle">
-        <div className="mx-auto flex max-w-5xl flex-col gap-1 px-4 py-6 text-11 text-ink-tertiary sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            {t('common.copyright', {
-              year: new Date().getFullYear(),
-              name: orgName || projectName,
-            })}
-          </p>
-          <p>{t('common.poweredBy')}</p>
+        <div className="mx-auto max-w-5xl px-4 py-8">
+          <SubscribeCard />
+          <div className="mt-6 flex flex-col gap-1 border-t border-line-subtle pt-6 text-11 text-ink-tertiary sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              {t('common.copyright', {
+                year: new Date().getFullYear(),
+                name: orgName || projectName,
+              })}
+            </p>
+            <p>{t('common.poweredBy')}</p>
+          </div>
         </div>
       </footer>
     </div>

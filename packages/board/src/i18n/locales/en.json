@@ -146,6 +146,24 @@
     "notFoundDescription": "It may have been removed, or the link is incorrect.",
     "anonymous": "Anonymous"
   },
+  "subscribe": {
+    "title": "Subscribe to updates",
+    "description": "Get status changes and a weekly digest in your inbox. Unsubscribe anytime from any email.",
+    "emailLabel": "Email",
+    "emailPlaceholder": "you@example.com",
+    "typeLabel": "Updates",
+    "typeWeekly": "Weekly digest",
+    "typeStatus": "Status changes",
+    "typeAll": "Everything",
+    "action": "Subscribe",
+    "submitting": "Subscribing…",
+    "success": "Subscribed. You can unsubscribe from the email.",
+    "again": "Use another email",
+    "errorRequired": "Enter your email address",
+    "errorEmail": "Enter a valid email address",
+    "errorSubmit": "Subscription failed. Please try again.",
+    "privacy": "Used for updates only — never shown publicly."
+  },
   "submit": {
     "title": "Submit feedback",
     "subtitle": "We read every submission.",

@@ -83,6 +83,13 @@ export interface ProjectCategory {
   color: string;
 }
 
+export type SubscribeType = 'status_updates' | 'weekly_digest' | 'all';
+
+export interface SubscribeResult {
+  subscribed: boolean;
+  type: SubscribeType;
+}
+
 export interface BoardConfig {
   project: { name: string; slug: string };
   organization?: {

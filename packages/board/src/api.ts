@@ -8,6 +8,8 @@ import type {
   PaginatedResponse,
   ProjectCategory,
   RoadmapData,
+  SubscribeResult,
+  SubscribeType,
 } from './types';
 
 function getSlug(): string {
@@ -109,6 +111,16 @@ export function fetchRoadmap(): Promise<RoadmapData> {
 
 export function fetchChangelog(): Promise<ChangelogEntry[]> {
   return request<ChangelogEntry[]>('/changelog');
+}
+
+export function subscribeToUpdates(body: {
+  email: string;
+  type: SubscribeType;
+}): Promise<SubscribeResult> {
+  return request<SubscribeResult>('/subscribe', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
 }
 
 export async function fetchProjectCategories(): Promise<ProjectCategory[]> {

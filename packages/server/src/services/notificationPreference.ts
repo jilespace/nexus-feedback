@@ -2,6 +2,45 @@ import { prisma } from '../db/client.js';
 import { NotFoundError } from '../utils/errors.js';
 import { paginatedResult } from '../utils/pagination.js';
 
+export const SUBSCRIPTION_TYPES = ['status_updates', 'weekly_digest', 'all'] as const;
+export type SubscriptionType = (typeof SUBSCRIPTION_TYPES)[number];
+
+export function isSubscriptionType(value: unknown): value is SubscriptionType {
+  return (
+    typeof value === 'string' &&
+    (SUBSCRIPTION_TYPES as readonly string[]).includes(value)
+  );
+}
+
+function subscriptionFields(type: SubscriptionType): {
+  status_updates?: boolean;
+  weekly_digest?: boolean;
+} {
+  const data: { status_updates?: boolean; weekly_digest?: boolean } = {};
+  if (type === 'status_updates' || type === 'all') data.status_updates = true;
+  if (type === 'weekly_digest' || type === 'all') data.weekly_digest = true;
+  return data;
+}
+
+/**
+ * Public board subscription: opt an email address into a project's updates.
+ * The (email, project_id) unique key keeps repeated subscriptions idempotent.
+ * No email is sent from this path.
+ */
+export async function subscribeToProjectUpdates(
+  email: string,
+  projectId: string,
+  type: SubscriptionType,
+) {
+  const data = subscriptionFields(type);
+  await prisma.notificationPreference.upsert({
+    where: { email_project_id: { email, project_id: projectId } },
+    create: { email, project_id: projectId, ...data },
+    update: data,
+  });
+  return { subscribed: true as const, type };
+}
+
 export async function getPreference(email: string, projectId: string) {
   const pref = await prisma.notificationPreference.findUnique({
     where: { email_project_id: { email, project_id: projectId } },

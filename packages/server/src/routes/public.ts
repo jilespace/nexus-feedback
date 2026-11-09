@@ -9,6 +9,10 @@ import { createApiKeyLimiter } from '../middleware/rateLimit.js';
 import { moderateComment, sanitizeContent } from '../middleware/commentModeration.js';
 import { getProjectCategories, getProjectCategoryObjects } from '../services/categoryConfig.js';
 import { getBoardConfig } from '../services/boardConfig.js';
+import {
+  isSubscriptionType,
+  subscribeToProjectUpdates,
+} from '../services/notificationPreference.js';
 
 const apiKeyLimiter = createApiKeyLimiter();
 
@@ -397,6 +401,26 @@ publicRouter.post('/feedback/:id/comments', apiKeyLimiter, async (req, res, next
       content: comment.content,
       created_at: comment.created_at.toISOString(),
     }, 201);
+  } catch (err) {
+    next(err);
+  }
+});
+
+publicRouter.post('/subscribe', async (req, res, next) => {
+  try {
+    const project = req.project!;
+    const rawEmail = req.body?.email;
+    const type = req.body?.type;
+    const email =
+      typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : '';
+    if (!email) throw new ValidationError('邮箱不能为空');
+    if (!isValidEmail(email)) throw new ValidationError('邮箱格式不正确');
+    if (!isSubscriptionType(type)) throw new ValidationError('无效的订阅类型');
+
+    // Public endpoint reuses the router-level per-IP publicLimiter; no email is
+    // sent here (confirmation emails are out of scope for this round).
+    const result = await subscribeToProjectUpdates(email, project.id, type);
+    success(res, result);
   } catch (err) {
     next(err);
   }
