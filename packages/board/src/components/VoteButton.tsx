@@ -113,6 +113,7 @@ export function VoteButton({
       onClick={handleVote}
       disabled={loading}
       aria-pressed={isVoted}
+      aria-busy={loading}
       aria-label={
         isVoted
           ? t('vote.ariaLabelVoted', { count: voteCount })
@@ -134,9 +135,11 @@ export function VoteButton({
         <ArrowUpIcon className="h-4 w-4 transition-transform duration-150 group-hover/vote:-translate-y-0.5" />
       )}
       <span className="tnum text-14 font-semibold leading-none">{voteCount}</span>
-      <span aria-live="polite" className="sr-only">
-        {failed ? t('vote.error') : ''}
-      </span>
+      {failed && (
+        <span role="alert" className="sr-only">
+          {t('vote.error')}
+        </span>
+      )}
     </button>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { postComment } from '../api';
 import { AlertIcon, SpinnerIcon } from './Icons';
@@ -40,19 +40,26 @@ export function CommentForm({ feedbackId, onCommented }: CommentFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const emailRef = useRef<HTMLInputElement>(null);
+  const contentRef = useRef<HTMLTextAreaElement>(null);
 
-  function validate(): boolean {
+  function validate(): FieldErrors | null {
     const next: FieldErrors = {};
     if (!email.trim()) next.email = t('submit.errorRequired');
     else if (!EMAIL_PATTERN.test(email.trim())) next.email = t('submit.errorEmail');
     if (!content.trim()) next.content = t('submit.errorRequired');
     setFieldErrors(next);
-    return Object.keys(next).length === 0;
+    return Object.keys(next).length === 0 ? null : next;
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!validate()) return;
+    const errors = validate();
+    if (errors) {
+      if (errors.email) emailRef.current?.focus();
+      else contentRef.current?.focus();
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -98,6 +105,7 @@ export function CommentForm({ feedbackId, onCommented }: CommentFormProps) {
             </label>
             <input
               id="comment-email"
+              ref={emailRef}
               type="email"
               value={email}
               onChange={(event) => {
@@ -105,6 +113,9 @@ export function CommentForm({ feedbackId, onCommented }: CommentFormProps) {
                 setFieldErrors((current) => ({ ...current, email: undefined }));
               }}
               aria-invalid={Boolean(fieldErrors.email)}
+              aria-describedby={
+                fieldErrors.email ? 'comment-email-error' : undefined
+              }
               placeholder={t('comment.emailPlaceholder')}
               autoComplete="email"
               className={
@@ -114,7 +125,9 @@ export function CommentForm({ feedbackId, onCommented }: CommentFormProps) {
               }
             />
             {fieldErrors.email && (
-              <p className="mt-1 text-11 text-danger">{fieldErrors.email}</p>
+              <p id="comment-email-error" className="mt-1 text-11 text-danger">
+                {fieldErrors.email}
+              </p>
             )}
           </div>
           <div>
@@ -147,12 +160,16 @@ export function CommentForm({ feedbackId, onCommented }: CommentFormProps) {
           </label>
           <textarea
             id="comment-content"
+            ref={contentRef}
             value={content}
             onChange={(event) => {
               setContent(event.target.value);
               setFieldErrors((current) => ({ ...current, content: undefined }));
             }}
             aria-invalid={Boolean(fieldErrors.content)}
+            aria-describedby={
+              fieldErrors.content ? 'comment-content-error' : undefined
+            }
             rows={3}
             placeholder={t('comment.contentPlaceholder')}
             className={`field-area ${
@@ -162,7 +179,9 @@ export function CommentForm({ feedbackId, onCommented }: CommentFormProps) {
             }`}
           />
           {fieldErrors.content && (
-            <p className="mt-1 text-11 text-danger">{fieldErrors.content}</p>
+            <p id="comment-content-error" className="mt-1 text-11 text-danger">
+              {fieldErrors.content}
+            </p>
           )}
         </div>
       </div>

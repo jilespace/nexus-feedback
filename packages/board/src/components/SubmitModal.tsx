@@ -174,6 +174,7 @@ export function SubmitModal({ onClose, onSubmitted }: SubmitModalProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="submit-modal-title"
+        aria-describedby="submit-modal-description"
         className="relative flex max-h-[92vh] w-full animate-pop-in flex-col overflow-hidden rounded-t-pop border border-line-subtle bg-surface shadow-pop sm:max-w-lg sm:rounded-pop"
       >
         <div className="flex items-start justify-between gap-4 border-b border-line-subtle px-5 py-4">
@@ -184,7 +185,10 @@ export function SubmitModal({ onClose, onSubmitted }: SubmitModalProps) {
             >
               {t('submit.title')}
             </h2>
-            <p className="mt-0.5 text-12 text-ink-secondary">
+            <p
+              id="submit-modal-description"
+              className="mt-0.5 text-12 text-ink-secondary"
+            >
               {t('submit.subtitle')}
             </p>
           </div>

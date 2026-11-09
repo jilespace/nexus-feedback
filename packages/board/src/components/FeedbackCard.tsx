@@ -20,6 +20,7 @@ export function FeedbackCard({ item, to, index = 0 }: FeedbackCardProps) {
     <article
       className="card group relative flex animate-rise gap-3 p-3.5 transition-[box-shadow,border-color] duration-150 hover:border-line-strong hover:shadow-lift sm:gap-4 sm:p-4"
       style={index < 10 ? { animationDelay: `${index * 35}ms` } : undefined}
+      aria-labelledby={`feedback-${item.id}-title`}
     >
       <VoteButton feedbackId={item.id} count={item.vote_count} />
       <Link
@@ -28,7 +29,10 @@ export function FeedbackCard({ item, to, index = 0 }: FeedbackCardProps) {
       >
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2.5">
-            <h2 className="line-clamp-2 min-w-0 flex-1 text-14 font-semibold leading-snug text-ink transition-colors duration-150 group-hover:text-brand">
+            <h2
+              id={`feedback-${item.id}-title`}
+              className="line-clamp-2 min-w-0 flex-1 text-14 font-semibold leading-snug text-ink transition-colors duration-150 group-hover:text-brand"
+            >
               {item.title}
             </h2>
             <StatusBadge status={item.status} className="mt-px shrink-0" />

@@ -124,13 +124,21 @@ export function BoardToolbar({
               icon={<ClockIcon className="h-3.5 w-3.5" aria-hidden="true" />}
             />
           </div>
-          <p className="tnum text-12 text-ink-tertiary sm:hidden">
+          <p
+            className="tnum text-12 text-ink-tertiary sm:hidden"
+            role="status"
+            aria-live="polite"
+          >
             {t('home.resultCount', { count: visibleCount })}
           </p>
         </div>
       </div>
 
-      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+      <div
+        className="mt-2.5 flex flex-wrap items-center gap-1.5"
+        role="group"
+        aria-label={t('home.filterByStatus')}
+      >
         <button
           type="button"
           onClick={() => onStatusChange('')}
@@ -159,7 +167,11 @@ export function BoardToolbar({
             </button>
           );
         })}
-        <span className="tnum ml-auto hidden text-12 text-ink-tertiary sm:block">
+        <span
+          className="tnum ml-auto hidden text-12 text-ink-tertiary sm:block"
+          role="status"
+          aria-live="polite"
+        >
           {visibleCount === totalCount
             ? t('home.resultCount', { count: totalCount })
             : t('home.resultCountFiltered', {

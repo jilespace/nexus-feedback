@@ -59,7 +59,7 @@ export function AppHeader({ projectName, orgName }: AppHeaderProps) {
           <Link
             to={base}
             className="flex min-w-0 flex-1 items-center gap-2.5 rounded-control md:flex-none"
-            aria-label={t('nav.home')}
+            aria-label={t('nav.homeLabel', { project: projectName })}
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-brand text-white shadow-card">
               <ArrowUpIcon className="h-4 w-4" />
@@ -101,6 +101,7 @@ export function AppHeader({ projectName, orgName }: AppHeaderProps) {
               onClick={toggleTheme}
               className="icon-btn"
               aria-label={t('common.toggleTheme')}
+              aria-pressed={theme === 'dark'}
               title={t('common.toggleTheme')}
             >
               {theme === 'dark' ? (

@@ -5,7 +5,8 @@
     "changelog": "Changelog",
     "boardSubtitle": "Public feedback board",
     "mainLabel": "Main navigation",
-    "home": "Back to board home"
+    "home": "Back to board home",
+    "homeLabel": "{{project}} · back to board home"
   },
   "meta": {
     "homeTitle": "{{project}} · Feedback board",
@@ -78,6 +79,7 @@
     "sortNewest": "Newest",
     "filtersLabel": "Filters and sorting",
     "filterByCategory": "Filter by category",
+    "filterByStatus": "Filter by status",
     "resultCount": "{{count}} items",
     "resultCountFiltered": "{{visible}} of {{total}}",
     "activeFilters": "Filters",
@@ -92,6 +94,7 @@
     "skeletonLabel": "Loading feedback"
   },
   "sidebar": {
+    "landmark": "Board sidebar",
     "ctaTitle": "Have an idea?",
     "ctaDescription": "Share a feature request or report a problem. We review every submission.",
     "ctaAction": "Submit feedback",

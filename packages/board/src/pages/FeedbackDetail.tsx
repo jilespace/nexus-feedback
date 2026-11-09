@@ -106,7 +106,7 @@ export function FeedbackDetail({ projectName }: { projectName: string }) {
     <div className="mx-auto max-w-3xl px-4 py-6 sm:py-8">
       {backLink}
 
-      <article className="card p-4 sm:p-6">
+      <article className="card p-4 sm:p-6" aria-labelledby="feedback-detail-title">
         <div className="flex gap-3.5 sm:gap-4">
           <VoteButton
             feedbackId={data.id}
@@ -126,7 +126,10 @@ export function FeedbackDetail({ projectName }: { projectName: string }) {
               )}
             </div>
             <div className="mt-2.5 flex items-start justify-between gap-3">
-              <h1 className="min-w-0 text-18 font-semibold leading-snug text-ink sm:text-22">
+              <h1
+                id="feedback-detail-title"
+                className="min-w-0 text-18 font-semibold leading-snug text-ink sm:text-22"
+              >
                 {data.title}
               </h1>
               <ShareButton
@@ -186,9 +189,12 @@ export function FeedbackDetail({ projectName }: { projectName: string }) {
                       {reply.member.display_name}
                     </span>
                   )}
-                  <span className="text-11 text-ink-tertiary">
+                  <time
+                    dateTime={reply.created_at}
+                    className="text-11 text-ink-tertiary"
+                  >
                     {formatDateTime(reply.created_at, i18n.language)}
-                  </span>
+                  </time>
                 </div>
                 <p className="mt-2 whitespace-pre-wrap break-words text-13 leading-relaxed text-ink-secondary">
                   {reply.content}
@@ -228,9 +234,12 @@ export function FeedbackDetail({ projectName }: { projectName: string }) {
                       <p className="truncate text-12 font-medium text-ink">
                         {author}
                       </p>
-                      <p className="text-11 text-ink-tertiary">
+                      <time
+                        dateTime={comment.created_at}
+                        className="block text-11 text-ink-tertiary"
+                      >
                         {formatDateTime(comment.created_at, i18n.language)}
-                      </p>
+                      </time>
                     </div>
                   </div>
                   <p className="mt-2.5 whitespace-pre-wrap break-words text-13 leading-relaxed text-ink-secondary">

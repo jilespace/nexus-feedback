@@ -149,18 +149,51 @@ export function DetailSkeleton({ label }: { label: string }) {
         <div className="flex gap-4">
           <div className="skeleton h-[60px] w-[52px] shrink-0 rounded-pill" />
           <div className="min-w-0 flex-1 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="skeleton h-[22px] w-16 rounded-pill" />
+              <div className="skeleton h-[22px] w-20 rounded-pill" />
+            </div>
             <div className="skeleton h-5 w-3/5" />
             <div className="skeleton h-3 w-2/5" />
+            <div className="skeleton h-[22px] w-24 rounded-pill" />
           </div>
         </div>
-        <div className="skeleton mt-6 h-3 w-full" />
-        <div className="skeleton mt-2 h-3 w-11/12" />
-        <div className="skeleton mt-2 h-3 w-2/3" />
+        <div className="mt-5 space-y-2.5 border-t border-line-subtle pt-4">
+          <div className="skeleton h-3 w-full" />
+          <div className="skeleton h-3 w-11/12" />
+          <div className="skeleton h-3 w-2/3" />
+          <div className="skeleton h-3 w-full" />
+          <div className="skeleton h-3 w-1/2" />
+        </div>
       </div>
-      <div className="card space-y-3 p-5">
+      <div className="mt-1 space-y-3">
         <div className="skeleton h-3.5 w-24" />
-        <div className="skeleton h-3 w-full" />
-        <div className="skeleton h-3 w-4/5" />
+        <div className="rounded-card border border-dashed border-line-strong/50 px-4 py-8">
+          <div className="skeleton mx-auto h-3 w-48" />
+        </div>
+        <div className="card p-4">
+          <div className="flex items-center gap-2.5">
+            <div className="skeleton h-8 w-8 rounded-full" />
+            <div className="space-y-1.5">
+              <div className="skeleton h-3 w-24" />
+              <div className="skeleton h-2.5 w-16" />
+            </div>
+          </div>
+          <div className="skeleton mt-2.5 h-3 w-full" />
+          <div className="skeleton mt-2 h-3 w-3/5" />
+        </div>
+      </div>
+      <div className="card mt-1 p-4 sm:p-5">
+        <div className="skeleton h-4 w-24" />
+        <div className="skeleton mt-2 h-3 w-64 max-w-full" />
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="skeleton h-10" />
+          <div className="skeleton h-10" />
+        </div>
+        <div className="skeleton mt-3 h-24" />
+        <div className="mt-4 flex justify-end">
+          <div className="skeleton h-9 w-24 rounded-control" />
+        </div>
       </div>
     </div>
   );

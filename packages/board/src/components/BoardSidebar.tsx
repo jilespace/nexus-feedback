@@ -15,7 +15,10 @@ export function SubmitCtaCard({
 
   if (variant === 'compact') {
     return (
-      <section className="card flex items-center gap-3 p-3.5 lg:hidden">
+      <section
+        className="card flex items-center gap-3 p-3.5 lg:hidden"
+        aria-label={t('sidebar.ctaTitle')}
+      >
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-brand-soft text-brand">
           <SparkIcon className="h-[18px] w-[18px]" aria-hidden="true" />
         </div>
@@ -30,7 +33,7 @@ export function SubmitCtaCard({
   }
 
   return (
-    <section className="card hidden p-4 lg:block">
+    <section className="card hidden p-4 lg:block" aria-label={t('sidebar.ctaTitle')}>
       <div className="flex h-9 w-9 items-center justify-center rounded-control bg-brand-soft text-brand">
         <SparkIcon className="h-[18px] w-[18px]" aria-hidden="true" />
       </div>
@@ -125,7 +128,10 @@ export function BoardSidebar({
   const { t } = useTranslation();
 
   return (
-    <aside className="flex flex-col gap-4 lg:sticky lg:top-20 lg:self-start">
+    <aside
+      className="flex flex-col gap-4 lg:sticky lg:top-20 lg:self-start"
+      aria-label={t('sidebar.landmark')}
+    >
       <SubmitCtaCard onOpen={onOpenSubmit} />
 
       <section className="card p-4" aria-labelledby="board-stats-title">

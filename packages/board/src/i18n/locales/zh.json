@@ -5,7 +5,8 @@
     "changelog": "更新日志",
     "boardSubtitle": "公开反馈看板",
     "mainLabel": "主导航",
-    "home": "返回看板首页"
+    "home": "返回看板首页",
+    "homeLabel": "{{project}} · 返回看板首页"
   },
   "meta": {
     "homeTitle": "{{project}} · 反馈看板",
@@ -78,6 +79,7 @@
     "sortNewest": "最新",
     "filtersLabel": "筛选与排序",
     "filterByCategory": "按分类筛选",
+    "filterByStatus": "按状态筛选",
     "resultCount": "共 {{count}} 条",
     "resultCountFiltered": "{{visible}} / {{total}} 条",
     "activeFilters": "当前筛选",
@@ -92,6 +94,7 @@
     "skeletonLabel": "正在加载反馈列表"
   },
   "sidebar": {
+    "landmark": "看板侧栏",
     "ctaTitle": "有想法？告诉我们",
     "ctaDescription": "提交功能建议或问题反馈，团队会定期查看并回复。",
     "ctaAction": "提交反馈",
