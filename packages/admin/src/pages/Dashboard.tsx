@@ -13,11 +13,11 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { apiRequest } from '@/api/client';
+import { apiRequest, fetchAuditLogs } from '@/api/client';
 import { StatusBadge } from '@/components/StatusBadge';
 import { CategoryBadge, SourceBadge } from '@/components/badges';
 import { PageHeader } from '@/components/PageHeader';
-import { Button, Card, CardHeader, EmptyState, Skeleton, StatCard } from '@/components/ui';
+import { Badge, Button, Card, CardHeader, EmptyState, Skeleton, StatCard } from '@/components/ui';
 import {
   ClosedIcon,
   OpenIcon,
@@ -27,12 +27,13 @@ import {
   TotalIcon,
 } from '@/components/icons';
 import { formatRelativeTime } from '@/utils/formatRelativeTime';
+import { auditActionLabel, auditActionTone, auditTargetLabel } from '@/utils/auditLabels';
 import { useFirstProject } from '@/hooks/useOnboarding';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { CATEGORY_PALETTE, categoryColor, categoryLabel, sourceLabel } from '@/utils/labels';
 import { fillLastWeeks } from '@/utils/weekSeries';
-import type { FeedbackItem, PaginatedResponse, Stats } from '@/types';
+import type { AuditLog, FeedbackItem, PaginatedResponse, Stats } from '@/types';
 
 type DashboardStats = Stats;
 
@@ -57,6 +58,21 @@ export function Dashboard() {
   const recentQuery = useQuery({
     queryKey: ['feedback', 1, {}],
     queryFn: () => apiRequest<PaginatedResponse<FeedbackItem>>('/admin/feedback?page=1&page_size=5'),
+  });
+
+  const canViewAudit = member?.role === 'owner' || member?.role === 'admin';
+  const activityQuery = useQuery({
+    queryKey: ['dashboard-activity'],
+    queryFn: () => fetchAuditLogs({ page: 1, page_size: 6 }),
+    enabled: canViewAudit,
+  });
+  const assignedQuery = useQuery({
+    queryKey: ['my-assignments', member?.id],
+    queryFn: () =>
+      apiRequest<PaginatedResponse<FeedbackItem>>(
+        `/admin/feedback?assignee_id=${member!.id}&page_size=4&view=active`,
+      ),
+    enabled: Boolean(member?.id),
   });
 
   const stats = statsQuery.data;
@@ -423,6 +439,104 @@ export function Dashboard() {
             </div>
           ) : (
             <EmptyState title={t('dashboard.no_data')} className="py-8" />
+          )}
+        </Card>
+      </div>
+
+      <div className={canViewAudit ? 'grid gap-4 lg:grid-cols-3 lg:gap-6' : 'grid gap-4'}>
+        {canViewAudit && (
+          <Card className="p-5 lg:col-span-2">
+            <CardHeader
+              title="最近动态"
+              description="组织内的最新操作记录"
+              className="mb-4"
+              action={
+                <button
+                  onClick={() => navigate('/audit-logs')}
+                  className="text-xs font-medium text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+                >
+                  {t('dashboard.view_all')} →
+                </button>
+              }
+            />
+            {activityQuery.data?.items.length ? (
+              <ul className="-mx-2 space-y-0.5">
+                {activityQuery.data.items.map((activity: AuditLog) => (
+                  <li key={activity.id}>
+                    <button
+                      onClick={() => navigate('/audit-logs')}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors hover:bg-surface-1 dark:hover:bg-gray-700/40"
+                    >
+                      <Badge tone={auditActionTone(activity.action)}>
+                        {auditActionLabel(activity.action)}
+                      </Badge>
+                      <span className="min-w-0 flex-1 truncate text-[13px] text-gray-600 dark:text-gray-300">
+                        {auditTargetLabel(activity.target_type)}
+                        {typeof activity.metadata?.title === 'string'
+                          ? `「${activity.metadata.title}」`
+                          : activity.target_id
+                            ? ` #${activity.target_id.slice(0, 8)}`
+                            : ''}
+                      </span>
+                      <span className="hidden shrink-0 text-[11px] text-gray-400 dark:text-gray-500 sm:block">
+                        {activity.member?.display_name || '系统'}
+                      </span>
+                      <span className="w-16 shrink-0 text-right text-[11px] text-gray-400 dark:text-gray-500">
+                        {formatRelativeTime(activity.created_at)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState title={t('dashboard.no_data')} className="py-8" />
+            )}
+          </Card>
+        )}
+
+        <Card className="p-5">
+          <CardHeader
+            title="分配给我"
+            description="需要你跟进处理的反馈"
+            className="mb-4"
+            action={
+              <button
+                onClick={() => navigate('/feedback')}
+                className="text-xs font-medium text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+              >
+                全部 →
+              </button>
+            }
+          />
+          {assignedQuery.data?.items.length ? (
+            <ul className="-mx-2 space-y-0.5">
+              {assignedQuery.data.items.map((item) => (
+                <li key={item.id}>
+                  <button
+                    onClick={() => navigate(`/feedback/${item.id}`)}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors hover:bg-surface-1 dark:hover:bg-gray-700/40"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px] font-medium text-gray-800 dark:text-gray-200">
+                        {item.title}
+                      </span>
+                      <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-gray-500">
+                        <CategoryBadge category={item.category} />
+                        <span className="text-gray-300 dark:text-gray-600">·</span>
+                        {formatRelativeTime(item.created_at)}
+                      </span>
+                    </span>
+                    <StatusBadge status={item.status} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState
+              title="暂无指派给你的反馈"
+              description="在反馈详情页指派负责人后，会出现在这里"
+              className="py-6"
+            />
           )}
         </Card>
       </div>

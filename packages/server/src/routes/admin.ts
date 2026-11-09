@@ -153,19 +153,6 @@ adminRouter.patch('/feedback/:id/status', adminAuth, async (req, res, next) => {
   }
 });
 
-adminRouter.patch('/feedback/:id', adminAuth, requireRole(['owner', 'admin']), async (req, res, next) => {
-  try {
-    const result = await updateFeedbackContent(
-      req.params.id as string,
-      req.body,
-      req.memberId,
-      req.orgId,
-    );
-    success(res, result);
-  } catch (err) {
-    next(err);
-  }
-});
 
 adminRouter.post('/feedback/:id/replies', adminAuth, async (req, res, next) => {
   try {
@@ -339,6 +326,20 @@ adminRouter.patch('/feedback/:id/assign', adminAuth, requireRole(['owner', 'admi
       String(req.params.id),
       assignee_id ?? null,
       req.orgId!,
+    );
+    success(res, result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.patch('/feedback/:id', adminAuth, requireRole(['owner', 'admin']), async (req, res, next) => {
+  try {
+    const result = await updateFeedbackContent(
+      String(req.params.id),
+      req.body,
+      req.memberId,
+      req.orgId,
     );
     success(res, result);
   } catch (err) {

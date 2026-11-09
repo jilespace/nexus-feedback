@@ -6,31 +6,8 @@ import { PageHeader } from '@/components/PageHeader';
 import { Badge, Card, EmptyState, TableSkeleton } from '@/components/ui';
 import { Pagination } from '@/components/feedback/Pagination';
 import { formatRelativeTime } from '@/utils/formatRelativeTime';
+import { auditActionLabel, auditActionTone, auditTargetLabel } from '@/utils/auditLabels';
 import type { AuditLog, PaginatedResponse } from '@/types';
-
-const ACTION_LABELS: Record<string, string> = {
-  'feedback.create': '创建反馈',
-  'feedback.update': '更新反馈',
-  'feedback.status': '变更状态',
-  'feedback.status_change': '变更状态',
-  'feedback.delete': '删除反馈',
-  'feedback.merge': '合并反馈',
-  'feedback.assign': '指派反馈',
-  'reply.create': '回复反馈',
-  'comment.create': '添加评论',
-  'comment.delete': '删除评论',
-  'webhook.create': '创建 Webhook',
-  'webhook.update': '更新 Webhook',
-  'webhook.delete': '删除 Webhook',
-  'member.invite': '邀请成员',
-  'member.resend_invite': '重发邀请',
-  'member.remove': '移除成员',
-  'member.update_role': '变更角色',
-  'project.create': '创建项目',
-  'project.update': '更新项目',
-  'project.delete': '删除项目',
-  'project.regenerate_key': '重置 API Key',
-};
 
 const ACTION_PREFIX_OPTIONS: Array<{ value: string; label: string }> = [
   { value: '', label: '全部类型' },
@@ -41,31 +18,6 @@ const ACTION_PREFIX_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'project.', label: '项目类' },
   { value: 'webhook.', label: 'Webhook' },
 ];
-
-type ActionTone = 'brand' | 'amber' | 'blue' | 'green' | 'gray' | 'violet';
-
-function actionTone(action: string): ActionTone {
-  if (action.startsWith('member.')) return 'amber';
-  if (action.startsWith('project.')) return 'violet';
-  if (action.startsWith('webhook.')) return 'blue';
-  if (action.startsWith('reply.') || action.startsWith('comment.')) return 'green';
-  if (action.startsWith('feedback.')) return 'brand';
-  return 'gray';
-}
-
-function targetLabel(log: AuditLog): string {
-  const typeLabels: Record<string, string> = {
-    feedback: '反馈',
-    member: '成员',
-    project: '项目',
-    webhook: 'Webhook',
-    comment: '评论',
-    changelog: '更新日志',
-    category: '分类',
-    status: '状态',
-  };
-  return typeLabels[log.target_type] ?? log.target_type;
-}
 
 const inputClass =
   'h-9 rounded-lg border border-surface-3 bg-surface-0 px-2.5 text-[13px] font-medium text-gray-600 transition-colors hover:border-gray-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-gray-600';
@@ -228,8 +180,8 @@ export function AuditLogs() {
                       )}
                     >
                       <div className="flex items-center gap-2">
-                        <Badge tone={actionTone(log.action)}>
-                          {ACTION_LABELS[log.action] || log.action}
+                        <Badge tone={auditActionTone(log.action)}>
+                          {auditActionLabel(log.action)}
                         </Badge>
                         {hasMeta && (
                           <svg
@@ -247,7 +199,7 @@ export function AuditLogs() {
                         )}
                       </div>
                       <div className="flex min-w-0 items-center gap-1.5 text-[13px] text-gray-600 dark:text-gray-300">
-                        <span>{targetLabel(log)}</span>
+                        <span>{auditTargetLabel(log.target_type)}</span>
                         {log.target_id && (
                           <code className="truncate rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-gray-400 dark:bg-gray-700/60 dark:text-gray-500">
                             {log.target_id.slice(0, 10)}
