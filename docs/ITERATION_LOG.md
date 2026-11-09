@@ -5,6 +5,46 @@
 
 ## 轮次记录
 
+### Round 8 — 2026-11-10（i18n：shell / 命令面板 / 通知 / CSV 导入）
+
+**本轮完成**
+- **i18n 基础设施**：i18n 支持 feature 命名空间（`notifications`、`importCsv`），新增
+  `locales/{zh,en}/` 子目录；`formatRelativeTime` 改为语言感知（en: `8 min ago`）；
+  `<html lang>` 随语言切换更新（en / zh-CN）。
+- **Shell 与通用组件**：Layout（搜索触发、抽屉/主题/语言 aria、成员角色）、ShortcutHelp
+  （全部快捷键说明）、CommandPalette（动作名/提示/分组/占位/空态/footer，关键词保留中英双语
+  以支持混合搜索）全部接入 `t()`；Dashboard「最近动态」「分配给我」卡片同步。
+- **通知中心 i18n**（teammate）：新增 `notifications` 命名空间 68 个逻辑 key（en 含复数形式），
+  铃铛/面板/通知页/偏好卡/删除与清空确认/Toast/aria 全部本地化；语言即时切换无刷新；复数
+  （2 unread notifications → 1 unread notification）正确；硬编码中文 0 残留。
+- **CSV 导入 i18n**（teammate）：新增 `importCsv` 命名空间 50/52 个 key，弹窗所有文案、客户端校验
+  错误、统计/Toast（英文复数）本地化；服务端中文 invalid_rows 通过模式映射为英文（未知原样）；
+  弹窗打开时切换语言即时生效。
+
+**验证**
+- `pnpm typecheck` ✅、`pnpm test` **196/196** ✅、`pnpm build` 5 包 ✅、`pnpm lint` 0 error ✅、
+  `pnpm smoke` **35/35 PASS**（22.9s）✅
+- CDP：zh/en 面板与通知页、清空 Modal、导入弹窗（含无效行/服务端错误映射）、⌘K 面板、Dashboard
+  动态卡、相对时间英文；语言切换即时生效；en 下 390 无横向溢出；0 console error。
+- key 校验脚本：通知命名空间引用 key 68 个，zh/en 缺失 0、未使用 0、插值不一致 0；导入命名空间同理。
+
+**提交**：`472b658`（shell/palette/dashboard/time i18n）、`f2f423c`（通知 + CSV 导入命名空间）
+
+**遗留 / 技术债**
+- **后台其余页面仍有大量硬编码中文**（Landing 营销页有意中文优先；Login/Applications/Members/
+  Tags/AuditLogs/Changelog/FeedbackList/FeedbackDetail/设置系列/Webhooks/Categories/Status/Notifications）。
+- 服务端错误消息为中文（前端仅对已知错误做映射）；通知标题/正文是后端数据，英文界面下仍中文。
+- smoke 单文件 ~1442 行；移动端只验证布局未验证抽屉/弹层交互。
+- 通知面板固定 20 条；免打扰/按项目静音未做；分页边界小问题仍在。
+
+**下一轮计划（Round 9：i18n 收尾 + 质量）**
+1. i18n 落地：按页面命名空间并行拆分（`feedback`/`settings`/`team`/`content`），覆盖列表/详情/
+   设置/成员/标签/审计/更新日志等剩余页面；Landing 保持中文优先但补英文切换。
+2. smoke 拆分 `scripts/smoke/` 模块化 + 移动端交互检查（抽屉/弹层）。
+3. 功能候选：相似反馈合并建议（服务端相似度 + 详情页提示）、通知免打扰、邮件模板预览。
+4. 工程：服务端错误码→前端 i18n 映射表、审计/通知内容的结构化（type+params）以便翻译。
+
+
 ### Round 7 — 2026-11-10（通知删除/清空 / 图表懒加载 / 冒烟 35 项）
 
 **本轮完成**
