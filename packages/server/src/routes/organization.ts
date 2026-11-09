@@ -105,7 +105,9 @@ organizationRouter.get('/projects', orgAuth, async (req, res, next) => {
   try {
     const projects = await prisma.project.findMany({
       where: { org_id: req.orgId },
-      include: { _count: { select: { feedbacks: true } } },
+      include: {
+        _count: { select: { feedbacks: { where: { deleted_at: null } } } },
+      },
       orderBy: { created_at: 'desc' },
     });
     success(res, projects.map((p) => ({

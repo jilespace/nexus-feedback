@@ -10,6 +10,8 @@ const SECRET_KEYS = ['storage_access_key', 'storage_secret_key', 'email_api_key'
 
 function maskValue(key: string, value: string): string {
   if (!SECRET_KEYS.includes(key)) return value;
+  // Empty values must stay empty so an unconfigured secret never looks set.
+  if (!value) return '';
   if (value.length <= 8) return '****';
   return '****' + value.slice(-4);
 }
