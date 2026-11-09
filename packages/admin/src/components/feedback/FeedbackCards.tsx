@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
 import { StatusBadge } from '@/components/StatusBadge';
 import { CategoryBadge, PriorityBadge, SourceBadge } from '@/components/badges';
@@ -23,6 +24,7 @@ export function FeedbackCards({
   onOpen,
   onRestore,
 }: FeedbackCardsProps) {
+  const { t } = useTranslation('feedback');
   return (
     <div className="space-y-2.5 lg:hidden">
       {items.map((item) => (
@@ -44,7 +46,7 @@ export function FeedbackCards({
               checked={selected.has(item.id)}
               onChange={() => onToggleSelect(item.id)}
               onClick={(e) => e.stopPropagation()}
-              aria-label={`选择 ${item.title}`}
+              aria-label={t('row.selectRow', { title: item.title })}
               className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-gray-300 text-brand-600 accent-brand-600 focus:ring-2 focus:ring-brand-500/30 dark:border-gray-600 dark:bg-gray-700"
             />
             <div className="min-w-0 flex-1">
@@ -87,7 +89,7 @@ export function FeedbackCards({
                   disabled={restoring}
                   className="mt-2 rounded-md border border-surface-3 px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:border-brand-300 hover:text-brand-600 dark:border-gray-600 dark:text-gray-400"
                 >
-                  恢复
+                  {t('row.restore')}
                 </button>
               )}
             </div>

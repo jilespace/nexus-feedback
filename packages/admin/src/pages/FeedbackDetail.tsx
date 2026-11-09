@@ -28,7 +28,7 @@ export function FeedbackDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { t, i18n } = useTranslation();
+  const { t, i18n } = useTranslation('detail');
   const toast = useToast();
   const { member } = useAuth();
   const canAssign = member?.role === 'owner' || member?.role === 'admin';
@@ -51,9 +51,11 @@ export function FeedbackDetail() {
       }),
     onSuccess: (_data, status) => {
       queryClient.invalidateQueries({ queryKey: ['feedback', id] });
-      toast.show(`状态已更新为「${statusLabel(status, i18n.language)}」`);
+      toast.show(
+        t('toasts.statusUpdated', { status: statusLabel(status, i18n.language) }),
+      );
     },
-    onError: () => toast.show('状态更新失败', 'error'),
+    onError: () => toast.show(t('toasts.statusUpdateFailed'), 'error'),
   });
 
   const replyMutation = useMutation({
@@ -65,9 +67,9 @@ export function FeedbackDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feedback', id] });
       setReplyContent('');
-      toast.show('回复已发送');
+      toast.show(t('toasts.replySent'));
     },
-    onError: () => toast.show('回复发送失败', 'error'),
+    onError: () => toast.show(t('toasts.replyFailed'), 'error'),
   });
 
   const { data: members } = useQuery({ queryKey: ['org-members'], queryFn: fetchOrgMembers });
@@ -76,9 +78,9 @@ export function FeedbackDetail() {
     mutationFn: (assigneeId: string | null) => assignFeedback(id!, assigneeId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feedback', id] });
-      toast.show('负责人已更新');
+      toast.show(t('toasts.assigneeUpdated'));
     },
-    onError: () => toast.show('指派失败', 'error'),
+    onError: () => toast.show(t('toasts.assignFailed'), 'error'),
   });
 
   const { data: allTags } = useQuery({
@@ -94,9 +96,10 @@ export function FeedbackDetail() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feedback', id] });
-      toast.show('标签已添加');
+      toast.show(t('toasts.tagAdded'));
     },
-    onError: (err) => toast.show(err instanceof Error ? err.message : '添加标签失败', 'error'),
+    onError: (err) =>
+      toast.show(err instanceof Error ? err.message : t('toasts.tagAddFailed'), 'error'),
   });
 
   const removeTagMutation = useMutation({
@@ -104,18 +107,19 @@ export function FeedbackDetail() {
       apiRequest(`/org/feedback/${id}/tags/${tagId}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feedback', id] });
-      toast.show('标签已移除');
+      toast.show(t('toasts.tagRemoved'));
     },
-    onError: (err) => toast.show(err instanceof Error ? err.message : '移除标签失败', 'error'),
+    onError: (err) =>
+      toast.show(err instanceof Error ? err.message : t('toasts.tagRemoveFailed'), 'error'),
   });
 
   if (isLoading) return <DetailSkeleton />;
   if (!data) {
     return (
       <EmptyState
-        title="未找到反馈"
-        description="该反馈可能已被删除，或你没有访问权限"
-        action={{ label: '返回列表', onClick: () => navigate('/feedback') }}
+        title={t('empty.notFoundTitle')}
+        description={t('empty.notFoundDescription')}
+        action={{ label: t('header.backToList'), onClick: () => navigate('/feedback') }}
       />
     );
   }
@@ -130,9 +134,9 @@ export function FeedbackDetail() {
   const copyLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      toast.show('链接已复制');
+      toast.show(t('toasts.linkCopied'));
     } catch {
-      toast.show('复制失败', 'error');
+      toast.show(t('toasts.copyFailed'), 'error');
     }
   };
 
@@ -144,7 +148,7 @@ export function FeedbackDetail() {
     <div className="animate-fade-in space-y-4">
       <PageHeader
         title={data.title}
-        eyebrow={`反馈详情 · ${data.project.name}`}
+        eyebrow={t('header.eyebrow', { project: data.project.name })}
         description={
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <CategoryBadge category={data.category} />
@@ -156,7 +160,7 @@ export function FeedbackDetail() {
             <span>{formatRelativeTime(data.created_at)}</span>
           </span>
         }
-        backTo={{ label: t('feedback.list_title'), onClick: () => navigate('/feedback') }}
+        backTo={{ label: t('header.backToList'), onClick: () => navigate('/feedback') }}
         actions={
           <>
             {canEdit && (
@@ -169,7 +173,7 @@ export function FeedbackDetail() {
                     strokeLinejoin="round"
                   />
                 </svg>
-                编辑
+                {t('header.edit')}
               </Button>
             )}
             <Button variant="secondary" size="sm" onClick={copyLink}>
@@ -181,7 +185,7 @@ export function FeedbackDetail() {
                   strokeLinecap="round"
                 />
               </svg>
-              复制链接
+              {t('header.copyLink')}
             </Button>
             <StatusBadge status={data.status} />
           </>
@@ -194,7 +198,7 @@ export function FeedbackDetail() {
             <path d="M8 2v12M4.5 5.5 8 2l3.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <span>
-            此反馈已合并到{' '}
+            {t('merged.prefix')}{' '}
             <Link
               to={`/feedback/${data.merged_into!.id}`}
               className="font-semibold underline decoration-accent-300 underline-offset-2 hover:no-underline"
@@ -218,13 +222,13 @@ export function FeedbackDetail() {
               <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t border-surface-2 px-5 py-3 text-xs text-gray-500 dark:border-gray-700/60 dark:text-gray-400">
                 {data.contact && (
                   <span>
-                    联系方式：
+                    {t('meta.contact')}
                     <span className="font-medium text-gray-700 dark:text-gray-200">{data.contact}</span>
                   </span>
                 )}
                 {data.app_version && (
                   <span>
-                    版本：
+                    {t('meta.version')}
                     <span className="font-mono text-gray-700 dark:text-gray-200">v{data.app_version}</span>
                   </span>
                 )}
@@ -242,7 +246,8 @@ export function FeedbackDetail() {
           {data.attachments.length > 0 && (
             <Card className="p-5">
               <h2 className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-100">
-                附件 <span className="text-gray-400">({data.attachments.length})</span>
+                {t('attachments.title')}{' '}
+                <span className="text-gray-400">({data.attachments.length})</span>
               </h2>
               <div className="flex flex-wrap gap-3">
                 {data.attachments.map((attachment) => {
@@ -289,7 +294,8 @@ export function FeedbackDetail() {
           <Card>
             <div className="flex items-center justify-between border-b border-surface-2 px-5 py-4 dark:border-gray-700/60">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                回复 <span className="font-normal text-gray-400">({data.replies.length})</span>
+                {t('replies.title')}{' '}
+                <span className="font-normal text-gray-400">({data.replies.length})</span>
               </h2>
             </div>
             <div className="px-5 py-4">
@@ -298,12 +304,12 @@ export function FeedbackDetail() {
                   {data.replies.map((reply) => (
                     <li key={reply.id} className="flex gap-3">
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-[11px] font-semibold text-white">
-                        {(reply.member?.display_name || '系').slice(0, 1)}
+                        {(reply.member?.display_name || t('replies.systemChar')).slice(0, 1)}
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-baseline gap-2">
                           <span className="text-[13px] font-medium text-gray-800 dark:text-gray-200">
-                            {reply.member?.display_name || '系统'}
+                            {reply.member?.display_name || t('replies.system')}
                           </span>
                           <span className="text-[11px] text-gray-400 dark:text-gray-500">
                             {formatRelativeTime(reply.created_at)}
@@ -318,7 +324,7 @@ export function FeedbackDetail() {
                 </ol>
               ) : (
                 <p className="py-6 text-center text-[13px] text-gray-400 dark:text-gray-500">
-                  还没有回复，先给用户一个响应吧
+                  {t('replies.empty')}
                 </p>
               )}
 
@@ -333,26 +339,26 @@ export function FeedbackDetail() {
                         sendReply();
                       }
                     }}
-                    placeholder="输入回复内容，Cmd/Ctrl + Enter 发送..."
+                    placeholder={t('replies.placeholder')}
                     rows={3}
                     className="w-full resize-none bg-transparent text-[13px] leading-relaxed text-gray-800 placeholder:text-gray-400 focus:outline-none dark:text-gray-100"
                   />
                   <div className="mt-1 flex items-center justify-between">
                     <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                      回复会通知投票用户
+                      {t('replies.notifyVoters')}
                     </span>
                     <Button
                       size="sm"
                       onClick={sendReply}
                       disabled={!replyContent.trim() || replyMutation.isPending}
                     >
-                      {replyMutation.isPending ? '发送中...' : '发送回复'}
+                      {replyMutation.isPending ? t('replies.sending') : t('replies.send')}
                     </Button>
                   </div>
                 </div>
               ) : (
                 <p className="mt-4 rounded-lg bg-surface-1 px-3 py-2 text-center text-xs text-gray-400 dark:bg-gray-900/30 dark:text-gray-500">
-                  该反馈已关闭，如需继续沟通请先重新打开
+                  {t('replies.closedNotice')}
                 </p>
               )}
             </div>
@@ -366,7 +372,7 @@ export function FeedbackDetail() {
         <aside className="order-first space-y-4 lg:order-none lg:col-start-2 lg:row-start-1 lg:sticky lg:top-4 lg:h-fit">
           <Card className="p-4">
             <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400 dark:text-gray-500">
-              处理状态
+              {t('sidebar.statusTitle')}
             </h3>
             <div className="mb-3 flex items-center justify-between rounded-lg bg-surface-1 px-3 py-2 dark:bg-gray-900/40">
               <span className="flex items-center gap-2 text-[13px] font-medium text-gray-700 dark:text-gray-200">
@@ -376,7 +382,9 @@ export function FeedbackDetail() {
                 />
                 {statusLabel(data.status as FeedbackStatus, i18n.language)}
               </span>
-              <span className="text-[11px] text-gray-400 dark:text-gray-500">当前</span>
+              <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                {t('sidebar.current')}
+              </span>
             </div>
             {allowedTransitions.length > 0 && (
               <div className="space-y-1.5">
@@ -397,7 +405,9 @@ export function FeedbackDetail() {
                         className="h-2 w-2 rounded-full"
                         style={{ backgroundColor: meta?.dot }}
                       />
-                      标记为{statusLabel(status, i18n.language)}
+                      {t('sidebar.markAs', {
+                        status: statusLabel(status, i18n.language),
+                      })}
                       <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="ml-auto">
                         <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
@@ -413,14 +423,14 @@ export function FeedbackDetail() {
                 className="mt-2 w-full"
                 onClick={() => setShowMergeModal(true)}
               >
-                合并到其他反馈
+                {t('sidebar.mergeInto')}
               </Button>
             )}
           </Card>
 
           <Card className="p-4">
             <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400 dark:text-gray-500">
-              负责人
+              {t('sidebar.assigneeTitle')}
             </h3>
             {canAssign ? (
               <select
@@ -429,7 +439,7 @@ export function FeedbackDetail() {
                 disabled={assignMutation.isPending}
                 className="h-9 w-full rounded-lg border border-surface-3 bg-surface-0 px-2.5 text-[13px] text-gray-700 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-200"
               >
-                <option value="">未指派</option>
+                <option value="">{t('sidebar.unassigned')}</option>
                 {(Array.isArray(members) ? members : []).map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.display_name}
@@ -449,13 +459,13 @@ export function FeedbackDetail() {
                 </div>
               </div>
             ) : (
-              <p className="text-[13px] text-gray-400">未指派</p>
+              <p className="text-[13px] text-gray-400">{t('sidebar.unassigned')}</p>
             )}
           </Card>
 
           <Card className="p-4">
             <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400 dark:text-gray-500">
-              标签
+              {t('sidebar.tagsTitle')}
             </h3>
             <div className="flex flex-wrap items-center gap-1.5">
               {data.tags?.map((tag) => (
@@ -472,14 +482,16 @@ export function FeedbackDetail() {
                     onClick={() => removeTagMutation.mutate(tag.id)}
                     disabled={removeTagMutation.isPending}
                     className="text-gray-400 transition-colors hover:text-rose-500"
-                    aria-label={`移除标签 ${tag.name}`}
+                    aria-label={t('sidebar.removeTag', { name: tag.name })}
                   >
                     ×
                   </button>
                 </span>
               ))}
               {(!data.tags || data.tags.length === 0) && (
-                <span className="text-xs text-gray-400 dark:text-gray-500">暂无标签</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">
+                  {t('sidebar.noTags')}
+                </span>
               )}
             </div>
             {availableTags.length > 0 && (
@@ -494,7 +506,7 @@ export function FeedbackDetail() {
                 className="mt-2.5 h-8 w-full rounded-lg border border-dashed border-surface-3 bg-transparent px-2 text-xs text-gray-500 transition-colors hover:border-brand-300 focus:outline-none dark:border-gray-600 dark:text-gray-400"
               >
                 <option value="" disabled>
-                  + 添加标签
+                  {t('sidebar.addTag')}
                 </option>
                 {availableTags.map((tag) => (
                   <option key={tag.id} value={tag.id}>

@@ -1,0 +1,77 @@
+{
+  "toolbar": {
+    "sortLabel": "排序",
+    "sortNewest": "最新优先",
+    "sortOldest": "最早优先",
+    "sortMostVoted": "最多投票",
+    "assignToMe": "分配给我",
+    "projectLabel": "项目",
+    "projectAll": "全部项目",
+    "assigneeLabel": "负责人",
+    "assigneeAll": "全部负责人",
+    "tagLabel": "标签",
+    "tagAll": "全部标签",
+    "savedViewLabel": "已保存视图",
+    "savedViewPlaceholder": "视图",
+    "viewActive": "全部反馈",
+    "viewTrash": "回收站",
+    "removeView": "删除当前视图",
+    "saveViewTitle": "保存当前筛选为视图",
+    "viewNamePlaceholder": "视图名称",
+    "saveView": "保存视图",
+    "filtersLabel": "筛选",
+    "resetFilters": "重置筛选"
+  },
+  "filters": {
+    "status": "状态",
+    "allStatus": "全部状态",
+    "category": "分类",
+    "allCategory": "全部分类",
+    "priority": "优先级",
+    "allPriority": "全部优先级"
+  },
+  "unassigned": "未分配",
+  "chips": {
+    "project": "项目",
+    "assignee": "负责人：{{name}}",
+    "tag": "标签：{{name}}",
+    "priority": "优先级：{{value}}"
+  },
+  "table": {
+    "selectAll": "全选",
+    "assignee": "负责人"
+  },
+  "row": {
+    "selectRow": "选择 {{title}}",
+    "restore": "恢复"
+  },
+  "bulk": {
+    "assigning": "分配中...",
+    "assign": "分配给"
+  },
+  "pagination": {
+    "label": "分页"
+  },
+  "list": {
+    "trashSuffix": " · 回收站",
+    "importCsv": "导入 CSV",
+    "exporting": "导出中...",
+    "exportStarted": "CSV 已开始下载",
+    "exportFailed": "导出失败",
+    "batchClosed_other": "已关闭 {{count}} 条反馈",
+    "assigned_other": "已分配 {{count}} 条",
+    "operationFailed": "操作失败",
+    "restored": "已恢复",
+    "restoreFailed": "恢复失败",
+    "viewRemoved": "已删除视图",
+    "viewUpdated": "已更新视图",
+    "viewSaved": "已保存视图",
+    "viewLimit": "保存失败（已达上限 {{max}} 个）",
+    "emptyTrashTitle": "回收站为空",
+    "emptyTrashDesc": "被删除的反馈会先进入回收站，可随时恢复",
+    "emptyFilteredTitle": "没有找到匹配的反馈",
+    "emptyFilteredDesc": "试试调整搜索关键词或清除部分筛选条件",
+    "emptyCta": "获取嵌入代码",
+    "currentMember": "我"
+  }
+}

@@ -11,6 +11,7 @@ type FilterBarProps = {
 
 export function FilterBar({ filters, onChange }: FilterBarProps) {
   const { t, i18n } = useTranslation();
+  const { t: tf } = useTranslation('feedback');
   const [categories, setCategories] = useState<Array<{ name: string; color: string }>>([]);
 
   useEffect(() => {
@@ -29,9 +30,9 @@ export function FilterBar({ filters, onChange }: FilterBarProps) {
   return (
     <>
       <Select
-        label="状态"
+        label={tf('filters.status')}
         options={[
-          { value: '', label: '全部状态' },
+          { value: '', label: tf('filters.allStatus') },
           { value: 'open', label: t('feedback.status_open') },
           { value: 'in_progress', label: t('feedback.status_in_progress') },
           { value: 'resolved', label: t('feedback.status_resolved') },
@@ -42,9 +43,9 @@ export function FilterBar({ filters, onChange }: FilterBarProps) {
         active={!!filters.status}
       />
       <Select
-        label="分类"
+        label={tf('filters.category')}
         options={[
-          { value: '', label: '全部分类' },
+          { value: '', label: tf('filters.allCategory') },
           ...categories.map((c) => ({ value: c.name, label: categoryLabel(c.name, i18n.language) })),
         ]}
         value={filters.category ?? ''}
@@ -52,9 +53,9 @@ export function FilterBar({ filters, onChange }: FilterBarProps) {
         active={!!filters.category}
       />
       <Select
-        label="优先级"
+        label={tf('filters.priority')}
         options={[
-          { value: '', label: '全部优先级' },
+          { value: '', label: tf('filters.allPriority') },
           { value: 'low', label: t('feedback.priority_low') },
           { value: 'medium', label: t('feedback.priority_medium') },
           { value: 'high', label: t('feedback.priority_high') },

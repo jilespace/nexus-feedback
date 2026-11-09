@@ -1,0 +1,113 @@
+{
+  "header": {
+    "eyebrow": "Feedback detail · {{project}}",
+    "backToList": "Feedback list",
+    "edit": "Edit",
+    "copyLink": "Copy link"
+  },
+  "merged": {
+    "prefix": "This feedback was merged into"
+  },
+  "meta": {
+    "contact": "Contact: ",
+    "version": "Version: "
+  },
+  "attachments": {
+    "title": "Attachments"
+  },
+  "replies": {
+    "title": "Replies",
+    "system": "System",
+    "systemChar": "S",
+    "empty": "No replies yet — be the first to respond",
+    "placeholder": "Write a reply… Cmd/Ctrl + Enter to send",
+    "notifyVoters": "Voters will be notified of your reply",
+    "send": "Send reply",
+    "sending": "Sending…",
+    "closedNotice": "This feedback is closed. Reopen it to continue the conversation."
+  },
+  "sidebar": {
+    "statusTitle": "Status",
+    "current": "Current",
+    "markAs": "Mark as {{status}}",
+    "mergeInto": "Merge into another feedback",
+    "assigneeTitle": "Assignee",
+    "unassigned": "Unassigned",
+    "tagsTitle": "Tags",
+    "removeTag": "Remove tag {{name}}",
+    "noTags": "No tags yet",
+    "addTag": "+ Add tag"
+  },
+  "empty": {
+    "notFoundTitle": "Feedback not found",
+    "notFoundDescription": "It may have been deleted, or you don’t have access"
+  },
+  "merge": {
+    "title": "Merge feedback",
+    "description": "Search and pick the target feedback. Votes, comments and tags will be merged into it, and this feedback will be closed.",
+    "searchPlaceholder": "Search by title…",
+    "minChars": "Type at least 2 characters to search",
+    "searching": "Searching…",
+    "noResults": "No matching feedback",
+    "success": "Feedback merged",
+    "failed": "Merge failed"
+  },
+  "notes": {
+    "title": "Internal notes",
+    "teamOnly": "Team only",
+    "memberFallback": "Member",
+    "delete": "Delete",
+    "emptyTitle": "No notes yet",
+    "emptyDescription": "Leave clues or progress updates for the team",
+    "placeholder": "Add an internal note, visible only to the team…",
+    "add": "Add note",
+    "adding": "Adding…",
+    "added": "Note added",
+    "addFailed": "Failed to add note",
+    "deleted": "Note deleted",
+    "deleteFailed": "Failed to delete note"
+  },
+  "history": {
+    "title": "Status history",
+    "system": "System"
+  },
+  "edit": {
+    "title": "Edit feedback",
+    "description": "Changes sync to the public board; keep the user’s intent.",
+    "fields": {
+      "title": "Title",
+      "description": "Description",
+      "category": "Category",
+      "priority": "Priority",
+      "contact": "Contact (optional)"
+    },
+    "contentHint": "Line breaks supported, up to {{max}} characters",
+    "contactPlaceholder": "User email or other contact",
+    "contactHint": "Shown only on this page, never on the public board.",
+    "footerHint": "Tip: manage status, assignee and tags from the side panel; edits are recorded in the audit log.",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "updated": "Feedback updated",
+    "saveFailed": "Failed to save",
+    "titleRequired": "Title is required",
+    "contentRequired": "Description is required",
+    "noChanges": "Nothing to save"
+  },
+  "actions": {
+    "cancel": "Cancel"
+  },
+  "toasts": {
+    "statusUpdated": "Status updated to “{{status}}”",
+    "statusUpdateFailed": "Failed to update status",
+    "replySent": "Reply sent",
+    "replyFailed": "Failed to send reply",
+    "assigneeUpdated": "Assignee updated",
+    "assignFailed": "Failed to assign",
+    "tagAdded": "Tag added",
+    "tagAddFailed": "Failed to add tag",
+    "tagRemoved": "Tag removed",
+    "tagRemoveFailed": "Failed to remove tag",
+    "linkCopied": "Link copied",
+    "copyFailed": "Copy failed"
+  }
+}

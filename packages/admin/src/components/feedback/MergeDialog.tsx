@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
 import { apiRequest } from '@/api/client';
 import { Button } from '@/components/ui';
@@ -15,6 +16,7 @@ interface MergeDialogProps {
 }
 
 export function MergeDialog({ feedbackId, onClose, onMerged }: MergeDialogProps) {
+  const { t } = useTranslation('detail');
   const toast = useToast();
   const [search, setSearch] = useState('');
 
@@ -34,11 +36,11 @@ export function MergeDialog({ feedbackId, onClose, onMerged }: MergeDialogProps)
         body: JSON.stringify({ target_id: targetId }),
       }),
     onSuccess: (_data, targetId) => {
-      toast.show('反馈合并成功');
+      toast.show(t('merge.success'));
       onMerged(targetId);
     },
     onError: (err) =>
-      toast.show(err instanceof Error ? err.message : '合并失败', 'error'),
+      toast.show(err instanceof Error ? err.message : t('merge.failed'), 'error'),
   });
 
   const items = (results?.items ?? []).filter((item) => item.id !== feedbackId);
@@ -56,10 +58,10 @@ export function MergeDialog({ feedbackId, onClose, onMerged }: MergeDialogProps)
         className="relative z-10 w-full animate-fade-up rounded-t-2xl border border-surface-3 bg-surface-0 p-5 shadow-pop dark:border-gray-700 dark:bg-gray-800 sm:max-w-lg sm:rounded-2xl"
       >
         <h3 id="merge-dialog-title" className="text-base font-semibold text-gray-900 dark:text-gray-50">
-          合并反馈
+          {t('merge.title')}
         </h3>
         <p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-          搜索并选择目标反馈。当前反馈的投票、评论与标签会合并过去，原反馈将被关闭。
+          {t('merge.description')}
         </p>
 
         <div className="relative mt-4">
@@ -67,7 +69,7 @@ export function MergeDialog({ feedbackId, onClose, onMerged }: MergeDialogProps)
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="输入标题关键词搜索..."
+            placeholder={t('merge.searchPlaceholder')}
             autoFocus
             onKeyDown={(e) => {
               if (e.key === 'Escape') onClose();
@@ -79,15 +81,15 @@ export function MergeDialog({ feedbackId, onClose, onMerged }: MergeDialogProps)
         <div className="mt-2 max-h-64 min-h-[80px] overflow-y-auto rounded-lg border border-surface-3 dark:border-gray-700">
           {search.trim().length <= 1 ? (
             <p className="px-3 py-6 text-center text-xs text-gray-400 dark:text-gray-500">
-              输入至少 2 个字符开始搜索
+              {t('merge.minChars')}
             </p>
           ) : isFetching ? (
             <p className="px-3 py-6 text-center text-xs text-gray-400 dark:text-gray-500">
-              搜索中...
+              {t('merge.searching')}
             </p>
           ) : items.length === 0 ? (
             <p className="px-3 py-6 text-center text-xs text-gray-400 dark:text-gray-500">
-              没有找到匹配的反馈
+              {t('merge.noResults')}
             </p>
           ) : (
             <ul className="divide-y divide-surface-2 dark:divide-gray-700/70">
@@ -114,7 +116,7 @@ export function MergeDialog({ feedbackId, onClose, onMerged }: MergeDialogProps)
 
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="secondary" size="sm" onClick={onClose}>
-            取消
+            {t('actions.cancel')}
           </Button>
         </div>
       </div>

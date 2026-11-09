@@ -27,6 +27,7 @@ export function FeedbackTable({
   onRestore,
 }: FeedbackTableProps) {
   const { t } = useTranslation();
+  const { t: tf } = useTranslation('feedback');
   const allSelected = items.length > 0 && selected.size === items.length;
 
   return (
@@ -39,7 +40,7 @@ export function FeedbackTable({
                 type="checkbox"
                 checked={allSelected}
                 onChange={onToggleAll}
-                aria-label="全选"
+                aria-label={tf('table.selectAll')}
                 className="h-3.5 w-3.5 cursor-pointer rounded border-gray-300 text-brand-600 accent-brand-600 focus:ring-2 focus:ring-brand-500/30 dark:border-gray-600 dark:bg-gray-700"
               />
             </th>
@@ -47,7 +48,7 @@ export function FeedbackTable({
               t('feedback.col_title'),
               t('feedback.col_source'),
               t('feedback.col_category'),
-              '负责人',
+              tf('table.assignee'),
               t('feedback.col_tags'),
               t('feedback.col_priority'),
               t('feedback.col_status'),
@@ -81,7 +82,7 @@ export function FeedbackTable({
                   type="checkbox"
                   checked={selected.has(item.id)}
                   onChange={() => onToggleSelect(item.id)}
-                  aria-label={`选择 ${item.title}`}
+                  aria-label={tf('row.selectRow', { title: item.title })}
                   className="h-3.5 w-3.5 cursor-pointer rounded border-gray-300 text-brand-600 accent-brand-600 focus:ring-2 focus:ring-brand-500/30 dark:border-gray-600 dark:bg-gray-700"
                 />
               </td>
@@ -105,7 +106,7 @@ export function FeedbackTable({
                     disabled={restoring}
                     className="mt-1 rounded-md border border-surface-3 px-1.5 py-0.5 text-[11px] font-medium text-gray-500 transition-colors hover:border-brand-300 hover:text-brand-600 dark:border-gray-600 dark:text-gray-400"
                   >
-                    恢复
+                    {tf('row.restore')}
                   </button>
                 )}
               </td>

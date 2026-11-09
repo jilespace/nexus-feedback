@@ -15,7 +15,7 @@ type StatusHistoryItem = {
 };
 
 export function StatusHistory({ feedbackId }: { feedbackId: string }) {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation('detail');
   const { data: history } = useQuery({
     queryKey: ['status-history', feedbackId],
     queryFn: () => apiRequest<StatusHistoryItem[]>(`/admin/feedback/${feedbackId}/history`),
@@ -28,7 +28,9 @@ export function StatusHistory({ feedbackId }: { feedbackId: string }) {
 
   return (
     <Card className="p-5">
-      <h2 className="mb-4 text-sm font-semibold text-gray-900 dark:text-gray-100">状态变更记录</h2>
+      <h2 className="mb-4 text-sm font-semibold text-gray-900 dark:text-gray-100">
+        {t('history.title')}
+      </h2>
       <ol className="relative space-y-3.5 pl-4">
         <span className="absolute bottom-2 left-[5px] top-2 w-px bg-surface-3 dark:bg-gray-700" />
         {history.map((item) => (
@@ -47,7 +49,8 @@ export function StatusHistory({ feedbackId }: { feedbackId: string }) {
               </span>
             </div>
             <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500">
-              {item.member?.display_name || '系统'} · {formatRelativeTime(item.created_at)}
+              {item.member?.display_name || t('history.system')} ·{' '}
+              {formatRelativeTime(item.created_at)}
             </p>
           </li>
         ))}

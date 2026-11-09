@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
 import { apiRequest } from '@/api/client';
 import { Button, EmptyState } from '@/components/ui';
@@ -14,6 +15,7 @@ type InternalNote = {
 };
 
 export function InternalNotes({ feedbackId }: { feedbackId: string }) {
+  const { t } = useTranslation('detail');
   const queryClient = useQueryClient();
   const toast = useToast();
   const [content, setContent] = useState('');
@@ -34,9 +36,9 @@ export function InternalNotes({ feedbackId }: { feedbackId: string }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notes', feedbackId] });
       setContent('');
-      toast.show('备注已添加');
+      toast.show(t('notes.added'));
     },
-    onError: () => toast.show('添加备注失败', 'error'),
+    onError: () => toast.show(t('notes.addFailed'), 'error'),
   });
 
   const deleteMutation = useMutation({
@@ -44,9 +46,10 @@ export function InternalNotes({ feedbackId }: { feedbackId: string }) {
       apiRequest(`/org/feedback/${feedbackId}/notes/${noteId}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notes', feedbackId] });
-      toast.show('备注已删除');
+      toast.show(t('notes.deleted'));
     },
-    onError: (err) => toast.show(err instanceof Error ? err.message : '删除失败', 'error'),
+    onError: (err) =>
+      toast.show(err instanceof Error ? err.message : t('notes.deleteFailed'), 'error'),
   });
 
   return (
@@ -56,9 +59,9 @@ export function InternalNotes({ feedbackId }: { feedbackId: string }) {
         className="flex w-full items-center justify-between px-5 py-4 text-left"
       >
         <span className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
-          内部备注
+          {t('notes.title')}
           <span className="rounded-md bg-accent-50 px-1.5 py-0.5 text-[10px] font-semibold text-accent-600 dark:bg-accent-500/15 dark:text-accent-300">
-            仅团队可见
+            {t('notes.teamOnly')}
           </span>
         </span>
         <svg
@@ -87,20 +90,25 @@ export function InternalNotes({ feedbackId }: { feedbackId: string }) {
                 </p>
                 <div className="mt-2 flex items-center justify-between">
                   <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                    {note.member?.display_name || '成员'} · {formatRelativeTime(note.created_at)}
+                    {note.member?.display_name || t('notes.memberFallback')} ·{' '}
+                    {formatRelativeTime(note.created_at)}
                   </p>
                   <button
                     onClick={() => deleteMutation.mutate(note.id)}
                     disabled={deleteMutation.isPending}
                     className="text-[11px] text-gray-400 transition-colors hover:text-rose-500"
                   >
-                    删除
+                    {t('notes.delete')}
                   </button>
                 </div>
               </div>
             ))
           ) : (
-            <EmptyState title="暂无备注" description="给团队留下排查线索或处理进展" className="py-6" />
+            <EmptyState
+              title={t('notes.emptyTitle')}
+              description={t('notes.emptyDescription')}
+              className="py-6"
+            />
           )}
           <form
             onSubmit={(e) => {
@@ -112,13 +120,13 @@ export function InternalNotes({ feedbackId }: { feedbackId: string }) {
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="添加内部备注，仅团队成员可见..."
+              placeholder={t('notes.placeholder')}
               rows={2}
               className="w-full resize-none rounded-lg border border-surface-3 bg-surface-1/60 px-3 py-2 text-[13px] text-gray-800 placeholder:text-gray-400 focus:border-brand-400 focus:bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-100"
             />
             <div className="flex justify-end">
               <Button size="sm" type="submit" disabled={!content.trim() || addMutation.isPending}>
-                {addMutation.isPending ? '添加中...' : '添加备注'}
+                {addMutation.isPending ? t('notes.adding') : t('notes.add')}
               </Button>
             </div>
           </form>

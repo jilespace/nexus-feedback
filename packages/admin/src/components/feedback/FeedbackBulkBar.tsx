@@ -21,6 +21,7 @@ export function FeedbackBulkBar({
   onAssign,
 }: FeedbackBulkBarProps) {
   const { t } = useTranslation();
+  const { t: tf } = useTranslation('feedback');
   return (
     <div className="flex animate-fade-up flex-wrap items-center gap-2 rounded-xl border border-brand-200 bg-brand-50/80 px-3 py-2 dark:border-brand-500/30 dark:bg-brand-600/10">
       <span className="mr-1 text-xs font-semibold text-brand-700 dark:text-brand-300">
@@ -47,9 +48,9 @@ export function FeedbackBulkBar({
         className="h-7 rounded-md border border-brand-200 bg-surface-0 px-2 text-xs font-medium text-brand-700 focus:outline-none dark:border-brand-500/40 dark:bg-gray-800 dark:text-brand-300"
       >
         <option value="" disabled>
-          {assignPending ? '分配中...' : '分配给'}
+          {assignPending ? tf('bulk.assigning') : tf('bulk.assign')}
         </option>
-        <option value="__unassigned__">未分配</option>
+        <option value="__unassigned__">{tf('unassigned')}</option>
         {members.map((m) => (
           <option key={m.id} value={m.id}>
             {m.display_name}

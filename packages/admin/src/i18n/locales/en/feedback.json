@@ -1,0 +1,79 @@
+{
+  "toolbar": {
+    "sortLabel": "Sort",
+    "sortNewest": "Newest first",
+    "sortOldest": "Oldest first",
+    "sortMostVoted": "Most voted",
+    "assignToMe": "Assigned to me",
+    "projectLabel": "Project",
+    "projectAll": "All projects",
+    "assigneeLabel": "Assignee",
+    "assigneeAll": "All assignees",
+    "tagLabel": "Tag",
+    "tagAll": "All tags",
+    "savedViewLabel": "Saved views",
+    "savedViewPlaceholder": "View",
+    "viewActive": "All feedback",
+    "viewTrash": "Trash",
+    "removeView": "Delete current view",
+    "saveViewTitle": "Save current filters as a view",
+    "viewNamePlaceholder": "View name",
+    "saveView": "Save view",
+    "filtersLabel": "Filters",
+    "resetFilters": "Reset filters"
+  },
+  "filters": {
+    "status": "Status",
+    "allStatus": "All statuses",
+    "category": "Category",
+    "allCategory": "All categories",
+    "priority": "Priority",
+    "allPriority": "All priorities"
+  },
+  "unassigned": "Unassigned",
+  "chips": {
+    "project": "Project",
+    "assignee": "Assignee: {{name}}",
+    "tag": "Tag: {{name}}",
+    "priority": "Priority: {{value}}"
+  },
+  "table": {
+    "selectAll": "Select all",
+    "assignee": "Assignee"
+  },
+  "row": {
+    "selectRow": "Select {{title}}",
+    "restore": "Restore"
+  },
+  "bulk": {
+    "assigning": "Assigning...",
+    "assign": "Assign to"
+  },
+  "pagination": {
+    "label": "Pagination"
+  },
+  "list": {
+    "trashSuffix": " · Trash",
+    "importCsv": "Import CSV",
+    "exporting": "Exporting...",
+    "exportStarted": "CSV download started",
+    "exportFailed": "Export failed",
+    "batchClosed_one": "Closed {{count}} feedback item",
+    "batchClosed_other": "Closed {{count}} feedback items",
+    "assigned_one": "Assigned {{count}} item",
+    "assigned_other": "Assigned {{count}} items",
+    "operationFailed": "Operation failed",
+    "restored": "Restored",
+    "restoreFailed": "Restore failed",
+    "viewRemoved": "View deleted",
+    "viewUpdated": "View updated",
+    "viewSaved": "View saved",
+    "viewLimit": "Couldn't save: limit of {{max}} views reached",
+    "emptyTrashTitle": "Trash is empty",
+    "emptyTrashDesc": "Deleted feedback goes to the trash first and can be restored anytime",
+    "emptyFilteredTitle": "No matching feedback",
+    "emptyFilteredDesc": "Try a different search or clear some filters",
+    "emptyCta": "Get embed code",
+    "currentMember": "Me"
+  }
+}

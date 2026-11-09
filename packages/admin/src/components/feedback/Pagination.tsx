@@ -22,9 +22,10 @@ function pageNumbers(page: number, total: number): Array<number | '…'> {
 
 export function Pagination({ page, totalPages, onChange }: PaginationProps) {
   const { t } = useTranslation();
+  const { t: tf } = useTranslation('feedback');
   if (totalPages <= 1) return null;
   return (
-    <nav className="flex items-center justify-center gap-1 pt-1" aria-label="分页">
+    <nav className="flex items-center justify-center gap-1 pt-1" aria-label={tf('pagination.label')}>
       <button
         disabled={page <= 1}
         onClick={() => onChange(page - 1)}

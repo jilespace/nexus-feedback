@@ -19,7 +19,7 @@ interface EditFeedbackProps {
 }
 
 export function EditFeedback({ feedback, onClose }: EditFeedbackProps) {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation('detail');
   const toast = useToast();
   const queryClient = useQueryClient();
   const [title, setTitle] = useState(feedback.title);
@@ -43,16 +43,17 @@ export function EditFeedback({ feedback, onClose }: EditFeedbackProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feedback', feedback.id] });
       queryClient.invalidateQueries({ queryKey: ['feedback'] });
-      toast.show('反馈已更新');
+      toast.show(t('edit.updated'));
       onClose();
     },
-    onError: (err) => toast.show(err instanceof Error ? err.message : '保存失败', 'error'),
+    onError: (err) =>
+      toast.show(err instanceof Error ? err.message : t('edit.saveFailed'), 'error'),
   });
 
   const submit = () => {
     const nextErrors: { title?: string; content?: string } = {};
-    if (!title.trim()) nextErrors.title = '标题不能为空';
-    if (!content.trim()) nextErrors.content = '描述不能为空';
+    if (!title.trim()) nextErrors.title = t('edit.titleRequired');
+    if (!content.trim()) nextErrors.content = t('edit.contentRequired');
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) return;
 
@@ -65,7 +66,7 @@ export function EditFeedback({ feedback, onClose }: EditFeedbackProps) {
       payload.contact = contact.trim() || null;
     }
     if (Object.keys(payload).length === 0) {
-      toast.show('没有需要保存的修改', 'info');
+      toast.show(t('edit.noChanges'), 'info');
       onClose();
       return;
     }
@@ -74,17 +75,17 @@ export function EditFeedback({ feedback, onClose }: EditFeedbackProps) {
 
   return (
     <Modal
-      title="编辑反馈"
-      description="修改会同步到公开看板，建议保留用户原意。"
+      title={t('edit.title')}
+      description={t('edit.description')}
       onClose={onClose}
       size="lg"
       footer={
         <>
           <Button variant="secondary" size="sm" onClick={onClose}>
-            取消
+            {t('actions.cancel')}
           </Button>
           <Button size="sm" onClick={submit} disabled={mutation.isPending}>
-            {mutation.isPending ? '保存中...' : '保存修改'}
+            {mutation.isPending ? t('edit.saving') : t('edit.save')}
           </Button>
         </>
       }
@@ -92,7 +93,7 @@ export function EditFeedback({ feedback, onClose }: EditFeedbackProps) {
       <div className="space-y-4">
         <div>
           <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500">
-            标题
+            {t('edit.fields.title')}
           </label>
           <input
             value={title}
@@ -108,7 +109,7 @@ export function EditFeedback({ feedback, onClose }: EditFeedbackProps) {
 
         <div>
           <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500">
-            描述
+            {t('edit.fields.description')}
           </label>
           <textarea
             value={content}
@@ -125,7 +126,7 @@ export function EditFeedback({ feedback, onClose }: EditFeedbackProps) {
               <p className="text-[11px] text-rose-500">{errors.content}</p>
             ) : (
               <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                支持换行，最多 5000 字
+                {t('edit.contentHint', { max: '5000' })}
               </span>
             )}
             <span className="text-[11px] tabular-nums text-gray-400 dark:text-gray-500">
@@ -137,7 +138,7 @@ export function EditFeedback({ feedback, onClose }: EditFeedbackProps) {
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500">
-              分类
+              {t('edit.fields.category')}
             </label>
             <select value={category} onChange={(e) => setCategory(e.target.value)} className={inputClass}>
               {(categories ?? [{ name: feedback.category, color: '' }]).map((item) => (
@@ -149,7 +150,7 @@ export function EditFeedback({ feedback, onClose }: EditFeedbackProps) {
           </div>
           <div>
             <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500">
-              优先级
+              {t('edit.fields.priority')}
             </label>
             <div className="flex h-9 items-center gap-1 rounded-lg border border-surface-3 bg-surface-1/60 p-1 dark:border-gray-700 dark:bg-gray-900/40">
               {PRIORITIES.map((item) => (
@@ -172,22 +173,22 @@ export function EditFeedback({ feedback, onClose }: EditFeedbackProps) {
 
         <div>
           <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500">
-            联系方式（可选）
+            {t('edit.fields.contact')}
           </label>
           <input
             value={contact}
             maxLength={200}
             onChange={(e) => setContact(e.target.value)}
-            placeholder="用户邮箱或其他联系方式"
+            placeholder={t('edit.contactPlaceholder')}
             className={inputClass}
           />
           <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">
-            仅在详情页展示，不会出现在公开看板。
+            {t('edit.contactHint')}
           </p>
         </div>
 
         <p className="rounded-lg bg-surface-1 px-3 py-2 text-[11px] leading-relaxed text-gray-400 dark:bg-gray-900/30 dark:text-gray-500">
-          提示：状态、负责人与标签请使用右侧操作栏管理；修改记录会写入审计日志。
+          {t('edit.footerHint')}
         </p>
       </div>
     </Modal>

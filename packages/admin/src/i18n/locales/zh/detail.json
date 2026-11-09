@@ -1,0 +1,113 @@
+{
+  "header": {
+    "eyebrow": "反馈详情 · {{project}}",
+    "backToList": "反馈列表",
+    "edit": "编辑",
+    "copyLink": "复制链接"
+  },
+  "merged": {
+    "prefix": "此反馈已合并到"
+  },
+  "meta": {
+    "contact": "联系方式：",
+    "version": "版本："
+  },
+  "attachments": {
+    "title": "附件"
+  },
+  "replies": {
+    "title": "回复",
+    "system": "系统",
+    "systemChar": "系",
+    "empty": "还没有回复，先给用户一个响应吧",
+    "placeholder": "输入回复内容，Cmd/Ctrl + Enter 发送...",
+    "notifyVoters": "回复会通知投票用户",
+    "send": "发送回复",
+    "sending": "发送中...",
+    "closedNotice": "该反馈已关闭，如需继续沟通请先重新打开"
+  },
+  "sidebar": {
+    "statusTitle": "处理状态",
+    "current": "当前",
+    "markAs": "标记为{{status}}",
+    "mergeInto": "合并到其他反馈",
+    "assigneeTitle": "负责人",
+    "unassigned": "未指派",
+    "tagsTitle": "标签",
+    "removeTag": "移除标签 {{name}}",
+    "noTags": "暂无标签",
+    "addTag": "+ 添加标签"
+  },
+  "empty": {
+    "notFoundTitle": "未找到反馈",
+    "notFoundDescription": "该反馈可能已被删除，或你没有访问权限"
+  },
+  "merge": {
+    "title": "合并反馈",
+    "description": "搜索并选择目标反馈。当前反馈的投票、评论与标签会合并过去，原反馈将被关闭。",
+    "searchPlaceholder": "输入标题关键词搜索...",
+    "minChars": "输入至少 2 个字符开始搜索",
+    "searching": "搜索中...",
+    "noResults": "没有找到匹配的反馈",
+    "success": "反馈合并成功",
+    "failed": "合并失败"
+  },
+  "notes": {
+    "title": "内部备注",
+    "teamOnly": "仅团队可见",
+    "memberFallback": "成员",
+    "delete": "删除",
+    "emptyTitle": "暂无备注",
+    "emptyDescription": "给团队留下排查线索或处理进展",
+    "placeholder": "添加内部备注，仅团队成员可见...",
+    "add": "添加备注",
+    "adding": "添加中...",
+    "added": "备注已添加",
+    "addFailed": "添加备注失败",
+    "deleted": "备注已删除",
+    "deleteFailed": "删除失败"
+  },
+  "history": {
+    "title": "状态变更记录",
+    "system": "系统"
+  },
+  "edit": {
+    "title": "编辑反馈",
+    "description": "修改会同步到公开看板，建议保留用户原意。",
+    "fields": {
+      "title": "标题",
+      "description": "描述",
+      "category": "分类",
+      "priority": "优先级",
+      "contact": "联系方式（可选）"
+    },
+    "contentHint": "支持换行，最多 {{max}} 字",
+    "contactPlaceholder": "用户邮箱或其他联系方式",
+    "contactHint": "仅在详情页展示，不会出现在公开看板。",
+    "footerHint": "提示：状态、负责人与标签请使用右侧操作栏管理；修改记录会写入审计日志。",
+    "save": "保存修改",
+    "saving": "保存中...",
+    "updated": "反馈已更新",
+    "saveFailed": "保存失败",
+    "titleRequired": "标题不能为空",
+    "contentRequired": "描述不能为空",
+    "noChanges": "没有需要保存的修改"
+  },
+  "actions": {
+    "cancel": "取消"
+  },
+  "toasts": {
+    "statusUpdated": "状态已更新为「{{status}}」",
+    "statusUpdateFailed": "状态更新失败",
+    "replySent": "回复已发送",
+    "replyFailed": "回复发送失败",
+    "assigneeUpdated": "负责人已更新",
+    "assignFailed": "指派失败",
+    "tagAdded": "标签已添加",
+    "tagAddFailed": "添加标签失败",
+    "tagRemoved": "标签已移除",
+    "tagRemoveFailed": "移除标签失败",
+    "linkCopied": "链接已复制",
+    "copyFailed": "复制失败"
+  }
+}

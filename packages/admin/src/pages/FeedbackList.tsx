@@ -29,10 +29,10 @@ import { categoryLabel, priorityLabel } from '@/utils/labels';
 
 type SortBy = 'newest' | 'oldest' | 'most_voted';
 
-const SORT_OPTIONS: Array<{ value: SortBy; label: string }> = [
-  { value: 'newest', label: '最新优先' },
-  { value: 'oldest', label: '最早优先' },
-  { value: 'most_voted', label: '最多投票' },
+const SORT_OPTIONS: Array<{ value: SortBy; labelKey: string }> = [
+  { value: 'newest', labelKey: 'toolbar.sortNewest' },
+  { value: 'oldest', labelKey: 'toolbar.sortOldest' },
+  { value: 'most_voted', labelKey: 'toolbar.sortMostVoted' },
 ];
 
 const selectClass =
@@ -42,6 +42,7 @@ export function FeedbackList() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { t, i18n } = useTranslation();
+  const { t: tf } = useTranslation('feedback');
   const { show: toast } = useToast();
   const { member: currentMember, organization } = useAuth();
   const lang = i18n.language;
@@ -125,31 +126,31 @@ export function FeedbackList() {
         body: JSON.stringify({ ids, status: 'closed' }),
       }),
     onSuccess: (res) => {
-      toast(`已关闭 ${res.updated} 条反馈`, 'success');
+      toast(tf('list.batchClosed', { count: res.updated }), 'success');
       setSelected(new Set());
       queryClient.invalidateQueries({ queryKey: ['feedback'] });
     },
-    onError: (err: Error) => toast(err.message || '操作失败', 'error'),
+    onError: (err: Error) => toast(err.message || tf('list.operationFailed'), 'error'),
   });
 
   const assignMutation = useMutation({
     mutationFn: ({ ids, assigneeId }: { ids: string[]; assigneeId: string | null }) =>
       assignFeedbackBatch(ids, assigneeId),
     onSuccess: (res) => {
-      toast(`已分配 ${res.updated} 条`, 'success');
+      toast(tf('list.assigned', { count: res.updated }), 'success');
       setSelected(new Set());
       queryClient.invalidateQueries({ queryKey: ['feedback'] });
     },
-    onError: (err: Error) => toast(err.message || '操作失败', 'error'),
+    onError: (err: Error) => toast(err.message || tf('list.operationFailed'), 'error'),
   });
 
   const restoreMutation = useMutation({
     mutationFn: (id: string) => restoreFeedback(id),
     onSuccess: () => {
-      toast('已恢复', 'success');
+      toast(tf('list.restored'), 'success');
       queryClient.invalidateQueries({ queryKey: ['feedback'] });
     },
-    onError: (err: Error) => toast(err.message || '恢复失败', 'error'),
+    onError: (err: Error) => toast(err.message || tf('list.restoreFailed'), 'error'),
   });
 
   const totalPages = data ? Math.ceil(data.total / data.page_size) : 0;
@@ -174,7 +175,7 @@ export function FeedbackList() {
     const project = projectList.find((p) => p.id === projectFilter);
     activeChips.push({
       key: 'project',
-      label: project?.name ?? '项目',
+      label: project?.name ?? tf('chips.project'),
       clear: () => setProjectFilter(''),
     });
   }
@@ -185,13 +186,20 @@ export function FeedbackList() {
         : memberList.find((m) => m.id === assigneeFilter);
     activeChips.push({
       key: 'assignee',
-      label: assigneeFilter === '__unassigned__' ? '未分配' : `负责人：${assignee?.display_name ?? ''}`,
+      label:
+        assigneeFilter === '__unassigned__'
+          ? tf('unassigned')
+          : tf('chips.assignee', { name: assignee?.display_name ?? '' }),
       clear: () => setAssigneeFilter(''),
     });
   }
   if (tagFilter) {
     const tag = tagList.find((tg) => tg.id === tagFilter);
-    activeChips.push({ key: 'tag', label: `标签：${tag?.name ?? ''}`, clear: () => setTagFilter('') });
+    activeChips.push({
+      key: 'tag',
+      label: tf('chips.tag', { name: tag?.name ?? '' }),
+      clear: () => setTagFilter(''),
+    });
   }
   if (filters.status) {
     activeChips.push({
@@ -218,7 +226,7 @@ export function FeedbackList() {
   if (filters.priority) {
     activeChips.push({
       key: 'priority',
-      label: `优先级：${priorityLabel(filters.priority as never, lang)}`,
+      label: tf('chips.priority', { value: priorityLabel(filters.priority as never, lang) }),
       clear: () => {
         const next = { ...filters };
         delete next.priority;
@@ -254,9 +262,9 @@ export function FeedbackList() {
         ...filters,
         ...(debouncedKeyword ? { keyword: debouncedKeyword } : {}),
       });
-      toast('CSV 已开始下载', 'success');
+      toast(tf('list.exportStarted'), 'success');
     } catch (err) {
-      toast(err instanceof Error ? err.message : '导出失败', 'error');
+      toast(err instanceof Error ? err.message : tf('list.exportFailed'), 'error');
     } finally {
       setExporting(false);
     }
@@ -268,7 +276,7 @@ export function FeedbackList() {
         title={t('feedback.list_title')}
         description={
           data
-            ? `${t('feedback.total_count', { count: data.total })}${view === 'trash' ? ' · 回收站' : ''}`
+            ? `${t('feedback.total_count', { count: data.total })}${view === 'trash' ? tf('list.trashSuffix') : ''}`
             : t('common.loading')
         }
         actions={
@@ -288,7 +296,7 @@ export function FeedbackList() {
                     strokeLinejoin="round"
                   />
                 </svg>
-                导入 CSV
+                {tf('list.importCsv')}
               </Button>
               <Button variant="secondary" onClick={handleExport} disabled={exporting || isLoading}>
                 <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
@@ -300,7 +308,7 @@ export function FeedbackList() {
                     strokeLinejoin="round"
                   />
                 </svg>
-                {exporting ? '导出中...' : t('feedback.export_csv')}
+                {exporting ? tf('list.exporting') : t('feedback.export_csv')}
               </Button>
             </>
           ) : null
@@ -332,11 +340,11 @@ export function FeedbackList() {
                 setPage(1);
               }}
               className={selectClass}
-              aria-label="排序"
+              aria-label={tf('toolbar.sortLabel')}
             >
               {SORT_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
-                  {opt.label}
+                  {tf(opt.labelKey)}
                 </option>
               ))}
             </select>
@@ -356,9 +364,9 @@ export function FeedbackList() {
                 )}
               >
                 <span className="flex h-4 w-4 items-center justify-center rounded-full bg-brand-100 text-[9px] font-semibold text-brand-700 dark:bg-brand-600/25 dark:text-brand-300">
-                  {(currentMember.display_name || currentMember.email || '我').slice(0, 1)}
+                  {(currentMember.display_name || currentMember.email || tf('list.currentMember')).slice(0, 1)}
                 </span>
-                分配给我
+                {tf('toolbar.assignToMe')}
               </button>
             )}
             <select
@@ -368,9 +376,9 @@ export function FeedbackList() {
                 setPage(1);
               }}
               className={selectClass}
-              aria-label="项目"
+              aria-label={tf('toolbar.projectLabel')}
             >
-              <option value="">全部项目</option>
+              <option value="">{tf('toolbar.projectAll')}</option>
               {projectList.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
@@ -384,11 +392,11 @@ export function FeedbackList() {
                 setPage(1);
               }}
               className={selectClass}
-              aria-label="负责人"
+              aria-label={tf('toolbar.assigneeLabel')}
             >
-              <option value="">全部负责人</option>
-              <option value="__unassigned__">未分配</option>
-              {currentMember && <option value={currentMember.id}>分配给我</option>}
+              <option value="">{tf('toolbar.assigneeAll')}</option>
+              <option value="__unassigned__">{tf('unassigned')}</option>
+              {currentMember && <option value={currentMember.id}>{tf('toolbar.assignToMe')}</option>}
               {memberList
                 .filter((m) => m.id !== currentMember?.id)
                 .map((m) => (
@@ -404,9 +412,9 @@ export function FeedbackList() {
                 setPage(1);
               }}
               className={selectClass}
-              aria-label="标签"
+              aria-label={tf('toolbar.tagLabel')}
             >
-              <option value="">全部标签</option>
+              <option value="">{tf('toolbar.tagAll')}</option>
               {tagList.map((tag) => (
                 <option key={tag.id} value={tag.id}>
                   {tag.name}
@@ -425,8 +433,8 @@ export function FeedbackList() {
               <div className="inline-flex rounded-lg border border-surface-3 bg-surface-1/70 p-0.5 dark:border-gray-700 dark:bg-gray-900/40">
                 {(
                   [
-                    ['active', '全部反馈'],
-                    ['trash', '回收站'],
+                    ['active', tf('toolbar.viewActive')],
+                    ['trash', tf('toolbar.viewTrash')],
                   ] as const
                 ).map(([key, label]) => (
                   <button
@@ -458,9 +466,9 @@ export function FeedbackList() {
                     if (saved) applySavedView(saved.filters);
                   }}
                   className={selectClass}
-                  aria-label="已保存视图"
+                  aria-label={tf('toolbar.savedViewLabel')}
                 >
-                  <option value="">视图</option>
+                  <option value="">{tf('toolbar.savedViewPlaceholder')}</option>
                   {savedViews.views.map((v) => (
                     <option key={v.name} value={v.name}>
                       {v.name}
@@ -472,9 +480,9 @@ export function FeedbackList() {
                     onClick={() => {
                       savedViews.remove(activeSavedView);
                       setActiveSavedView('');
-                      toast('已删除视图', 'success');
+                      toast(tf('list.viewRemoved'), 'success');
                     }}
-                    title="删除当前视图"
+                    title={tf('toolbar.removeView')}
                     className="flex h-7 w-7 items-center justify-center rounded-md text-gray-400 transition-colors hover:text-rose-500"
                   >
                     ✕
@@ -485,7 +493,7 @@ export function FeedbackList() {
                     setShowViewSaver((v) => !v);
                     setViewName('');
                   }}
-                  title="保存当前筛选为视图"
+                  title={tf('toolbar.saveViewTitle')}
                   className="flex h-9 w-9 items-center justify-center rounded-lg border border-surface-3 bg-surface-0 text-gray-500 transition-colors hover:bg-surface-1 hover:text-brand-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-brand-400"
                 >
                   <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
@@ -498,7 +506,7 @@ export function FeedbackList() {
                     <input
                       value={viewName}
                       onChange={(e) => setViewName(e.target.value)}
-                      placeholder="视图名称"
+                      placeholder={tf('toolbar.viewNamePlaceholder')}
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === 'Escape') setShowViewSaver(false);
@@ -512,10 +520,10 @@ export function FeedbackList() {
                           setShowViewSaver(false);
                           toast(
                             result === 'updated'
-                              ? '已更新视图'
+                              ? tf('list.viewUpdated')
                               : result === 'saved'
-                                ? '已保存视图'
-                                : '保存失败（已达上限 10 个）',
+                                ? tf('list.viewSaved')
+                                : tf('list.viewLimit', { max: 10 }),
                             result === 'limit' ? 'error' : 'success',
                           );
                         }
@@ -537,15 +545,15 @@ export function FeedbackList() {
                         setShowViewSaver(false);
                         toast(
                           result === 'updated'
-                            ? '已更新视图'
+                            ? tf('list.viewUpdated')
                             : result === 'saved'
-                              ? '已保存视图'
-                              : '保存失败（已达上限 10 个）',
+                              ? tf('list.viewSaved')
+                              : tf('list.viewLimit', { max: 10 }),
                           result === 'limit' ? 'error' : 'success',
                         );
                       }}
                     >
-                      保存视图
+                      {tf('toolbar.saveView')}
                     </Button>
                   </div>
                 )}
@@ -556,7 +564,9 @@ export function FeedbackList() {
 
         {hasActiveFilters && (
           <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-surface-2 pt-2.5 dark:border-gray-700/60">
-            <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500">筛选</span>
+            <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500">
+              {tf('toolbar.filtersLabel')}
+            </span>
             {activeChips.map((chip) => (
               <button
                 key={chip.key}
@@ -571,7 +581,7 @@ export function FeedbackList() {
               onClick={resetAll}
               className="ml-1 text-[11px] font-medium text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400"
             >
-              重置筛选
+              {tf('toolbar.resetFilters')}
             </button>
           </div>
         )}
@@ -597,15 +607,15 @@ export function FeedbackList() {
         view === 'trash' ? (
           <EmptyState
             icon={<SearchIcon className="text-gray-400" />}
-            title="回收站为空"
-            description="被删除的反馈会先进入回收站，可随时恢复"
+            title={tf('list.emptyTrashTitle')}
+            description={tf('list.emptyTrashDesc')}
           />
         ) : hasActiveFilters ? (
           <EmptyState
             icon={<SearchIcon className="text-gray-400" />}
-            title="没有找到匹配的反馈"
-            description="试试调整搜索关键词或清除部分筛选条件"
-            action={{ label: '重置筛选', onClick: resetAll }}
+            title={tf('list.emptyFilteredTitle')}
+            description={tf('list.emptyFilteredDesc')}
+            action={{ label: tf('toolbar.resetFilters'), onClick: resetAll }}
           />
         ) : (
           <EmptyState
@@ -615,7 +625,7 @@ export function FeedbackList() {
             action={
               firstProject
                 ? {
-                    label: '获取嵌入代码',
+                    label: tf('list.emptyCta'),
                     onClick: () => navigate(`/projects/${firstProject.projectId}/widget`),
                   }
                 : undefined
