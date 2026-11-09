@@ -6,15 +6,17 @@ import { apiRequest } from '@/api/client';
 import { useToast } from '@/components/Toast';
 import { Modal } from '@/components/Modal';
 import { PageHeader } from '@/components/PageHeader';
-import { Badge, Button, Card, EmptyState, Skeleton } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Skeleton,
+  settingsInputClass,
+} from '@/components/ui';
 import { statusLabel } from '@/utils/labels';
 import type { FeedbackStatus, StatusConfig } from '@/types';
-
-const LABEL_CLASS =
-  'mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500';
-
-const inputClass =
-  'h-9 w-full rounded-lg border border-surface-3 bg-surface-1/60 px-3 text-[13px] text-gray-900 placeholder:text-gray-400 transition-colors focus:border-brand-400 focus:bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-100';
 
 const rowActionClass =
   'inline-flex h-8 items-center rounded-md px-2 text-[11px] font-medium text-gray-500 transition-colors hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-rose-500/10 dark:hover:text-rose-400';
@@ -318,10 +320,12 @@ function StatusFormModal({
         }}
         className="space-y-4"
       >
-        <div>
-          <label htmlFor="status-name" className={LABEL_CLASS}>
-            状态名称
-          </label>
+        <Field
+          label="状态名称"
+          htmlFor="status-name"
+          error={nameError ?? undefined}
+          hint="建议使用英文标识（如 reviewing、waiting），会作为 API 中的状态值。"
+        >
           <input
             id="status-name"
             type="text"
@@ -333,24 +337,12 @@ function StatusFormModal({
             }}
             placeholder="例如：reviewing"
             required
-            className={clsx(
-              inputClass,
-              nameError &&
-                'border-rose-400 focus:border-rose-500 focus:ring-rose-500/15 dark:border-rose-500/70',
-            )}
+            className={settingsInputClass(!!nameError)}
           />
-          {nameError ? (
-            <p className="mt-1.5 text-[11px] text-rose-600 dark:text-rose-400">{nameError}</p>
-          ) : (
-            <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">
-              建议使用英文标识（如 reviewing、waiting），会作为 API 中的状态值。
-            </p>
-          )}
-        </div>
+        </Field>
 
         <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
-          <div>
-            <span className={LABEL_CLASS}>颜色</span>
+          <Field label="颜色">
             <div className="flex flex-wrap items-center gap-2">
               {PRESET_COLORS.map((preset) => (
                 <button
@@ -376,21 +368,17 @@ function StatusFormModal({
                 className="ml-1 h-8 w-10 cursor-pointer rounded-md border border-surface-3 bg-surface-0 p-1 dark:border-gray-700 dark:bg-gray-900"
               />
             </div>
-          </div>
-          <div>
-            <label htmlFor="status-position" className={LABEL_CLASS}>
-              位置
-            </label>
+          </Field>
+          <Field label="位置" htmlFor="status-position" hint="数字越小越靠前">
             <input
               id="status-position"
               type="number"
               min={0}
               value={position}
               onChange={(event) => setPosition(Number(event.target.value))}
-              className={inputClass}
+              className={settingsInputClass()}
             />
-            <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">数字越小越靠前</p>
-          </div>
+          </Field>
         </div>
 
         <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-surface-3 bg-surface-1/60 px-3 py-2.5 transition-colors hover:bg-surface-1 dark:border-gray-700 dark:bg-gray-900/40 dark:hover:bg-gray-800">

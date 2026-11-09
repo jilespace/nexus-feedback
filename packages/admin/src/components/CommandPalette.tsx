@@ -64,6 +64,12 @@ const ICONS = {
       <path d="M4.4 6.6h.01M6.6 6.6h.01M8.8 6.6h.01M11 6.6h.01M5.4 9.4h5.2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
   ),
+  bell: (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+      <path d="M8 2a3.6 3.6 0 0 0-3.6 3.6c0 3.2-1 4.2-1.4 4.6h10c-.4-.4-1.4-1.4-1.4-4.6A3.6 3.6 0 0 0 8 2Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M6.6 12.4a1.5 1.5 0 0 0 2.8 0" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  ),
   search: (
     <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
       <circle cx="7.2" cy="7.2" r="4.6" stroke="currentColor" strokeWidth="1.5" />
@@ -189,6 +195,18 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
         run: () => {
           close();
           navigate('/members?invite=1');
+        },
+      },
+      {
+        id: 'action-notifications',
+        group: 'actions',
+        label: '查看通知',
+        hint: '最新反馈动态与指派',
+        icon: ICONS.bell,
+        keywords: 'notification inbox bell 通知 消息 未读',
+        run: () => {
+          close();
+          navigate('/notifications');
         },
       },
       {

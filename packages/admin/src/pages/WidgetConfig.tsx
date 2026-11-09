@@ -1,12 +1,22 @@
 import { useEffect, useState } from 'react';
-import type { FormEvent, ReactElement, ReactNode } from 'react';
+import type { FormEvent, ReactElement } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import { apiRequest } from '@/api/client';
 import { useToast } from '@/components/Toast';
 import { PageHeader } from '@/components/PageHeader';
-import { Badge, Button, Card, CardHeader, EmptyState, Skeleton } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  SectionCard,
+  Skeleton,
+  Switch,
+  settingsInputClass,
+} from '@/components/ui';
 import type { WidgetConfig as WidgetConfigData } from '@/types';
 
 const defaultConfig: WidgetConfigData = {
@@ -45,100 +55,6 @@ function validateConfig(config: WidgetConfigData): Record<string, string> {
   }
   if (!config.buttonLabel.trim()) errors.buttonLabel = '请输入按钮文字';
   return errors;
-}
-
-const inputClass = (invalid = false) =>
-  clsx(
-    'h-9 w-full rounded-lg border px-3 text-[13px] text-gray-900 placeholder:text-gray-400 transition-colors focus:bg-surface-0 focus:outline-none focus:ring-2 dark:text-gray-100',
-    invalid
-      ? 'border-rose-400 bg-rose-50/40 focus:border-rose-400 focus:ring-rose-500/15 dark:border-rose-500/70 dark:bg-rose-500/5'
-      : 'border-surface-3 bg-surface-1/60 focus:border-brand-400 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900/40',
-  );
-
-function Field({
-  label,
-  htmlFor,
-  error,
-  hint,
-  className,
-  children,
-}: {
-  label: string;
-  htmlFor?: string;
-  error?: string;
-  hint?: ReactNode;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className={className}>
-      <label
-        htmlFor={htmlFor}
-        className="mb-1.5 block text-[11px] font-semibold tracking-[0.04em] text-gray-500 dark:text-gray-400"
-      >
-        {label}
-      </label>
-      {children}
-      {error ? (
-        <p className="mt-1.5 text-[11px] font-medium text-rose-600 dark:text-rose-400">{error}</p>
-      ) : hint ? (
-        <p className="mt-1.5 text-[11px] leading-relaxed text-gray-400 dark:text-gray-500">{hint}</p>
-      ) : null}
-    </div>
-  );
-}
-
-function SettingsCard({
-  title,
-  description,
-  action,
-  children,
-}: {
-  title: string;
-  description?: string;
-  action?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <Card className="animate-fade-up overflow-hidden">
-      <div className="border-b border-surface-2 px-5 py-4 dark:border-gray-700/60">
-        <CardHeader title={title} description={description} action={action} />
-      </div>
-      <div className="p-5">{children}</div>
-    </Card>
-  );
-}
-
-function Toggle({
-  checked,
-  onChange,
-  label,
-}: {
-  checked: boolean;
-  onChange: (value: boolean) => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={() => onChange(!checked)}
-      className={clsx(
-        'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-150',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0 dark:focus-visible:ring-offset-gray-800',
-        checked ? 'bg-brand-600' : 'bg-surface-3 dark:bg-gray-600',
-      )}
-    >
-      <span
-        className={clsx(
-          'inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform duration-150',
-          checked ? 'translate-x-[18px]' : 'translate-x-[3px]',
-        )}
-      />
-    </button>
-  );
 }
 
 function ChevronDownIcon() {
@@ -280,7 +196,7 @@ export function WidgetConfig() {
         <>
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
             <form id="widget-config-form" onSubmit={handleSave} noValidate className="space-y-5">
-              <SettingsCard
+              <SectionCard
                 title="外观"
                 description="控制组件在主站上的品牌色、位置与入口文案。"
                 action={<Badge tone="brand">实时预览</Badge>}
@@ -306,7 +222,7 @@ export function WidgetConfig() {
                         onChange={(e) => updateConfig('primaryColor', e.target.value)}
                         spellCheck={false}
                         className={clsx(
-                          inputClass(!!errors.primaryColor),
+                          settingsInputClass(!!errors.primaryColor),
                           'font-mono text-xs uppercase',
                         )}
                       />
@@ -321,7 +237,7 @@ export function WidgetConfig() {
                         onChange={(e) =>
                           updateConfig('position', e.target.value as WidgetConfigData['position'])
                         }
-                        className={clsx(inputClass(), 'appearance-none pr-9')}
+                        className={clsx(settingsInputClass(), 'appearance-none pr-9')}
                       >
                         <option value="bottom-right">右下角</option>
                         <option value="bottom-left">左下角</option>
@@ -346,7 +262,7 @@ export function WidgetConfig() {
                         onChange={(e) => updateConfig('buttonLabel', e.target.value)}
                         maxLength={20}
                         placeholder="反馈"
-                        className={inputClass(!!errors.buttonLabel)}
+                        className={settingsInputClass(!!errors.buttonLabel)}
                       />
                       <span className="w-12 shrink-0 text-right text-[11px] tabular-nums text-gray-400 dark:text-gray-500">
                         {config.buttonLabel.length}/20
@@ -354,9 +270,9 @@ export function WidgetConfig() {
                     </div>
                   </Field>
                 </div>
-              </SettingsCard>
+              </SectionCard>
 
-              <SettingsCard
+              <SectionCard
                 title="文案与字段"
                 description="自定义提交成功后的提示语，并选择组件中展示的表单字段。"
                 action={
@@ -378,7 +294,7 @@ export function WidgetConfig() {
                         onChange={(e) => updateConfig('successTitle', e.target.value)}
                         maxLength={50}
                         placeholder="提交成功"
-                        className={inputClass()}
+                        className={settingsInputClass()}
                       />
                       <span className="w-12 shrink-0 text-right text-[11px] tabular-nums text-gray-400 dark:text-gray-500">
                         {config.successTitle.length}/50
@@ -399,7 +315,7 @@ export function WidgetConfig() {
                         rows={3}
                         maxLength={200}
                         placeholder="感谢您的反馈，我们会尽快处理。"
-                        className={clsx(inputClass(), 'h-auto min-h-[76px] resize-none py-2 leading-relaxed')}
+                        className={clsx(settingsInputClass(), 'h-auto min-h-[76px] resize-none py-2 leading-relaxed')}
                       />
                       <div className="mt-1 flex items-center justify-end">
                         <span className="text-[11px] tabular-nums text-gray-400 dark:text-gray-500">
@@ -409,10 +325,7 @@ export function WidgetConfig() {
                     </div>
                   </Field>
 
-                  <div>
-                    <p className="mb-1.5 text-[11px] font-semibold tracking-[0.04em] text-gray-500 dark:text-gray-400">
-                      表单字段
-                    </p>
+                  <Field label="表单字段">
                     <div className="divide-y divide-surface-2 overflow-hidden rounded-lg border border-surface-2 dark:divide-gray-700/60 dark:border-gray-700/60">
                       {FIELD_OPTIONS.map((option) => (
                         <div
@@ -427,7 +340,7 @@ export function WidgetConfig() {
                               {option.description}
                             </p>
                           </div>
-                          <Toggle
+                          <Switch
                             checked={config.fields[option.key]}
                             onChange={(value) => updateFieldFlag(option.key, value)}
                             label={option.label}
@@ -435,9 +348,9 @@ export function WidgetConfig() {
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </Field>
                 </div>
-              </SettingsCard>
+              </SectionCard>
             </form>
 
             <div className="xl:sticky xl:top-6 xl:self-start">
@@ -660,15 +573,11 @@ function EmbedSection() {
 <FeedbackWidget apiKey="YOUR_PROJECT_API_KEY" apiUrl="${apiUrl}" />`;
 
   return (
-    <Card className="animate-fade-up overflow-hidden">
-      <div className="border-b border-surface-2 px-5 py-4 dark:border-gray-700/60">
-        <CardHeader
-          title="嵌入代码"
-          description="将代码粘贴到网站 HTML 的 </body> 前；保存配置后刷新宿主页面即可生效，Widget 会自动拉取最新配置。"
-        />
-      </div>
-      <div className="p-5">
-        <CodeTabs
+    <SectionCard
+      title="嵌入代码"
+      description="将代码粘贴到网站 HTML 的 </body> 前；保存配置后刷新宿主页面即可生效，Widget 会自动拉取最新配置。"
+    >
+      <CodeTabs
           tabs={[
             { id: 'script', label: '<script> 标签接入', code: scriptCode },
             { id: 'esm', label: 'React / ESM 接入', code: esmCode },
@@ -692,8 +601,7 @@ function EmbedSection() {
             。
           </span>
         </div>
-      </div>
-    </Card>
+    </SectionCard>
   );
 }
 

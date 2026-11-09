@@ -6,7 +6,7 @@ import { apiRequest } from '@/api/client';
 import { useToast } from '@/components/Toast';
 import { Modal } from '@/components/Modal';
 import { PageHeader } from '@/components/PageHeader';
-import { Button, Card, EmptyState, Skeleton } from '@/components/ui';
+import { Button, Card, EmptyState, Skeleton, Switch } from '@/components/ui';
 import { formatDateTime } from '@/utils/markdown';
 
 type NotificationPref = {
@@ -207,10 +207,8 @@ export function Notifications() {
                             disabled={rowPending}
                             label={`状态更新通知：${pref.email}`}
                             onChange={() => togglePreference(pref, 'status_updates')}
+                            showState
                           />
-                          <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                            {pref.status_updates ? '已开启' : '已关闭'}
-                          </span>
                         </div>
                         <div className="flex min-w-0 items-center gap-2">
                           <span className="w-14 shrink-0 text-[11px] text-gray-400 dark:text-gray-500 sm:hidden">
@@ -221,10 +219,8 @@ export function Notifications() {
                             disabled={rowPending}
                             label={`每周汇总邮件：${pref.email}`}
                             onChange={() => togglePreference(pref, 'weekly_digest')}
+                            showState
                           />
-                          <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                            {pref.weekly_digest ? '已开启' : '已关闭'}
-                          </span>
                         </div>
                       </div>
 
@@ -274,41 +270,5 @@ export function Notifications() {
         </Modal>
       )}
     </div>
-  );
-}
-
-function Switch({
-  checked,
-  onChange,
-  disabled,
-  label,
-}: {
-  checked: boolean;
-  onChange: () => void;
-  disabled?: boolean;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      disabled={disabled}
-      onClick={onChange}
-      className={clsx(
-        'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-150',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0 dark:focus-visible:ring-offset-gray-800',
-        'disabled:cursor-not-allowed disabled:opacity-50',
-        checked ? 'bg-brand-600' : 'bg-surface-3 dark:bg-gray-600',
-      )}
-    >
-      <span
-        className={clsx(
-          'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-150',
-          checked ? 'translate-x-[18px]' : 'translate-x-0.5',
-        )}
-      />
-    </button>
   );
 }

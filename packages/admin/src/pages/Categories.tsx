@@ -6,15 +6,9 @@ import { apiRequest } from '@/api/client';
 import { useToast } from '@/components/Toast';
 import { Modal } from '@/components/Modal';
 import { PageHeader } from '@/components/PageHeader';
-import { Button, Card, EmptyState, Skeleton } from '@/components/ui';
+import { Button, Card, EmptyState, Field, Skeleton, settingsInputClass } from '@/components/ui';
 import { CATEGORY_PALETTE } from '@/utils/labels';
 import type { CategoryConfig } from '@/types';
-
-const LABEL_CLASS =
-  'mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500';
-
-const inputClass =
-  'h-9 w-full rounded-lg border border-surface-3 bg-surface-1/60 px-3 text-[13px] text-gray-900 placeholder:text-gray-400 transition-colors focus:border-brand-400 focus:bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-100';
 
 const rowActionClass =
   'inline-flex h-8 items-center rounded-md px-2 text-[11px] font-medium text-gray-500 transition-colors hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-rose-500/10 dark:hover:text-rose-400';
@@ -256,10 +250,12 @@ function CategoryFormModal({
         }}
         className="space-y-4"
       >
-        <div>
-          <label htmlFor="category-name" className={LABEL_CLASS}>
-            分类名称
-          </label>
+        <Field
+          label="分类名称"
+          htmlFor="category-name"
+          error={nameError ?? undefined}
+          hint="也可使用英文标识，如 billing、mobile，便于 API 提交时复用。"
+        >
           <input
             id="category-name"
             type="text"
@@ -271,23 +267,11 @@ function CategoryFormModal({
             }}
             placeholder="例如：客户端问题"
             required
-            className={clsx(
-              inputClass,
-              nameError &&
-                'border-rose-400 focus:border-rose-500 focus:ring-rose-500/15 dark:border-rose-500/70',
-            )}
+            className={settingsInputClass(!!nameError)}
           />
-          {nameError ? (
-            <p className="mt-1.5 text-[11px] text-rose-600 dark:text-rose-400">{nameError}</p>
-          ) : (
-            <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">
-              也可使用英文标识，如 billing、mobile，便于 API 提交时复用。
-            </p>
-          )}
-        </div>
+        </Field>
 
-        <div>
-          <span className={LABEL_CLASS}>颜色</span>
+        <Field label="颜色">
           <div className="flex flex-wrap items-center gap-2">
             {CATEGORY_PALETTE.map((preset) => (
               <button
@@ -318,7 +302,7 @@ function CategoryFormModal({
               </span>
             </span>
           </div>
-        </div>
+        </Field>
 
         <div className="rounded-lg border border-surface-3 bg-surface-1/60 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-900/40">
           <p className="text-[11px] text-gray-400 dark:text-gray-500">预览</p>

@@ -1,11 +1,20 @@
 import { useEffect, useState } from 'react';
-import type { FormEvent, ReactNode } from 'react';
+import type { FormEvent } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import { apiRequest } from '@/api/client';
 import { useToast } from '@/components/Toast';
 import { PageHeader } from '@/components/PageHeader';
-import { Badge, Button, Card, CardHeader, EmptyState, Skeleton } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  SectionCard,
+  Skeleton,
+  settingsInputClass,
+} from '@/components/ui';
 
 type OrgSettingsData = {
   id: string;
@@ -67,73 +76,6 @@ function passwordPolicyError(value: string): string {
     return '需包含大小写字母和数字';
   }
   return '';
-}
-
-const inputClass = (invalid = false) =>
-  clsx(
-    'h-9 w-full rounded-lg border px-3 text-[13px] text-gray-900 placeholder:text-gray-400 transition-colors focus:bg-surface-0 focus:outline-none focus:ring-2 dark:text-gray-100',
-    invalid
-      ? 'border-rose-400 bg-rose-50/40 focus:border-rose-400 focus:ring-rose-500/15 dark:border-rose-500/70 dark:bg-rose-500/5'
-      : 'border-surface-3 bg-surface-1/60 focus:border-brand-400 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900/40',
-  );
-
-function Field({
-  label,
-  htmlFor,
-  error,
-  hint,
-  className,
-  children,
-}: {
-  label: string;
-  htmlFor?: string;
-  error?: string;
-  hint?: ReactNode;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className={className}>
-      <label
-        htmlFor={htmlFor}
-        className="mb-1.5 block text-[11px] font-semibold tracking-[0.04em] text-gray-500 dark:text-gray-400"
-      >
-        {label}
-      </label>
-      {children}
-      {error ? (
-        <p className="mt-1.5 text-[11px] font-medium text-rose-600 dark:text-rose-400">{error}</p>
-      ) : hint ? (
-        <p className="mt-1.5 text-[11px] leading-relaxed text-gray-400 dark:text-gray-500">{hint}</p>
-      ) : null}
-    </div>
-  );
-}
-
-function SettingsCard({
-  title,
-  description,
-  footer,
-  children,
-}: {
-  title: string;
-  description?: string;
-  footer?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <Card className="animate-fade-up overflow-hidden">
-      <div className="border-b border-surface-2 px-5 py-4 dark:border-gray-700/60">
-        <CardHeader title={title} description={description} />
-      </div>
-      <div className="p-5">{children}</div>
-      {footer && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-surface-2 px-5 py-3 dark:border-gray-700/60">
-          {footer}
-        </div>
-      )}
-    </Card>
-  );
 }
 
 function SaveStatus({ dirty }: { dirty: boolean }) {
@@ -299,7 +241,7 @@ export function OrgSettings() {
       ) : (
         <>
           <form id="org-profile-form" onSubmit={handleSave} noValidate>
-            <SettingsCard
+            <SectionCard
               title="组织资料"
               description="这些信息会展示在公开看板、邮件通知与登录页。"
               footer={
@@ -319,7 +261,7 @@ export function OrgSettings() {
                     onChange={(e) => updateField('name', e.target.value)}
                     autoComplete="organization"
                     placeholder="例如：Nexus"
-                    className={inputClass(!!orgErrors.name)}
+                    className={settingsInputClass(!!orgErrors.name)}
                   />
                 </Field>
 
@@ -332,7 +274,7 @@ export function OrgSettings() {
                     id="org-slug"
                     value={data.slug}
                     readOnly
-                    className={clsx(inputClass(), 'cursor-default font-mono text-xs')}
+                    className={clsx(settingsInputClass(), 'cursor-default font-mono text-xs')}
                   />
                 </Field>
 
@@ -346,7 +288,7 @@ export function OrgSettings() {
                     value={form.logoUrl}
                     onChange={(e) => updateField('logoUrl', e.target.value)}
                     placeholder="https://example.com/logo.png"
-                    className={inputClass()}
+                    className={settingsInputClass()}
                   />
                 </Field>
 
@@ -369,7 +311,7 @@ export function OrgSettings() {
                       value={form.brandColor}
                       onChange={(e) => updateField('brandColor', e.target.value)}
                       spellCheck={false}
-                      className={clsx(inputClass(!!orgErrors.brandColor), 'font-mono text-xs uppercase')}
+                      className={clsx(settingsInputClass(!!orgErrors.brandColor), 'font-mono text-xs uppercase')}
                     />
                   </div>
                 </Field>
@@ -386,7 +328,7 @@ export function OrgSettings() {
                     value={form.boardUrl}
                     onChange={(e) => updateField('boardUrl', e.target.value)}
                     placeholder="https://feedback.example.com"
-                    className={inputClass(!!orgErrors.boardUrl)}
+                    className={settingsInputClass(!!orgErrors.boardUrl)}
                   />
                 </Field>
 
@@ -416,10 +358,10 @@ export function OrgSettings() {
                   </div>
                 </div>
               </div>
-            </SettingsCard>
+            </SectionCard>
           </form>
 
-          <SettingsCard
+          <SectionCard
             title="修改密码"
             description="修改后请使用新密码登录，其它设备上的会话不会自动登出。"
           >
@@ -432,7 +374,7 @@ export function OrgSettings() {
                     value={password.current}
                     onChange={(e) => updatePassword('current', e.target.value)}
                     autoComplete="current-password"
-                    className={inputClass(!!passwordErrors.current)}
+                    className={settingsInputClass(!!passwordErrors.current)}
                   />
                 </Field>
                 <div className="hidden sm:block" />
@@ -448,7 +390,7 @@ export function OrgSettings() {
                     value={password.next}
                     onChange={(e) => updatePassword('next', e.target.value)}
                     autoComplete="new-password"
-                    className={inputClass(!!passwordErrors.next)}
+                    className={settingsInputClass(!!passwordErrors.next)}
                   />
                 </Field>
                 <Field label="确认新密码" htmlFor="confirm-password" error={passwordErrors.confirm}>
@@ -458,7 +400,7 @@ export function OrgSettings() {
                     value={password.confirm}
                     onChange={(e) => updatePassword('confirm', e.target.value)}
                     autoComplete="new-password"
-                    className={inputClass(!!passwordErrors.confirm)}
+                    className={settingsInputClass(!!passwordErrors.confirm)}
                   />
                 </Field>
               </div>
@@ -474,7 +416,7 @@ export function OrgSettings() {
                 </Button>
               </div>
             </form>
-          </SettingsCard>
+          </SectionCard>
         </>
       )}
     </div>

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { clsx } from 'clsx';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
@@ -290,5 +291,264 @@ export function Kbd({ children }: { children: ReactNode }) {
     <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-surface-3 bg-surface-1 px-1 font-sans text-[10px] font-semibold text-gray-500 dark:border-gray-700 dark:bg-gray-700/60 dark:text-gray-400">
       {children}
     </kbd>
+  );
+}
+
+/* ------------------------------------------------------------------------- *
+ * Settings / form primitives
+ *
+ * Extracted in Round 4 to remove the per-page copies of the same small
+ * building blocks (settings cards, form fields, switches and secret inputs).
+ * Everything above this line is intentionally unchanged.
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Shared input styling for settings forms (36px control height, token colors).
+ * Pass `invalid` to switch to the error border/background treatment; pair it
+ * with a `<Field error>` so the message lands next to the control.
+ */
+export const settingsInputClass = (invalid = false) =>
+  clsx(
+    'h-9 w-full rounded-lg border px-3 text-[13px] text-gray-900 placeholder:text-gray-400 transition-colors focus:bg-surface-0 focus:outline-none focus:ring-2 dark:text-gray-100',
+    invalid
+      ? 'border-rose-400 bg-rose-50/40 focus:border-rose-400 focus:ring-rose-500/15 dark:border-rose-500/70 dark:bg-rose-500/5'
+      : 'border-surface-3 bg-surface-1/60 focus:border-brand-400 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900/40',
+  );
+
+export interface FieldProps {
+  /** Caption shown above the control. */
+  label: ReactNode;
+  /** id of the form control the label points at. Omit for grouped controls. */
+  htmlFor?: string;
+  /** Validation message; replaces `hint` while present and is announced as alert. */
+  error?: string;
+  /** Helper text below the control. */
+  hint?: ReactNode;
+  /** Renders a red asterisk after the label (visual only, no native validation). */
+  required?: boolean;
+  className?: string;
+  children: ReactNode;
+}
+
+/**
+ * Label + control + hint/error wrapper used by every settings form.
+ * Uses a real <label> when `htmlFor` is provided, otherwise a styled <span>
+ * so grouped controls (color pickers, checkbox lists) do not get a dangling label.
+ */
+export function Field({
+  label,
+  htmlFor,
+  error,
+  hint,
+  required,
+  className,
+  children,
+}: FieldProps) {
+  const labelClass =
+    'mb-1.5 block text-[11px] font-semibold tracking-[0.04em] text-gray-500 dark:text-gray-400';
+  const labelContent = (
+    <>
+      {label}
+      {required && (
+        <span className="ml-1 text-rose-500" aria-hidden="true">
+          *
+        </span>
+      )}
+    </>
+  );
+
+  return (
+    <div
+      className={className}
+      {...(!htmlFor && typeof label === 'string'
+        ? { role: 'group', 'aria-label': label }
+        : {})}
+    >
+      {htmlFor ? (
+        <label htmlFor={htmlFor} className={labelClass}>
+          {labelContent}
+        </label>
+      ) : (
+        <span className={labelClass}>{labelContent}</span>
+      )}
+      {children}
+      {error ? (
+        <p
+          role="alert"
+          className="mt-1.5 text-[11px] font-medium text-rose-600 dark:text-rose-400"
+        >
+          {error}
+        </p>
+      ) : hint ? (
+        <p className="mt-1.5 text-[11px] leading-relaxed text-gray-400 dark:text-gray-500">
+          {hint}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+export interface SwitchProps {
+  checked: boolean;
+  /** Receives the next value. Native <button> semantics cover Space/Enter. */
+  onChange: (next: boolean) => void;
+  /** Accessible name (the track itself is icon-only). */
+  label: string;
+  disabled?: boolean;
+  /** Show "on/off" text next to the track so color is not the only signal. */
+  showState?: boolean;
+  /** Text for the on/off states when `showState` is set. */
+  stateLabels?: [on: string, off: string];
+  className?: string;
+  id?: string;
+}
+
+/**
+ * Accessible toggle: role="switch" + aria-checked, Space/Enter activation via
+ * the native button element, disabled styling and an optional textual state.
+ */
+export function Switch({
+  checked,
+  onChange,
+  label,
+  disabled,
+  showState,
+  stateLabels = ['已开启', '已关闭'],
+  className,
+  id,
+}: SwitchProps) {
+  const [onLabel, offLabel] = stateLabels;
+  return (
+    <span className={clsx('inline-flex items-center gap-2', className)}>
+      <button
+        id={id}
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={clsx(
+          'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-150',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0 dark:focus-visible:ring-offset-gray-800',
+          'disabled:cursor-not-allowed disabled:opacity-50',
+          checked ? 'bg-brand-600' : 'bg-surface-3 dark:bg-gray-600',
+        )}
+      >
+        <span
+          className={clsx(
+            'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-150',
+            checked ? 'translate-x-[18px]' : 'translate-x-0.5',
+          )}
+        />
+      </button>
+      {showState && (
+        <span
+          className={clsx(
+            'text-[11px] font-medium',
+            checked
+              ? 'text-brand-600 dark:text-brand-400'
+              : 'text-gray-400 dark:text-gray-500',
+          )}
+        >
+          {checked ? onLabel : offLabel}
+        </span>
+      )}
+    </span>
+  );
+}
+
+export interface SecretInputProps {
+  id?: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  autoComplete?: string;
+  /** Mirrors the error state of the surrounding <Field>. */
+  invalid?: boolean;
+  /** Extra classes for the wrapper (e.g. width control). */
+  className?: string;
+  /** Extra classes for the inner input (e.g. monospace sizing tweaks). */
+  inputClassName?: string;
+  /** Noun used in the show/hide aria-labels, e.g. "API Key". */
+  label?: string;
+}
+
+/**
+ * Password-style input with a show/hide toggle. The toggle keeps its accessible
+ * name in sync with the current state, so screen readers announce the action.
+ */
+export function SecretInput({
+  id,
+  value,
+  onChange,
+  placeholder,
+  autoComplete = 'off',
+  invalid,
+  className,
+  inputClassName,
+  label = '密钥',
+}: SecretInputProps) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className={clsx('relative', className)}>
+      <input
+        id={id}
+        type={visible ? 'text' : 'password'}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
+        spellCheck={false}
+        className={clsx(settingsInputClass(invalid), 'pr-16 font-mono text-xs', inputClassName)}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((prev) => !prev)}
+        aria-label={visible ? `隐藏${label}` : `显示${label}`}
+        aria-pressed={visible}
+        className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-[11px] font-medium text-gray-400 transition-colors hover:bg-surface-2 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 dark:text-gray-500 dark:hover:bg-gray-700/60 dark:hover:text-gray-300"
+      >
+        {visible ? '隐藏' : '显示'}
+      </button>
+    </div>
+  );
+}
+
+export interface SectionCardProps {
+  title: string;
+  description?: string;
+  /** Header-right slot (badge, button, tabs ...). */
+  action?: ReactNode;
+  /** Optional footer bar, typically save status + hint or form actions. */
+  footer?: ReactNode;
+  className?: string;
+  children: ReactNode;
+}
+
+/**
+ * Settings section: Card with a bordered CardHeader, padded body and optional
+ * footer bar. Mirrors the layout previously duplicated as local SettingsCard.
+ */
+export function SectionCard({
+  title,
+  description,
+  action,
+  footer,
+  className,
+  children,
+}: SectionCardProps) {
+  return (
+    <Card className={clsx('animate-fade-up overflow-hidden', className)}>
+      <div className="border-b border-surface-2 px-5 py-4 dark:border-gray-700/60">
+        <CardHeader title={title} description={description} action={action} />
+      </div>
+      <div className="p-5">{children}</div>
+      {footer && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-surface-2 px-5 py-3 dark:border-gray-700/60">
+          {footer}
+        </div>
+      )}
+    </Card>
   );
 }

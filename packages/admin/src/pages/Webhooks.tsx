@@ -6,7 +6,16 @@ import { apiRequest } from '@/api/client';
 import { useToast } from '@/components/Toast';
 import { Modal } from '@/components/Modal';
 import { PageHeader } from '@/components/PageHeader';
-import { Badge, Button, Card, EmptyState, Skeleton } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Skeleton,
+  Switch,
+  settingsInputClass,
+} from '@/components/ui';
 import { formatDateTime } from '@/utils/markdown';
 import type { PaginatedResponse, Webhook, WebhookLog } from '@/types';
 
@@ -21,12 +30,6 @@ const AVAILABLE_EVENTS = [
 function eventLabel(value: string): string {
   return AVAILABLE_EVENTS.find((event) => event.value === value)?.label ?? value;
 }
-
-const LABEL_CLASS =
-  'mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500';
-
-const inputClass =
-  'h-9 w-full rounded-lg border border-surface-3 bg-surface-1/60 px-3 text-[13px] text-gray-900 placeholder:text-gray-400 transition-colors focus:border-brand-400 focus:bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-100';
 
 const dangerActionClass =
   'inline-flex h-8 items-center rounded-md px-2 text-[11px] font-medium text-gray-500 transition-colors hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-rose-500/10 dark:hover:text-rose-400';
@@ -240,18 +243,17 @@ export function Webhooks() {
                       </div>
 
                       <div className="flex flex-wrap items-center gap-1.5 xl:shrink-0">
-                        <div className="flex h-8 items-center gap-2 rounded-lg border border-surface-3 bg-surface-0 px-2 dark:border-gray-700 dark:bg-gray-800">
+                        <div className="flex h-8 items-center rounded-lg border border-surface-3 bg-surface-0 px-2 dark:border-gray-700 dark:bg-gray-800">
                           <Switch
                             checked={webhook.active}
                             disabled={toggling}
                             label={webhook.active ? '禁用此 Webhook' : '启用此 Webhook'}
-                            onChange={() =>
-                              toggleMutation.mutate({ id: webhook.id, active: !webhook.active })
+                            showState
+                            stateLabels={['启用中', '已禁用']}
+                            onChange={(next) =>
+                              toggleMutation.mutate({ id: webhook.id, active: next })
                             }
                           />
-                          <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                            {webhook.active ? '启用中' : '已禁用'}
-                          </span>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-1.5">
@@ -435,10 +437,12 @@ function WebhookFormModal({
         }}
         className="space-y-4"
       >
-        <div>
-          <label htmlFor="webhook-url" className={LABEL_CLASS}>
-            接收地址
-          </label>
+        <Field
+          label="接收地址"
+          htmlFor="webhook-url"
+          error={urlError ?? undefined}
+          hint="仅支持公网 http/https 地址，内网与 localhost 会被拒绝。"
+        >
           <input
             id="webhook-url"
             type="url"
@@ -450,24 +454,11 @@ function WebhookFormModal({
             }}
             placeholder="https://example.com/webhooks/nexus"
             required
-            className={clsx(
-              inputClass,
-              'font-mono text-[12.5px]',
-              urlError &&
-                'border-rose-400 focus:border-rose-500 focus:ring-rose-500/15 dark:border-rose-500/70',
-            )}
+            className={clsx(settingsInputClass(!!urlError), 'font-mono text-[12.5px]')}
           />
-          {urlError ? (
-            <p className="mt-1.5 text-[11px] text-rose-600 dark:text-rose-400">{urlError}</p>
-          ) : (
-            <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">
-              仅支持公网 http/https 地址，内网与 localhost 会被拒绝。
-            </p>
-          )}
-        </div>
+        </Field>
 
-        <div>
-          <span className={LABEL_CLASS}>触发事件</span>
+        <Field label="触发事件" error={eventsError ?? undefined}>
           <div className="grid gap-2 sm:grid-cols-2">
             {AVAILABLE_EVENTS.map((event) => {
               const checked = events.includes(event.value);
@@ -524,28 +515,23 @@ function WebhookFormModal({
               );
             })}
           </div>
-          {eventsError && (
-            <p className="mt-1.5 text-[11px] text-rose-600 dark:text-rose-400">{eventsError}</p>
-          )}
-        </div>
+        </Field>
 
         {!isEdit && (
-          <div>
-            <label htmlFor="webhook-secret" className={LABEL_CLASS}>
-              Secret（可选）
-            </label>
+          <Field
+            label="Secret（可选）"
+            htmlFor="webhook-secret"
+            hint="用于生成 X-Webhook-Signature 签名，可在接收端校验请求来源。"
+          >
             <input
               id="webhook-secret"
               type="text"
               value={secret}
               onChange={(event) => setSecret(event.target.value)}
               placeholder="留空由系统自动生成"
-              className={clsx(inputClass, 'font-mono text-[12.5px]')}
+              className={clsx(settingsInputClass(), 'font-mono text-[12.5px]')}
             />
-            <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">
-              用于生成 X-Webhook-Signature 签名，可在接收端校验请求来源。
-            </p>
-          </div>
+          </Field>
         )}
       </form>
     </Modal>
@@ -661,41 +647,5 @@ function WebhookLogList({ projectId, webhookId }: { projectId: string; webhookId
         </>
       )}
     </div>
-  );
-}
-
-function Switch({
-  checked,
-  onChange,
-  disabled,
-  label,
-}: {
-  checked: boolean;
-  onChange: () => void;
-  disabled?: boolean;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      disabled={disabled}
-      onClick={onChange}
-      className={clsx(
-        'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-150',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0 dark:focus-visible:ring-offset-gray-800',
-        'disabled:cursor-not-allowed disabled:opacity-50',
-        checked ? 'bg-brand-600' : 'bg-surface-3 dark:bg-gray-600',
-      )}
-    >
-      <span
-        className={clsx(
-          'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-150',
-          checked ? 'translate-x-[18px]' : 'translate-x-0.5',
-        )}
-      />
-    </button>
   );
 }

@@ -4,7 +4,7 @@ import { apiRequest, fetchOrgTags, type OrgTagItem } from '@/api/client';
 import { useAuth } from '@/hooks/useAuth';
 import { PageHeader } from '@/components/PageHeader';
 import { Modal } from '@/components/Modal';
-import { Button, Card, CardHeader, EmptyState, Skeleton } from '@/components/ui';
+import { Button, Card, CardHeader, EmptyState, Field, Skeleton, settingsInputClass } from '@/components/ui';
 import { useToast } from '@/components/Toast';
 
 const DEFAULT_COLORS = [
@@ -24,9 +24,6 @@ const PRESETS = [
   { name: '待讨论', color: '#eab308' },
   { name: '客户反馈', color: '#8b5cf6' },
 ];
-
-const inputClass =
-  'h-9 w-full rounded-lg border border-surface-3 bg-surface-1/60 px-3 text-[13px] text-gray-900 placeholder:text-gray-400 transition-colors focus:border-brand-400 focus:bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-100';
 
 export function Tags() {
   const { member } = useAuth();
@@ -106,13 +103,7 @@ export function Tags() {
             }}
             className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end"
           >
-            <div className="min-w-0 flex-1">
-              <label
-                htmlFor="tag-name"
-                className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500"
-              >
-                标签名称
-              </label>
+            <Field label="标签名称" htmlFor="tag-name" className="min-w-0 flex-1">
               <input
                 id="tag-name"
                 type="text"
@@ -120,13 +111,10 @@ export function Tags() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="例如：需要复查"
                 required
-                className={inputClass}
+                className={settingsInputClass()}
               />
-            </div>
-            <div>
-              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500">
-                颜色
-              </span>
+            </Field>
+            <Field label="颜色">
               <div className="flex h-9 items-center gap-1.5">
                 {DEFAULT_COLORS.map((c) => (
                   <button
@@ -134,6 +122,7 @@ export function Tags() {
                     type="button"
                     onClick={() => setColor(c)}
                     aria-label={`选择颜色 ${c}`}
+                    aria-pressed={color === c}
                     className={`h-6 w-6 rounded-full ring-offset-2 transition-all dark:ring-offset-gray-800 ${
                       color === c
                         ? 'scale-110 ring-2 ring-gray-900 dark:ring-white'
@@ -143,7 +132,7 @@ export function Tags() {
                   />
                 ))}
               </div>
-            </div>
+            </Field>
             <Button type="submit" disabled={createMutation.isPending || !name.trim()}>
               {createMutation.isPending ? '创建中...' : '创建标签'}
             </Button>
@@ -192,8 +181,10 @@ export function Tags() {
                   </div>
                   {canManage && (
                     <button
+                      type="button"
                       onClick={() => setConfirmDelete(tag)}
-                      className="text-[11px] font-medium text-gray-400 opacity-0 transition-all hover:text-rose-500 group-hover:opacity-100"
+                      aria-label={`删除标签 ${tag.name}`}
+                      className="rounded-md px-1.5 py-1 text-[11px] font-medium text-gray-500 opacity-0 transition-all hover:text-rose-500 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40 group-hover:opacity-100 dark:text-gray-400 dark:hover:text-rose-400"
                     >
                       删除
                     </button>

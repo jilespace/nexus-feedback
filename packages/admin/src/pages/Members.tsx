@@ -5,7 +5,7 @@ import { apiRequest } from '@/api/client';
 import { useAuth } from '@/hooks/useAuth';
 import { PageHeader } from '@/components/PageHeader';
 import { Modal } from '@/components/Modal';
-import { Badge, Button, Card, EmptyState, Skeleton } from '@/components/ui';
+import { Badge, Button, Card, EmptyState, Field, Skeleton, settingsInputClass } from '@/components/ui';
 import { useToast } from '@/components/Toast';
 import type { OrgMember, OrgMemberRole } from '@/types';
 
@@ -216,6 +216,7 @@ export function Members() {
                     {isOwner && member.role !== 'owner' && !member.pending ? (
                       <select
                         value={member.role}
+                        aria-label={`角色：${member.display_name || member.email}`}
                         onChange={(e) => {
                           const role = e.target.value as OrgMemberRole;
                           if (role !== member.role) setRoleChange({ member, role });
@@ -301,43 +302,37 @@ export function Members() {
             }}
             className="space-y-4"
           >
-            <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500">
-                邮箱 <span className="text-rose-500">*</span>
-              </label>
+            <Field label="邮箱" htmlFor="invite-email" required>
               <input
+                id="invite-email"
                 type="email"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 placeholder="teammate@company.com"
                 required
                 autoFocus
-                className="h-9 w-full rounded-lg border border-surface-3 bg-surface-1/60 px-3 text-[13px] text-gray-900 placeholder:text-gray-400 focus:border-brand-400 focus:bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-100"
+                className={settingsInputClass()}
               />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500">
-                显示名称 <span className="text-rose-500">*</span>
-              </label>
+            </Field>
+            <Field label="显示名称" htmlFor="invite-display-name" required>
               <input
+                id="invite-display-name"
                 type="text"
                 value={inviteDisplayName}
                 onChange={(e) => setInviteDisplayName(e.target.value)}
                 placeholder="例如：产品-小林"
                 required
-                className="h-9 w-full rounded-lg border border-surface-3 bg-surface-1/60 px-3 text-[13px] text-gray-900 placeholder:text-gray-400 focus:border-brand-400 focus:bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-100"
+                className={settingsInputClass()}
               />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500">
-                角色
-              </label>
+            </Field>
+            <Field label="角色">
               <div className="grid gap-2 sm:grid-cols-2">
                 {(['member', 'admin'] as const).map((role) => (
                   <button
                     key={role}
                     type="button"
                     onClick={() => setInviteRole(role)}
+                    aria-pressed={inviteRole === role}
                     className={
                       inviteRole === role
                         ? 'rounded-lg border border-brand-400 bg-brand-50/70 px-3 py-2 text-left ring-1 ring-brand-200 dark:border-brand-500/50 dark:bg-brand-600/15 dark:ring-brand-500/20'
@@ -353,7 +348,7 @@ export function Members() {
                   </button>
                 ))}
               </div>
-            </div>
+            </Field>
           </form>
         </Modal>
       )}
@@ -370,24 +365,24 @@ export function Members() {
             </Button>
           }
         >
-          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500">
-            邀请链接（72 小时有效）
-          </p>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={inviteResultUrl}
-              readOnly
-              onFocus={(e) => e.currentTarget.select()}
-              className="h-9 min-w-0 flex-1 rounded-lg border border-surface-3 bg-surface-1/60 px-3 font-mono text-xs text-gray-600 focus:border-brand-400 focus:outline-none dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-300"
-            />
-            <Button size="sm" onClick={copyInvite}>
-              复制链接
-            </Button>
-          </div>
-          <p className="mt-2 text-[11px] leading-relaxed text-gray-400 dark:text-gray-500">
-            被邀请人打开链接并设置密码后会自动加入组织。也可在「系统配置」中配置邮件服务以自动发送邀请。
-          </p>
+          <Field
+            label="邀请链接（72 小时有效）"
+            hint="被邀请人打开链接并设置密码后会自动加入组织。也可在「系统配置」中配置邮件服务以自动发送邀请。"
+          >
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={inviteResultUrl}
+                readOnly
+                onFocus={(e) => e.currentTarget.select()}
+                aria-label="邀请链接"
+                className={`${settingsInputClass()} min-w-0 flex-1 font-mono`}
+              />
+              <Button size="sm" onClick={copyInvite}>
+                复制链接
+              </Button>
+            </div>
+          </Field>
         </Modal>
       )}
 
