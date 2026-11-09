@@ -5,6 +5,45 @@
 
 ## 轮次记录
 
+### Round 9 — 2026-11-10（i18n 全站收尾：7 个命名空间并行落地）
+
+**本轮完成（Lead + 7 个 teammate 并行，写作用域按命名空间隔离）**
+- 新增 6 个 i18n 命名空间（`feedback`/`detail`/`settings`/`config`/`content`/`team`）+ 每语言 500+ key，
+  i18n 基础设施支持 feature namespace；所有页面按命名空间接入 `useTranslation`，语言切换即时生效。
+- **Lead**：shell（Layout/ShortcutHelp/CommandPalette/Dashboard/相对时间）、共享基元（Modal/Toast/
+  Switch/SecretInput/MarkdownToolbar）、官网 Landing（EN/ZH 切换 + 完整英文营销文案）、
+  Login/AcceptInvite 全英文；`<html lang>` 随语言切换；Dashboard 动态卡引号按语言切换。
+- **teammates**：反馈列表 + 筛选/表格/批量条/分页（59+2 key）；反馈详情/合并/备注/编辑（83 key）；
+  设置 4 页（222 key）；配置 4 页（162 key）；内容/审计 3 页 + auditLabels 语言感知（159 key）；
+  团队/标签 2 页（90 key）。中英 key 对齐、插值/复数校验通过；en 复数（2 unread notifications 等）。
+- 各页 CJK 硬编码残留清零；英文界面 1440/390 无横向溢出；0 console error/exception。
+
+**验证**
+- `pnpm typecheck` ✅、`pnpm test` **196/196** ✅、`pnpm build` 5 包 ✅、`pnpm lint` 0 error ✅、
+  `pnpm smoke` **35/35 PASS**（23.4s）✅
+- 英文抽查：Landing、Dashboard、Feedback list/detail、Settings、Audit 等页面 UI 全英文、数据保持原语言；
+  语言切换无刷新即时生效（各 teammate 均用 marker 验证）。
+- 截图：`.tools/shots/i18n-*/`（notifications/import/feedback-list/feedback-detail/settings/config/
+  content/team/public/shell），以及 Lead 的 `r9/` 抽查。
+
+**提交**：`7e14858`（shell/公开页/共享基元）、`2f3d575`（feedback+detail）、`84da144`（settings+config）、
+`a4f477b`（content+team）
+
+**遗留 / 技术债**
+- 服务端错误消息仍是中文（en 页面 API 失败时可能中文）；需后端错误码结构化后客户端映射。
+- 通知标题/正文、审计 metadata、自定义分类/状态/标签名是服务端数据，不随语言切换。
+- Landing.tsx 因页面内双语字典增至 ~1207 行，建议允许时拆 `pages/landing/copy.ts`。
+- 部分页面（Login）复用主 locale 的 `login.*` key，若清理主 locale 需同步迁移。
+- smoke 尚未覆盖 i18n 切换；移动端交互覆盖仍不足。
+
+**下一轮计划（Round 10：工程质量 + 新功能）**
+1. smoke 增加 i18n 语言切换检查（html lang + 侧边栏/关键页英文断言），移动端抽屉/弹层交互检查。
+2. 后端错误结构化：统一错误码 → `errors` 命名空间映射，客户端 en/zh 提示一致。
+3. 新功能候选：相似反馈合并建议（服务端文本相似度 + 详情页提示）、通知免打扰时段、
+   邮件模板预览（系统配置内）。
+4. 拆分 Landing copy、清理主 locale 冗余 key；性能复查（admin 首屏 chunk）。
+
+
 ### Round 8 — 2026-11-10（i18n：shell / 命令面板 / 通知 / CSV 导入）
 
 **本轮完成**
