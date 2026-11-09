@@ -14,13 +14,14 @@
     --line-strong: 203 210 222;
     --ink: 15 23 42;
     --ink-secondary: 71 85 105;
-    --ink-tertiary: 123 135 148;
+    --ink-tertiary: 95 107 122;
     --brand: 61 90 254;
+    --brand-ink: 61 90 254;
     --brand-strong: 47 71 214;
     --brand-soft: 238 241 255;
     --accent: 245 158 11;
     --success: 16 185 129;
-    --danger: 239 68 68;
+    --danger: 220 38 38;
     --info: 14 165 233;
   }
 
@@ -34,8 +35,9 @@
     --line-strong: 51 65 85;
     --ink: 241 245 249;
     --ink-secondary: 148 163 184;
-    --ink-tertiary: 100 116 139;
+    --ink-tertiary: 122 135 153;
     --brand: 61 90 254;
+    --brand-ink: 145 163 255;
     --brand-strong: 91 114 255;
     --brand-soft: 24 34 71;
     --accent: 245 158 11;
@@ -177,6 +179,19 @@
 
   .text-balance {
     text-wrap: balance;
+  }
+
+  /*
+   * Dark mode needs a lighter brand tone for text on brand-soft surfaces
+   * (the #3D5AFE brand colour only reaches ~3:1 against the dark tint).
+   * Backgrounds and borders keep using --brand.
+   */
+  .dark .text-brand {
+    color: rgb(var(--brand-ink));
+  }
+
+  .dark .bg-brand-soft .text-ink-tertiary {
+    color: rgb(var(--brand-ink) / 0.85);
   }
 }
 
