@@ -15,6 +15,7 @@
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm -r run test",
     "test:e2e": "pnpm -r run test:e2e",
+    "smoke": "node scripts/smoke.mjs",
     "db:start": "docker compose up -d db",
     "db:migrate": "pnpm --filter @nexus-feedback/server prisma:migrate",
     "db:seed": "pnpm --filter @nexus-feedback/server prisma:seed"

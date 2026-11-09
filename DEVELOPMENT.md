@@ -557,3 +557,60 @@ ALLOWED_FILE_TYPES=image/png,image/jpeg,image/gif,image/webp
 | M3 | 管理后台核心页面（列表/详情/状态管理/统计） | 第 3 周 |
 | M4 | Widget 组件 + 公开提交页 + Docker 部署 | 第 4 周 |
 | M5 | 测试完善 + 文档 + 发布 | 第 5 周 |
+
+---
+
+## 11. 端到端冒烟测试（`pnpm smoke`）
+
+`scripts/smoke.mjs` 是一个零新增依赖的端到端冒烟脚本：用 Node 24 内置 `WebSocket`
+直连 Chrome DevTools Protocol，覆盖公开端、管理后台与 API 的关键路径，作为迭代回归门禁。
+
+### 前置条件
+
+- 本地服务已启动：API `3000`、admin `8080`、submit `8081`、board `8082`
+  （`pnpm dev` 或分别 `pnpm dev:server / dev:admin / dev:submit / dev:board`）。
+- 演示数据（`demo` 组织 / `demo-project`）已 seed。
+- Chrome 已在 `9222` 开启远程调试（脚本在探测不到时会自动启动 headless Chrome）。
+- 公开端 widget demo 为可选：若 `.tools/widget-demo/server.mjs` 存在，脚本会自动启动
+  `8099` 临时服务器验证后关闭；不存在则该项标记 `SKIP`。
+
+### 使用
+
+```bash
+pnpm smoke
+# 覆盖服务地址（按需）
+node scripts/smoke.mjs \
+  --base-admin=http://localhost:8080 \
+  --base-board=http://localhost:8082 \
+  --base-submit=http://localhost:8081 \
+  --base-api=http://localhost:3000 \
+  --chrome-port=9222
+```
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--base-admin` | `http://localhost:8080` | 管理后台地址 |
+| `--base-board` | `http://localhost:8082` | 公开看板地址 |
+| `--base-submit` | `http://localhost:8081` | 公开提交页地址 |
+| `--base-api` | `http://localhost:3000` | API 地址 |
+| `--chrome-port` | `9222` | Chrome CDP 端口；不可用时自动启动 headless Chrome |
+| `--help` | — | 显示帮助 |
+
+### 覆盖范围
+
+- **API**：`GET /api/v1/health` 返回 200；未认证访问 `/api/v1/admin/feedback` 返回 401。
+- **公开端**：board 首页 / 路线图 / 更新日志 / 反馈详情（由首页首条 href 推导）、
+  submit 页表单可见、widget demo（Shadow DOM + 面板）。
+  断言 HTTP 200、`document.title` 与 `link[rel=canonical]` 存在、`main` 有内容、无 console error / 异常。
+- **后台**：`POST /api/v1/org/login` 取得 token 并注入 `localStorage`
+  （`admin_token` / `org_member` / `org_info`），然后遍历仪表盘、反馈、更新日志、项目接入、
+  成员、标签、审计日志、组织设置、系统配置，以及项目子页（设置 / Widget / 状态 / 分类 /
+  Webhooks / 通知偏好），断言 `main` 渲染且有内容、无 console error / 异常；
+  另验证命令面板 ⌘K 打开与 Esc 关闭、通知铃铛存在且能打开面板。
+- 截图全部保存到 `.tools/shots/smoke/`。
+
+### 输出与退出码
+
+终端输出中文汇总表（`PASS` / `FAIL` / `SKIP` + 耗时 + 说明），存在任意 `FAIL` 时退出码为 `1`，
+可直接接入 CI 或提交前检查。Chrome 9222 已有实例时脚本不会关闭它；由脚本自行启动的
+headless Chrome 会在结束时优雅关闭并清理临时 profile。
