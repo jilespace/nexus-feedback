@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { clsx } from 'clsx';
 import { apiRequest } from '@/api/client';
 import { Modal } from '@/components/Modal';
 import { Badge, Button, Field, settingsInputClass } from '@/components/ui';
 import { useToast } from '@/components/Toast';
 import { CATEGORY_OPTIONS, categoryColor, priorityLabel } from '@/utils/labels';
-import type { CategoryConfig, ProjectAccessInfo } from '@/types';
+import type { CategoryConfig, FeedbackPriority, ProjectAccessInfo } from '@/types';
 
 const MAX_ROWS = 500;
 const PREVIEW_LIMIT = 20;
@@ -14,14 +16,9 @@ const REQUIRED_COLUMNS = ['title', 'content', 'category'] as const;
 const OPTIONAL_COLUMNS = ['priority', 'contact', 'app_version'] as const;
 const PRIORITIES = ['low', 'medium', 'high', 'critical'] as const;
 
-const PRIORITY_LABELS: Record<string, string> = {
-  low: priorityLabel('low'),
-  medium: priorityLabel('medium'),
-  high: priorityLabel('high'),
-  critical: priorityLabel('critical'),
-};
-
 const inputClass = settingsInputClass();
+
+type ImportCsvT = TFunction<'importCsv'>;
 
 interface ServerInvalidRow {
   index: number;
@@ -64,6 +61,68 @@ const EMPTY_PARSED: ParsedCsv = {
   valid: 0,
   invalid: 0,
 };
+
+/**
+ * The server validates imports with Chinese messages only. Known messages are
+ * mapped back to `importCsv.errors.*` so the English UI stays consistent; an
+ * unknown message falls through verbatim instead of hiding information.
+ */
+const SERVER_ERROR_PATTERNS: Array<{
+  pattern: RegExp;
+  key: string;
+  params?: (match: RegExpMatchArray) => Record<string, unknown>;
+}> = [
+  { pattern: /^标题不能为空$/, key: 'errors.titleRequired' },
+  {
+    pattern: /^标题不能超过 (\d+) 个字符$/,
+    key: 'errors.titleTooLong',
+    params: (match) => ({ max: match[1] }),
+  },
+  { pattern: /^内容不能为空$/, key: 'errors.contentRequired' },
+  {
+    pattern: /^内容不能超过 (\d+) 个字符$/,
+    key: 'errors.contentTooLong',
+    params: (match) => ({ max: match[1] }),
+  },
+  { pattern: /^分类不能为空$/, key: 'errors.categoryRequired' },
+  {
+    pattern: /^无效的分类:\s*(.+)$/,
+    key: 'errors.categoryInvalid',
+    params: (match) => ({ value: match[1] }),
+  },
+  {
+    pattern: /^无效的优先级:\s*(.+)$/,
+    key: 'errors.priorityInvalid',
+    params: (match) => ({ value: match[1] }),
+  },
+  {
+    pattern: /^联系方式不能超过 (\d+) 个字符$/,
+    key: 'errors.contactTooLong',
+    params: (match) => ({ max: match[1] }),
+  },
+  {
+    pattern: /^版本号不能超过 (\d+) 个字符$/,
+    key: 'errors.versionTooLong',
+    params: (match) => ({ max: match[1] }),
+  },
+  { pattern: /^导入数据不能为空$/, key: 'errors.emptyRows' },
+  {
+    pattern: /^单次最多导入 (\d+) 条反馈$/,
+    key: 'errors.tooManyRowsMax',
+    params: (match) => ({ max: match[1] }),
+  },
+  { pattern: /^缺少项目 ID$/, key: 'errors.missingProject' },
+  { pattern: /^导入数据格式错误$/, key: 'errors.invalidPayload' },
+  { pattern: /^项目不存在$/, key: 'errors.projectNotFound' },
+];
+
+function translateServerMessage(message: string, t: ImportCsvT): string {
+  for (const { pattern, key, params } of SERVER_ERROR_PATTERNS) {
+    const match = message.match(pattern);
+    if (match) return t(key, params?.(match));
+  }
+  return message;
+}
 
 function csvEscape(value: string): string {
   return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
@@ -125,25 +184,31 @@ function parseCsv(text: string): Array<{ line: number; cells: string[] }> {
 function validateRow(
   row: Omit<PreviewRow, 'errors'>,
   categories: string[] | null,
+  t: ImportCsvT,
 ): string[] {
   const errors: string[] = [];
-  if (!row.title) errors.push('标题不能为空');
-  else if (row.title.length > 200) errors.push('标题不能超过 200 个字符');
-  if (!row.content) errors.push('内容不能为空');
-  else if (row.content.length > 5000) errors.push('内容不能超过 5000 个字符');
-  if (!row.category) errors.push('分类不能为空');
+  if (!row.title) errors.push(t('errors.titleRequired'));
+  else if (row.title.length > 200) errors.push(t('errors.titleTooLong', { max: 200 }));
+  if (!row.content) errors.push(t('errors.contentRequired'));
+  else if (row.content.length > 5000) errors.push(t('errors.contentTooLong', { max: 5000 }));
+  if (!row.category) errors.push(t('errors.categoryRequired'));
   else if (categories && !categories.includes(row.category)) {
-    errors.push(`无效的分类: ${row.category}`);
+    errors.push(t('errors.categoryInvalid', { value: row.category }));
   }
   if (row.priority && !(PRIORITIES as readonly string[]).includes(row.priority)) {
-    errors.push(`无效的优先级: ${row.priority}`);
+    errors.push(t('errors.priorityInvalid', { value: row.priority }));
   }
-  if (row.contact.length > 200) errors.push('联系方式不能超过 200 个字符');
-  if (row.appVersion.length > 50) errors.push('版本号不能超过 50 个字符');
+  if (row.contact.length > 200) errors.push(t('errors.contactTooLong', { max: 200 }));
+  if (row.appVersion.length > 50) errors.push(t('errors.versionTooLong', { max: 50 }));
   return errors;
 }
 
-function parseCsvText(text: string, categories: string[] | null): ParsedCsv {
+function parseCsvText(
+  text: string,
+  categories: string[] | null,
+  t: ImportCsvT,
+  listSeparator: string,
+): ParsedCsv {
   if (!text.trim()) return EMPTY_PARSED;
 
   const records = parseCsv(text);
@@ -155,13 +220,13 @@ function parseCsvText(text: string, categories: string[] | null): ParsedCsv {
   if (missing.length > 0) {
     return {
       ...EMPTY_PARSED,
-      headerError: `表头缺少必需列：${missing.join('、')}。请使用模板或确保首行包含 title,content,category。`,
+      headerError: t('errors.missingHeader', { columns: missing.join(listSeparator) }),
     };
   }
   if (dataRecords.length > MAX_ROWS) {
     return {
       ...EMPTY_PARSED,
-      headerError: `单次最多导入 ${MAX_ROWS} 条反馈，当前共 ${dataRecords.length} 行。`,
+      headerError: t('errors.tooManyRows', { max: MAX_ROWS, count: dataRecords.length }),
     };
   }
 
@@ -188,7 +253,7 @@ function parseCsvText(text: string, categories: string[] | null): ParsedCsv {
     };
     return {
       ...base,
-      errors: validateRow(base, categories),
+      errors: validateRow(base, categories, t),
     };
   });
 
@@ -202,11 +267,11 @@ function parseCsvText(text: string, categories: string[] | null): ParsedCsv {
   };
 }
 
-function buildTemplateCsv(): string {
+function buildTemplateCsv(t: ImportCsvT): string {
   const header = [...REQUIRED_COLUMNS, ...OPTIONAL_COLUMNS].join(',');
   const sample = [
-    '登录后页面白屏',
-    '点击登录按钮后页面空白，控制台报 500 错误',
+    t('file.templateTitle'),
+    t('file.templateContent'),
     'bug',
     'high',
     'user@example.com',
@@ -214,8 +279,8 @@ function buildTemplateCsv(): string {
   return `\uFEFF${header}\n${sample.join(',')}\n`;
 }
 
-function downloadTemplate(): void {
-  const blob = new Blob([buildTemplateCsv()], { type: 'text/csv;charset=utf-8' });
+function downloadTemplate(t: ImportCsvT): void {
+  const blob = new Blob([buildTemplateCsv(t)], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -242,6 +307,7 @@ export function ImportFeedbackModal({
   defaultProjectId?: string;
   onClose: () => void;
 }) {
+  const { t, i18n } = useTranslation('importCsv');
   const toast = useToast();
   const queryClient = useQueryClient();
   const [projectId, setProjectId] = useState(() => defaultProjectId || projects[0]?.id || '');
@@ -264,7 +330,11 @@ export function ImportFeedbackModal({
     return [...CATEGORY_OPTIONS];
   }, [projectId, hasCustomCategories, categoryConfigs, categoriesLoading]);
 
-  const parsed = useMemo(() => parseCsvText(text, categories), [text, categories]);
+  const listSeparator = i18n.language === 'zh' ? '、' : ', ';
+  const parsed = useMemo(
+    () => parseCsvText(text, categories, t, listSeparator),
+    [text, categories, t, listSeparator],
+  );
 
   const rowsForServer = useMemo(
     () =>
@@ -299,15 +369,18 @@ export function ImportFeedbackModal({
           errors[row.index] = row.errors;
         });
         setServerErrors(errors);
-        toast.show('服务端校验未通过，请修正标记的行', 'error');
+        toast.show(t('toast.serverInvalid'), 'error');
         return;
       }
-      toast.show(`已导入 ${result.imported ?? 0} 条反馈`);
+      toast.show(t('toast.imported', { count: result.imported ?? 0 }));
       queryClient.invalidateQueries({ queryKey: ['feedback'] });
       onClose();
     },
     onError: (err) => {
-      toast.show(err instanceof Error ? err.message : '导入失败', 'error');
+      toast.show(
+        err instanceof Error ? translateServerMessage(err.message, t) : t('toast.importFailed'),
+        'error',
+      );
     },
   });
 
@@ -318,11 +391,11 @@ export function ImportFeedbackModal({
 
   const loadFile = async (file: File) => {
     if (!file.name.toLowerCase().endsWith('.csv') && file.type !== 'text/csv') {
-      toast.show('请选择 .csv 文件', 'error');
+      toast.show(t('toast.chooseCsvFile'), 'error');
       return;
     }
     if (file.size > 2 * 1024 * 1024) {
-      toast.show('CSV 文件不能超过 2MB', 'error');
+      toast.show(t('toast.fileTooLarge'), 'error');
       return;
     }
     try {
@@ -330,18 +403,21 @@ export function ImportFeedbackModal({
       setFileName(file.name);
       updateText(content);
     } catch {
-      toast.show('读取文件失败', 'error');
+      toast.show(t('toast.readFileFailed'), 'error');
     }
   };
 
   const rowsWithErrors = parsed.rows.map((row) => ({
     ...row,
-    errors: row.errors.length > 0 ? row.errors : serverErrors[row.index] ?? [],
+    errors:
+      row.errors.length > 0
+        ? row.errors
+        : (serverErrors[row.index] ?? []).map((error) => translateServerMessage(error, t)),
   }));
-  const totalInvalid =
-    rowsWithErrors.filter((row) => row.errors.length > 0).length;
+  const totalInvalid = rowsWithErrors.filter((row) => row.errors.length > 0).length;
   const previewRows = rowsWithErrors.slice(0, PREVIEW_LIMIT);
   const hasAnyError = totalInvalid > 0 || Boolean(parsed.headerError);
+  const serverInvalidRowCount = Object.keys(serverErrors).length;
   const canImport =
     !!projectId &&
     !categoriesLoading &&
@@ -357,31 +433,37 @@ export function ImportFeedbackModal({
 
   return (
     <Modal
-      title="导入反馈 CSV"
-      description="上传或粘贴 CSV 数据，先校验再写入；单次最多 500 条，分类需与项目配置一致。"
+      title={t('modal.title')}
+      description={t('modal.description')}
       onClose={onClose}
       size="lg"
       footer={
         <>
           <span className="mr-auto text-[11px] text-gray-400 dark:text-gray-500">
             {parsed.rows.length > 0 && !parsed.headerError
-              ? `共 ${parsed.total} 行 · 有效 ${parsed.total - totalInvalid} · 错误 ${totalInvalid}`
-              : '首行为表头，支持 BOM / CRLF / 引号转义'}
+              ? t('footer.summary', {
+                  total: parsed.total,
+                  valid: parsed.total - totalInvalid,
+                  invalid: totalInvalid,
+                })
+              : t('footer.headerHint')}
           </span>
           <Button variant="secondary" size="sm" onClick={onClose} disabled={importMutation.isPending}>
-            取消
+            {t('buttons.cancel')}
           </Button>
           <Button size="sm" onClick={submit} disabled={!canImport}>
             {importMutation.isPending
-              ? '导入中...'
-              : `开始导入${rowsForServer.length > 0 ? `（${rowsForServer.length} 条）` : ''}`}
+              ? t('buttons.importing')
+              : rowsForServer.length > 0
+                ? t('buttons.startImportCount', { count: rowsForServer.length })
+                : t('buttons.startImport')}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
         {projects.length > 1 && (
-          <Field label="项目" htmlFor="import-project">
+          <Field label={t('form.projectLabel')} htmlFor="import-project">
             <select
               id="import-project"
               value={projectId}
@@ -430,7 +512,7 @@ export function ImportFeedbackModal({
                 strokeLinejoin="round"
               />
             </svg>
-            选择 CSV 文件 / 拖拽到此处
+            {t('file.choose')}
           </label>
           <input
             id="import-csv-file"
@@ -443,8 +525,8 @@ export function ImportFeedbackModal({
               event.target.value = '';
             }}
           />
-          <Button variant="ghost" size="sm" onClick={downloadTemplate}>
-            下载模板
+          <Button variant="ghost" size="sm" onClick={() => downloadTemplate(t)}>
+            {t('file.downloadTemplate')}
           </Button>
           {fileName && (
             <span className="truncate text-[11px] text-gray-400 dark:text-gray-500">{fileName}</span>
@@ -452,9 +534,9 @@ export function ImportFeedbackModal({
         </div>
 
         <Field
-          label="CSV 内容"
+          label={t('form.contentLabel')}
           htmlFor="import-csv-text"
-          hint="列顺序不限，必需列：title, content, category；可选列：priority, contact, app_version。priority 留空按 medium 导入。"
+          hint={t('form.contentHint')}
         >
           <textarea
             id="import-csv-text"
@@ -462,7 +544,7 @@ export function ImportFeedbackModal({
             onChange={(event) => updateText(event.target.value)}
             rows={6}
             spellCheck={false}
-            placeholder={'title,content,category,priority,contact\n登录后页面白屏,点击登录按钮后页面空白,bug,high,user@example.com'}
+            placeholder={t('form.placeholder')}
             className={clsx(inputClass, 'h-auto min-h-[128px] resize-y py-2 font-mono text-[12px] leading-relaxed')}
           />
         </Field>
@@ -479,11 +561,15 @@ export function ImportFeedbackModal({
         {!parsed.headerError && parsed.rows.length > 0 && (
           <>
             <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
-              <Badge tone={totalInvalid > 0 ? 'gray' : 'green'}>有效 {parsed.total - totalInvalid}</Badge>
-              <Badge tone={totalInvalid > 0 ? 'red' : 'gray'}>错误 {totalInvalid}</Badge>
-              <span>共 {parsed.total} 行</span>
+              <Badge tone={totalInvalid > 0 ? 'gray' : 'green'}>
+                {t('stats.valid', { count: parsed.total - totalInvalid })}
+              </Badge>
+              <Badge tone={totalInvalid > 0 ? 'red' : 'gray'}>
+                {t('stats.error', { count: totalInvalid })}
+              </Badge>
+              <span>{t('stats.totalRows', { count: parsed.total })}</span>
               {parsed.rows.length > PREVIEW_LIMIT && (
-                <span>仅预览前 {PREVIEW_LIMIT} 行</span>
+                <span>{t('stats.previewLimit', { count: PREVIEW_LIMIT })}</span>
               )}
             </div>
 
@@ -491,7 +577,12 @@ export function ImportFeedbackModal({
               <table className="w-full text-left text-[11px]">
                 <thead className="sticky top-0 z-10 bg-surface-1/95 dark:bg-gray-800">
                   <tr className="border-b border-surface-2 dark:border-gray-700/60">
-                    {['行', '标题 / 内容', '分类 · 优先级', '状态'].map((label) => (
+                    {[
+                      t('table.line'),
+                      t('table.titleContent'),
+                      t('table.categoryPriority'),
+                      t('table.status'),
+                    ].map((label) => (
                       <th
                         key={label}
                         className="whitespace-nowrap px-3 py-2 font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500"
@@ -518,10 +609,10 @@ export function ImportFeedbackModal({
                         </td>
                         <td className="max-w-[220px] px-3 py-2">
                           <p className="truncate font-medium text-gray-800 dark:text-gray-200">
-                            {row.title || '（空标题）'}
+                            {row.title || t('table.emptyTitle')}
                           </p>
                           <p className="mt-0.5 truncate text-gray-400 dark:text-gray-500">
-                            {row.content || '（空内容）'}
+                            {row.content || t('table.emptyContent')}
                           </p>
                         </td>
                         <td className="whitespace-nowrap px-3 py-2">
@@ -535,7 +626,7 @@ export function ImportFeedbackModal({
                           </span>
                           <span className="mt-1 block">
                             <Badge tone={priorityBadgeTone(row.priority)}>
-                              {PRIORITY_LABELS[row.priority] ?? row.priority}
+                              {priorityLabel(row.priority as FeedbackPriority, i18n.language)}
                             </Badge>
                           </span>
                         </td>
@@ -547,7 +638,7 @@ export function ImportFeedbackModal({
                               ))}
                             </ul>
                           ) : (
-                            <Badge tone="green">有效</Badge>
+                            <Badge tone="green">{t('badge.valid')}</Badge>
                           )}
                         </td>
                       </tr>
@@ -557,12 +648,12 @@ export function ImportFeedbackModal({
               </table>
             </div>
 
-            {Object.keys(serverErrors).length > 0 && (
+            {serverInvalidRowCount > 0 && (
               <p
                 role="alert"
                 className="rounded-lg border border-rose-200 bg-rose-50/70 px-3 py-2 text-[11px] leading-relaxed text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300"
               >
-                服务端校验发现 {Object.keys(serverErrors).length} 行问题，请按表格中的错误提示修改后重新导入。
+                {t('server.banner', { count: serverInvalidRowCount })}
               </p>
             )}
           </>

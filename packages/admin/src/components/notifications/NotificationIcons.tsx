@@ -81,9 +81,8 @@ export function TrashIcon({ className }: IconProps) {
 }
 
 /** One distinct colour + glyph per notification type so type is never signalled by colour alone. */
-const TYPE_META: Record<NotificationType, { label: string; wrapper: string; icon: ReactNode }> = {
+const TYPE_META: Record<NotificationType, { wrapper: string; icon: ReactNode }> = {
   'feedback.created': {
-    label: '新反馈',
     wrapper:
       'bg-brand-50 text-brand-600 dark:bg-brand-600/15 dark:text-brand-300',
     icon: (
@@ -98,7 +97,6 @@ const TYPE_META: Record<NotificationType, { label: string; wrapper: string; icon
     ),
   },
   'feedback.assigned': {
-    label: '已指派',
     wrapper:
       'bg-accent-50 text-accent-600 dark:bg-accent-500/15 dark:text-accent-300',
     icon: (
@@ -121,7 +119,6 @@ const TYPE_META: Record<NotificationType, { label: string; wrapper: string; icon
     ),
   },
   'feedback.status_changed': {
-    label: '状态变更',
     wrapper: 'bg-sky-50 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300',
     icon: (
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -142,7 +139,6 @@ const TYPE_META: Record<NotificationType, { label: string; wrapper: string; icon
     ),
   },
   'feedback.comment': {
-    label: '新评论',
     wrapper: 'bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300',
     icon: (
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -158,7 +154,6 @@ const TYPE_META: Record<NotificationType, { label: string; wrapper: string; icon
 };
 
 const FALLBACK_META = {
-  label: '通知',
   wrapper: 'bg-surface-2 text-gray-500 dark:bg-gray-700/60 dark:text-gray-400',
   icon: (
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -169,9 +164,22 @@ const FALLBACK_META = {
   ),
 };
 
-export function notificationTypeLabel(type: NotificationType): string {
-  return TYPE_META[type]?.label ?? FALLBACK_META.label;
-}
+/** i18n keys for the short type badges and for the longer sr-only row labels. */
+export const NOTIFICATION_TYPE_LABEL_KEYS: Record<NotificationType, string> = {
+  'feedback.created': 'type.created',
+  'feedback.assigned': 'type.assigned',
+  'feedback.status_changed': 'type.statusChanged',
+  'feedback.comment': 'type.comment',
+};
+
+export const NOTIFICATION_TYPE_LONG_LABEL_KEYS: Record<NotificationType, string> = {
+  'feedback.created': 'typeLong.created',
+  'feedback.assigned': 'typeLong.assigned',
+  'feedback.status_changed': 'typeLong.statusChanged',
+  'feedback.comment': 'typeLong.comment',
+};
+
+export const NOTIFICATION_TYPE_FALLBACK_LABEL_KEY = 'type.fallback';
 
 interface NotificationTypeIconProps {
   type: NotificationType;

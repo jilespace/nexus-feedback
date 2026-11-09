@@ -1,5 +1,6 @@
 import { forwardRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
 import type { CSSProperties } from 'react';
 import { Button } from '@/components/ui';
@@ -15,8 +16,9 @@ import {
 import type { NotificationItem } from '@/hooks/useNotifications';
 import {
   BellOffIcon,
+  NOTIFICATION_TYPE_FALLBACK_LABEL_KEY,
+  NOTIFICATION_TYPE_LONG_LABEL_KEYS,
   NotificationTypeIcon,
-  notificationTypeLabel,
   TrashIcon,
 } from './NotificationIcons';
 
@@ -32,6 +34,7 @@ export const NotificationPanel = forwardRef<HTMLDivElement, NotificationPanelPro
   function NotificationPanel({ variant, onClose, style, id }, ref) {
     const navigate = useNavigate();
     const toast = useToast();
+    const { t } = useTranslation('notifications');
     const { data, isPending, isError, isFetching, refetch } = useNotifications(true);
     const { data: unreadData, refetch: refetchUnreadCount } = useUnreadNotificationCount();
     const markRead = useMarkNotificationRead();
@@ -56,7 +59,7 @@ export const NotificationPanel = forwardRef<HTMLDivElement, NotificationPanelPro
 
     const removeNotification = (item: NotificationItem) => {
       deleteNotification.mutate(item.id, {
-        onError: () => toast.show('删除通知失败', 'error'),
+        onError: () => toast.show(t('toast.deleteFailed'), 'error'),
       });
     };
 
@@ -65,7 +68,7 @@ export const NotificationPanel = forwardRef<HTMLDivElement, NotificationPanelPro
         ref={ref}
         id={id}
         role="dialog"
-        aria-label="通知"
+        aria-label={t('aria.notifications')}
         tabIndex={-1}
         className={clsx(
           'fixed z-[85] flex animate-scale-in flex-col overflow-hidden rounded-xl border border-surface-3 bg-surface-0 shadow-pop',
@@ -75,10 +78,12 @@ export const NotificationPanel = forwardRef<HTMLDivElement, NotificationPanelPro
       >
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-surface-2 px-3.5 py-2.5 dark:border-gray-700/60">
           <div className="flex min-w-0 items-center gap-2">
-            <h2 className="text-[13px] font-semibold text-gray-900 dark:text-gray-100">通知</h2>
+            <h2 className="text-[13px] font-semibold text-gray-900 dark:text-gray-100">
+              {t('panel.title')}
+            </h2>
             {unreadCount > 0 && (
               <span className="rounded-md bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-brand-700 dark:bg-brand-600/15 dark:text-brand-300">
-                {unreadCount > 99 ? '99+' : `${unreadCount} 条未读`}
+                {unreadCount > 99 ? '99+' : t('panel.unreadCount', { count: unreadCount })}
               </span>
             )}
           </div>
@@ -92,7 +97,7 @@ export const NotificationPanel = forwardRef<HTMLDivElement, NotificationPanelPro
               'dark:text-brand-300 dark:hover:bg-brand-600/15',
             )}
           >
-            全部已读
+            {t('panel.markAllRead')}
           </button>
         </div>
 
@@ -137,7 +142,7 @@ export const NotificationPanel = forwardRef<HTMLDivElement, NotificationPanelPro
             'dark:border-gray-700/60 dark:text-gray-400 dark:hover:bg-gray-700/40 dark:hover:text-gray-200',
           )}
         >
-          查看全部通知
+          {t('panel.viewAll')}
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path
               d="m6 4 4 4-4 4"
@@ -161,7 +166,11 @@ interface NotificationRowProps {
 }
 
 function NotificationRow({ item, onOpen, onDelete, deleting }: NotificationRowProps) {
+  const { t } = useTranslation('notifications');
   const unread = !item.read_at;
+  const typeLabel = t(
+    NOTIFICATION_TYPE_LONG_LABEL_KEYS[item.type] ?? NOTIFICATION_TYPE_FALLBACK_LABEL_KEY,
+  );
   return (
     <li
       className={clsx(
@@ -180,8 +189,7 @@ function NotificationRow({ item, onOpen, onDelete, deleting }: NotificationRowPr
         <span className="min-w-0 flex-1">
           <span className="flex items-start gap-2">
             <span className="sr-only">
-              {notificationTypeLabel(item.type)}
-              {unread ? '，未读' : ''}：
+              {t(unread ? 'row.typeWithState' : 'row.type', { type: typeLabel })}
             </span>
             <span
               className={clsx(
@@ -213,8 +221,8 @@ function NotificationRow({ item, onOpen, onDelete, deleting }: NotificationRowPr
       <span className="flex shrink-0 items-start pr-1.5 pt-2">
         <button
           type="button"
-          aria-label="删除通知"
-          title="删除通知"
+          aria-label={t('aria.deleteNotification')}
+          title={t('aria.deleteNotification')}
           disabled={deleting}
           onClick={(event) => {
             event.stopPropagation();
@@ -235,9 +243,10 @@ function NotificationRow({ item, onOpen, onDelete, deleting }: NotificationRowPr
 }
 
 function PanelSkeleton() {
+  const { t } = useTranslation('notifications');
   return (
     <div aria-busy="true" className="space-y-1 p-2">
-      <span className="sr-only">正在加载通知</span>
+      <span className="sr-only">{t('panel.loading')}</span>
       {Array.from({ length: 4 }).map((_, index) => (
         <div key={index} className="flex items-start gap-2.5 px-1.5 py-2.5">
           <div className="skeleton h-7 w-7 shrink-0 rounded-lg" />
@@ -253,20 +262,24 @@ function PanelSkeleton() {
 }
 
 function PanelEmpty() {
+  const { t } = useTranslation('notifications');
   return (
     <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
       <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-surface-3 bg-surface-1 text-gray-400 dark:border-gray-700/70 dark:bg-gray-700/40 dark:text-gray-500">
         <BellOffIcon />
       </span>
-      <p className="mt-3 text-[13px] font-semibold text-gray-700 dark:text-gray-200">暂无通知</p>
+      <p className="mt-3 text-[13px] font-semibold text-gray-700 dark:text-gray-200">
+        {t('panel.emptyTitle')}
+      </p>
       <p className="mt-1 text-[11px] leading-relaxed text-gray-400 dark:text-gray-500">
-        有新的反馈、指派、状态变更或评论时会出现在这里。
+        {t('panel.emptyBody')}
       </p>
     </div>
   );
 }
 
 function PanelError({ onRetry, retrying }: { onRetry: () => void; retrying: boolean }) {
+  const { t } = useTranslation('notifications');
   return (
     <div role="alert" className="flex flex-col items-center justify-center px-6 py-10 text-center">
       <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 text-rose-500 dark:bg-rose-500/10 dark:text-rose-400">
@@ -276,12 +289,14 @@ function PanelError({ onRetry, retrying }: { onRetry: () => void; retrying: bool
           <circle cx="10" cy="13.6" r="1" fill="currentColor" />
         </svg>
       </span>
-      <p className="mt-3 text-[13px] font-semibold text-gray-700 dark:text-gray-200">通知加载失败</p>
+      <p className="mt-3 text-[13px] font-semibold text-gray-700 dark:text-gray-200">
+        {t('panel.errorTitle')}
+      </p>
       <p className="mt-1 text-[11px] leading-relaxed text-gray-400 dark:text-gray-500">
-        服务可能尚未就绪，请稍后重试。
+        {t('panel.errorBody')}
       </p>
       <Button variant="secondary" size="sm" className="mt-3" onClick={onRetry} disabled={retrying}>
-        {retrying ? '重试中…' : '重试'}
+        {retrying ? t('panel.retrying') : t('panel.retry')}
       </Button>
     </div>
   );

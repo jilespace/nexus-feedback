@@ -1,0 +1,100 @@
+{
+  "aria": {
+    "notifications": "通知",
+    "deleteNotification": "删除通知"
+  },
+  "bell": {
+    "noUnread": "没有未读通知",
+    "unread_other": "{{count}} 条未读通知"
+  },
+  "panel": {
+    "title": "通知",
+    "unreadCount": "{{count}} 条未读",
+    "markAllRead": "全部已读",
+    "viewAll": "查看全部通知",
+    "loading": "正在加载通知",
+    "emptyTitle": "暂无通知",
+    "emptyBody": "有新的反馈、指派、状态变更或评论时会出现在这里。",
+    "errorTitle": "通知加载失败",
+    "errorBody": "服务可能尚未就绪，请稍后重试。",
+    "retry": "重试",
+    "retrying": "重试中…"
+  },
+  "row": {
+    "typeWithState": "{{type}}，未读：",
+    "type": "{{type}}："
+  },
+  "type": {
+    "created": "新反馈",
+    "assigned": "指派",
+    "statusChanged": "状态",
+    "comment": "评论",
+    "fallback": "通知"
+  },
+  "typeLong": {
+    "created": "新反馈",
+    "assigned": "已指派",
+    "statusChanged": "状态变更",
+    "comment": "新评论"
+  },
+  "page": {
+    "title": "通知",
+    "description": "反馈创建、指派、状态变更与评论都会在这里提醒你。",
+    "markAllRead": "全部标为已读",
+    "markingAllRead": "处理中...",
+    "clearAll": "清空全部",
+    "filterAll": "全部",
+    "filterUnread": "未读",
+    "filterUnreadCount": "未读 ({{count}})",
+    "total": "共 {{count}} 条",
+    "emptyTitle": "暂无通知",
+    "emptyUnreadTitle": "没有未读通知",
+    "emptyBody": "有新的反馈动态时会出现在这里",
+    "errorTitle": "通知加载失败",
+    "errorBody": "请检查网络后重试",
+    "reload": "重新加载",
+    "settings": {
+      "title": "通知偏好",
+      "description": "选择你希望收到的站内通知类型；关闭后仍可在上方列表中查看历史通知。",
+      "enabled": "已开启",
+      "disabled": "已关闭",
+      "switchLabel": "{{name}}通知",
+      "rows": {
+        "created": {
+          "label": "新反馈",
+          "description": "有新的用户反馈提交时通知我"
+        },
+        "assigned": {
+          "label": "指派给我",
+          "description": "反馈负责人变更为我时通知我"
+        },
+        "statusChanged": {
+          "label": "状态变更",
+          "description": "我负责的反馈状态发生变化时通知我"
+        },
+        "comment": {
+          "label": "新评论",
+          "description": "反馈收到新评论时通知我"
+        }
+      }
+    },
+    "clear": {
+      "title": "清空全部通知",
+      "description": "此操作不可恢复",
+      "body": "将删除全部 {{count}} 条通知（包含已读与未读），删除后不可恢复。",
+      "cancel": "取消",
+      "confirm": "确认清空",
+      "confirming": "清空中..."
+    }
+  },
+  "toast": {
+    "markReadFailed": "标记已读失败",
+    "deleteFailed": "删除通知失败",
+    "markedRead": "已标记 {{count}} 条为已读",
+    "noUnread": "没有未读通知",
+    "operationFailed": "操作失败",
+    "clearFailed": "清空通知失败",
+    "cleared_other": "已清空 {{count}} 条通知",
+    "settingsSaveFailed": "通知偏好保存失败"
+  }
+}

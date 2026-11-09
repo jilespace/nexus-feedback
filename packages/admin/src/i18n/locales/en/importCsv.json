@@ -1,0 +1,76 @@
+{
+  "modal": {
+    "title": "Import feedback CSV",
+    "description": "Upload or paste CSV data, validate it first and then import. Up to 500 rows per import; categories must match the project configuration."
+  },
+  "form": {
+    "projectLabel": "Project",
+    "contentLabel": "CSV content",
+    "contentHint": "Column order does not matter. Required: title, content, category. Optional: priority, contact, app_version. An empty priority is imported as medium.",
+    "placeholder": "title,content,category,priority,contact\nLogin page goes blank,The page is blank after clicking Sign in,bug,high,user@example.com"
+  },
+  "file": {
+    "choose": "Choose a CSV file / drop it here",
+    "downloadTemplate": "Download template",
+    "templateTitle": "Login page goes blank",
+    "templateContent": "The page is blank after clicking Sign in and the console reports HTTP 500 errors"
+  },
+  "footer": {
+    "headerHint": "The first row is the header; BOM / CRLF / quoted fields are supported",
+    "summary": "{{total}} rows · {{valid}} valid · {{invalid}} invalid"
+  },
+  "stats": {
+    "valid": "{{count}} valid",
+    "error": "{{count}} invalid",
+    "totalRows": "{{count}} rows",
+    "previewLimit": "Preview limited to the first {{count}} rows"
+  },
+  "table": {
+    "line": "Line",
+    "titleContent": "Title / content",
+    "categoryPriority": "Category · priority",
+    "status": "Status",
+    "emptyTitle": "(empty title)",
+    "emptyContent": "(empty content)"
+  },
+  "badge": {
+    "valid": "Valid"
+  },
+  "server": {
+    "banner_one": "Server validation found an issue in {{count}} row. Fix the row above and import again.",
+    "banner_other": "Server validation found issues in {{count}} rows. Fix the rows above and import again."
+  },
+  "buttons": {
+    "cancel": "Cancel",
+    "startImport": "Start import",
+    "startImportCount": "Start import ({{count}})",
+    "importing": "Importing..."
+  },
+  "toast": {
+    "imported_one": "Imported {{count}} feedback item",
+    "imported_other": "Imported {{count}} feedback items",
+    "serverInvalid": "Server validation failed. Fix the highlighted rows and try again.",
+    "importFailed": "Import failed",
+    "chooseCsvFile": "Please choose a .csv file",
+    "fileTooLarge": "CSV files must be 2MB or smaller",
+    "readFileFailed": "Failed to read the file"
+  },
+  "errors": {
+    "titleRequired": "Title is required",
+    "titleTooLong": "Title cannot exceed {{max}} characters",
+    "contentRequired": "Content is required",
+    "contentTooLong": "Content cannot exceed {{max}} characters",
+    "categoryRequired": "Category is required",
+    "categoryInvalid": "Invalid category: {{value}}",
+    "priorityInvalid": "Invalid priority: {{value}}",
+    "contactTooLong": "Contact cannot exceed {{max}} characters",
+    "versionTooLong": "Version cannot exceed {{max}} characters",
+    "missingHeader": "Header is missing required columns: {{columns}}. Use the template or make sure the first row contains title,content,category.",
+    "tooManyRows": "Up to {{max}} rows per import; the pasted data has {{count}} rows.",
+    "tooManyRowsMax": "Up to {{max}} rows per import",
+    "emptyRows": "No rows to import",
+    "missingProject": "Missing project ID",
+    "invalidPayload": "Invalid import data",
+    "projectNotFound": "Project not found"
+  }
+}

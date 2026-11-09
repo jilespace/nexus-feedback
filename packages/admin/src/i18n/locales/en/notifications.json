@@ -1,0 +1,102 @@
+{
+  "aria": {
+    "notifications": "Notifications",
+    "deleteNotification": "Delete notification"
+  },
+  "bell": {
+    "noUnread": "No unread notifications",
+    "unread_one": "{{count}} unread notification",
+    "unread_other": "{{count}} unread notifications"
+  },
+  "panel": {
+    "title": "Notifications",
+    "unreadCount": "{{count}} unread",
+    "markAllRead": "Mark all read",
+    "viewAll": "View all notifications",
+    "loading": "Loading notifications",
+    "emptyTitle": "No notifications",
+    "emptyBody": "New feedback, assignments, status changes and comments will appear here.",
+    "errorTitle": "Couldn't load notifications",
+    "errorBody": "The service may not be ready yet. Please try again shortly.",
+    "retry": "Retry",
+    "retrying": "Retrying…"
+  },
+  "row": {
+    "typeWithState": "{{type}}, unread: ",
+    "type": "{{type}}: "
+  },
+  "type": {
+    "created": "New feedback",
+    "assigned": "Assigned",
+    "statusChanged": "Status",
+    "comment": "Comment",
+    "fallback": "Notification"
+  },
+  "typeLong": {
+    "created": "New feedback",
+    "assigned": "Assigned",
+    "statusChanged": "Status change",
+    "comment": "New comment"
+  },
+  "page": {
+    "title": "Notifications",
+    "description": "Feedback submissions, assignments, status changes and comments all show up here.",
+    "markAllRead": "Mark all as read",
+    "markingAllRead": "Marking...",
+    "clearAll": "Clear all",
+    "filterAll": "All",
+    "filterUnread": "Unread",
+    "filterUnreadCount": "Unread ({{count}})",
+    "total": "{{count}} total",
+    "emptyTitle": "No notifications",
+    "emptyUnreadTitle": "No unread notifications",
+    "emptyBody": "New feedback activity will show up here.",
+    "errorTitle": "Couldn't load notifications",
+    "errorBody": "Check your connection and try again.",
+    "reload": "Reload",
+    "settings": {
+      "title": "Notification preferences",
+      "description": "Choose which in-app notifications you receive. Turned-off types stay visible in the list above.",
+      "enabled": "On",
+      "disabled": "Off",
+      "switchLabel": "{{name}}",
+      "rows": {
+        "created": {
+          "label": "New feedback",
+          "description": "Notify me when new feedback is submitted"
+        },
+        "assigned": {
+          "label": "Assigned to me",
+          "description": "Notify me when a feedback item is assigned to me"
+        },
+        "statusChanged": {
+          "label": "Status changes",
+          "description": "Notify me when a feedback item I own changes status"
+        },
+        "comment": {
+          "label": "New comments",
+          "description": "Notify me when feedback receives a new comment"
+        }
+      }
+    },
+    "clear": {
+      "title": "Clear all notifications",
+      "description": "This can't be undone",
+      "body": "This deletes all {{count}} notifications (read and unread). This can't be undone.",
+      "cancel": "Cancel",
+      "confirm": "Clear all",
+      "confirming": "Clearing..."
+    }
+  },
+  "toast": {
+    "markReadFailed": "Couldn't mark as read",
+    "deleteFailed": "Couldn't delete notification",
+    "markedRead": "Marked {{count}} as read",
+    "noUnread": "No unread notifications",
+    "operationFailed": "Something went wrong",
+    "clearFailed": "Couldn't clear notifications",
+    "cleared_one": "Cleared {{count}} notification",
+    "cleared_other": "Cleared {{count}} notifications",
+    "settingsSaveFailed": "Couldn't save notification preferences"
+  }
+}

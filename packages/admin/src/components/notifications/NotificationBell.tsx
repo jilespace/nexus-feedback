@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
 import type { CSSProperties } from 'react';
 import { useUnreadNotificationCount } from '@/hooks/useNotifications';
@@ -58,6 +59,7 @@ export function NotificationBell({ variant = 'sidebar' }: NotificationBellProps)
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const panelId = useId();
+  const { t } = useTranslation('notifications');
   const { data } = useUnreadNotificationCount();
   const unreadCount = data?.count ?? 0;
 
@@ -104,7 +106,7 @@ export function NotificationBell({ variant = 'sidebar' }: NotificationBellProps)
       <button
         ref={buttonRef}
         type="button"
-        aria-label="通知"
+        aria-label={t('aria.notifications')}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
@@ -128,7 +130,7 @@ export function NotificationBell({ variant = 'sidebar' }: NotificationBellProps)
         )}
       </button>
       <span className="sr-only" aria-live="polite">
-        {unreadCount > 0 ? `${unreadCount} 条未读通知` : '没有未读通知'}
+        {unreadCount > 0 ? t('bell.unread', { count: unreadCount }) : t('bell.noUnread')}
       </span>
 
       {open && position

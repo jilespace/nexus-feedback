@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import { apiRequest } from '@/api/client';
@@ -8,7 +9,11 @@ import { Badge, Button, Card, CardHeader, EmptyState, Skeleton, Switch } from '@
 import { Modal } from '@/components/Modal';
 import { Pagination } from '@/components/feedback/Pagination';
 import { useToast } from '@/components/Toast';
-import { TrashIcon } from '@/components/notifications/NotificationIcons';
+import {
+  NOTIFICATION_TYPE_FALLBACK_LABEL_KEY,
+  NOTIFICATION_TYPE_LABEL_KEYS,
+  TrashIcon,
+} from '@/components/notifications/NotificationIcons';
 import { formatRelativeTime } from '@/utils/formatRelativeTime';
 import {
   useClearNotifications,
@@ -23,36 +28,40 @@ type Filter = 'all' | 'unread';
 
 const TYPE_META: Record<
   NotificationType,
-  { label: string; tone: 'brand' | 'amber' | 'blue' | 'green'; dot: string }
+  { tone: 'brand' | 'amber' | 'blue' | 'green'; dot: string }
 > = {
-  'feedback.created': { label: '新反馈', tone: 'brand', dot: '#3D5AFE' },
-  'feedback.assigned': { label: '指派', tone: 'amber', dot: '#F59E0B' },
-  'feedback.status_changed': { label: '状态', tone: 'blue', dot: '#0EA5E9' },
-  'feedback.comment': { label: '评论', tone: 'green', dot: '#10B981' },
+  'feedback.created': { tone: 'brand', dot: '#3D5AFE' },
+  'feedback.assigned': { tone: 'amber', dot: '#F59E0B' },
+  'feedback.status_changed': { tone: 'blue', dot: '#0EA5E9' },
+  'feedback.comment': { tone: 'green', dot: '#10B981' },
 };
 
 type NotificationSettings = Record<NotificationType, boolean>;
 
-const SETTING_ROWS: Array<{ key: NotificationType; label: string; description: string }> = [
+const SETTING_ROWS: Array<{
+  key: NotificationType;
+  labelKey: string;
+  descriptionKey: string;
+}> = [
   {
     key: 'feedback.created',
-    label: '新反馈',
-    description: '有新的用户反馈提交时通知我',
+    labelKey: 'page.settings.rows.created.label',
+    descriptionKey: 'page.settings.rows.created.description',
   },
   {
     key: 'feedback.assigned',
-    label: '指派给我',
-    description: '反馈负责人变更为我时通知我',
+    labelKey: 'page.settings.rows.assigned.label',
+    descriptionKey: 'page.settings.rows.assigned.description',
   },
   {
     key: 'feedback.status_changed',
-    label: '状态变更',
-    description: '我负责的反馈状态发生变化时通知我',
+    labelKey: 'page.settings.rows.statusChanged.label',
+    descriptionKey: 'page.settings.rows.statusChanged.description',
   },
   {
     key: 'feedback.comment',
-    label: '新评论',
-    description: '反馈收到新评论时通知我',
+    labelKey: 'page.settings.rows.comment.label',
+    descriptionKey: 'page.settings.rows.comment.description',
   },
 ];
 
@@ -60,6 +69,7 @@ export function NotificationsCenter() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const toast = useToast();
+  const { t } = useTranslation('notifications');
   const [filter, setFilter] = useState<Filter>('all');
   const [page, setPage] = useState(1);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -73,7 +83,7 @@ export function NotificationsCenter() {
   const open = (item: NotificationItem) => {
     if (!item.read_at) {
       markRead.mutate(item.id, {
-        onError: () => toast.show('标记已读失败', 'error'),
+        onError: () => toast.show(t('toast.markReadFailed'), 'error'),
       });
     }
     const target = item.link || (item.feedback_id ? `/feedback/${item.feedback_id}` : null);
@@ -82,26 +92,30 @@ export function NotificationsCenter() {
 
   const remove = (item: NotificationItem) => {
     deleteNotification.mutate(item.id, {
-      onError: () => toast.show('删除通知失败', 'error'),
+      onError: () => toast.show(t('toast.deleteFailed'), 'error'),
     });
   };
 
   const readAll = () => {
     markAllRead.mutate(undefined, {
       onSuccess: (result) =>
-        toast.show(result.updated > 0 ? `已标记 ${result.updated} 条为已读` : '没有未读通知'),
-      onError: () => toast.show('操作失败', 'error'),
+        toast.show(
+          result.updated > 0
+            ? t('toast.markedRead', { count: result.updated })
+            : t('toast.noUnread'),
+        ),
+      onError: () => toast.show(t('toast.operationFailed'), 'error'),
     });
   };
 
   const confirmClearAll = () => {
     clearNotifications.mutate(undefined, {
       onSuccess: (result) => {
-        toast.show(`已清空 ${result.deleted} 条通知`);
+        toast.show(t('toast.cleared', { count: result.deleted }));
         setConfirmClear(false);
         setPage(1);
       },
-      onError: () => toast.show('清空通知失败', 'error'),
+      onError: () => toast.show(t('toast.clearFailed'), 'error'),
     });
   };
 
@@ -119,7 +133,7 @@ export function NotificationsCenter() {
     onSuccess: (next) => {
       queryClient.setQueryData(['notification-settings'], next);
     },
-    onError: () => toast.show('通知偏好保存失败', 'error'),
+    onError: () => toast.show(t('toast.settingsSaveFailed'), 'error'),
   });
 
   const toggleSetting = (key: NotificationType, value: boolean) => {
@@ -133,15 +147,26 @@ export function NotificationsCenter() {
   const totalPages = data ? Math.ceil(data.total / data.page_size) : 0;
   const unreadCount = data?.unread_count ?? 0;
 
+  const filters: Array<{ key: Filter; label: string }> = [
+    { key: 'all', label: t('page.filterAll') },
+    {
+      key: 'unread',
+      label:
+        unreadCount > 0
+          ? t('page.filterUnreadCount', { count: unreadCount })
+          : t('page.filterUnread'),
+    },
+  ];
+
   return (
     <div className="animate-fade-in space-y-5">
       <PageHeader
-        title="通知"
-        description="反馈创建、指派、状态变更与评论都会在这里提醒你。"
+        title={t('page.title')}
+        description={t('page.description')}
         actions={
           <>
             <Button variant="secondary" onClick={readAll} disabled={markAllRead.isPending || unreadCount === 0}>
-              {markAllRead.isPending ? '处理中...' : '全部标为已读'}
+              {markAllRead.isPending ? t('page.markingAllRead') : t('page.markAllRead')}
             </Button>
             <button
               type="button"
@@ -155,7 +180,7 @@ export function NotificationsCenter() {
               )}
             >
               <TrashIcon className="h-3.5 w-3.5" />
-              清空全部
+              {t('page.clearAll')}
             </button>
           </>
         }
@@ -163,12 +188,7 @@ export function NotificationsCenter() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="inline-flex rounded-lg border border-surface-3 bg-surface-1/70 p-0.5 dark:border-gray-700 dark:bg-gray-900/40">
-          {(
-            [
-              ['all', '全部'],
-              ['unread', `未读${unreadCount > 0 ? ` (${unreadCount})` : ''}`],
-            ] as const
-          ).map(([key, label]) => (
+          {filters.map(({ key, label }) => (
             <button
               key={key}
               onClick={() => {
@@ -186,7 +206,9 @@ export function NotificationsCenter() {
             </button>
           ))}
         </div>
-        <span className="text-xs text-gray-400 dark:text-gray-500">共 {totalCount} 条</span>
+        <span className="text-xs text-gray-400 dark:text-gray-500">
+          {t('page.total', { count: totalCount })}
+        </span>
       </div>
 
       {isLoading ? (
@@ -198,16 +220,16 @@ export function NotificationsCenter() {
       ) : isError ? (
         <Card>
           <EmptyState
-            title="通知加载失败"
-            description="请检查网络后重试"
-            action={{ label: '重新加载', onClick: () => void refetch() }}
+            title={t('page.errorTitle')}
+            description={t('page.errorBody')}
+            action={{ label: t('page.reload'), onClick: () => void refetch() }}
           />
         </Card>
       ) : items.length === 0 ? (
         <Card>
           <EmptyState
-            title={filter === 'unread' ? '没有未读通知' : '暂无通知'}
-            description="有新的反馈动态时会出现在这里"
+            title={filter === 'unread' ? t('page.emptyUnreadTitle') : t('page.emptyTitle')}
+            description={t('page.emptyBody')}
           />
         </Card>
       ) : (
@@ -217,6 +239,9 @@ export function NotificationsCenter() {
               {items.map((item) => {
                 const meta = TYPE_META[item.type] ?? TYPE_META['feedback.created'];
                 const unread = !item.read_at;
+                const typeLabel = t(
+                  NOTIFICATION_TYPE_LABEL_KEYS[item.type] ?? NOTIFICATION_TYPE_FALLBACK_LABEL_KEY,
+                );
                 return (
                   <li
                     key={item.id}
@@ -243,7 +268,7 @@ export function NotificationsCenter() {
                             {item.title}
                           </span>
                           <span className="shrink-0">
-                            <Badge tone={meta.tone}>{meta.label}</Badge>
+                            <Badge tone={meta.tone}>{typeLabel}</Badge>
                           </span>
                           {unread && (
                             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" />
@@ -262,8 +287,8 @@ export function NotificationsCenter() {
                     <span className="flex shrink-0 items-start pr-2.5 pt-2">
                       <button
                         type="button"
-                        aria-label="删除通知"
-                        title="删除通知"
+                        aria-label={t('aria.deleteNotification')}
+                        title={t('aria.deleteNotification')}
                         disabled={
                           deleteNotification.isPending &&
                           deleteNotification.variables === item.id
@@ -300,8 +325,8 @@ export function NotificationsCenter() {
 
       <Card className="p-5">
         <CardHeader
-          title="通知偏好"
-          description="选择你希望收到的站内通知类型；关闭后仍可在上方列表中查看历史通知。"
+          title={t('page.settings.title')}
+          description={t('page.settings.description')}
           className="mb-2"
         />
         {!settings ? (
@@ -316,18 +341,18 @@ export function NotificationsCenter() {
               <li key={row.key} className="flex items-center justify-between gap-4 py-3">
                 <div className="min-w-0">
                   <p className="text-[13px] font-medium text-gray-800 dark:text-gray-200">
-                    {row.label}
+                    {t(row.labelKey)}
                   </p>
                   <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500">
-                    {row.description}
+                    {t(row.descriptionKey)}
                   </p>
                 </div>
                 <Switch
                   checked={settings[row.key]}
                   onChange={(value) => toggleSetting(row.key, value)}
-                  label={`${row.label}通知`}
+                  label={t('page.settings.switchLabel', { name: t(row.labelKey) })}
                   showState
-                  stateLabels={['已开启', '已关闭']}
+                  stateLabels={[t('page.settings.enabled'), t('page.settings.disabled')]}
                   disabled={settingsMutation.isPending}
                 />
               </li>
@@ -338,8 +363,8 @@ export function NotificationsCenter() {
 
       {confirmClear && (
         <Modal
-          title="清空全部通知"
-          description="此操作不可恢复"
+          title={t('page.clear.title')}
+          description={t('page.clear.description')}
           size="sm"
           onClose={() => setConfirmClear(false)}
           footer={
@@ -350,7 +375,7 @@ export function NotificationsCenter() {
                 onClick={() => setConfirmClear(false)}
                 disabled={clearNotifications.isPending}
               >
-                取消
+                {t('page.clear.cancel')}
               </Button>
               <Button
                 variant="danger"
@@ -358,13 +383,15 @@ export function NotificationsCenter() {
                 onClick={confirmClearAll}
                 disabled={clearNotifications.isPending}
               >
-                {clearNotifications.isPending ? '清空中...' : '确认清空'}
+                {clearNotifications.isPending
+                  ? t('page.clear.confirming')
+                  : t('page.clear.confirm')}
               </Button>
             </>
           }
         >
           <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-            将删除全部 {totalCount} 条通知（包含已读与未读），删除后不可恢复。
+            {t('page.clear.body', { count: totalCount })}
           </p>
         </Modal>
       )}
