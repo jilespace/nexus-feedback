@@ -203,7 +203,7 @@ export function BoardHome({ projectName }: { projectName: string }) {
           />
 
           {loading ? (
-            <FeedbackListSkeleton label={t('home.skeletonLabel')} count={5} />
+            <FeedbackListSkeleton label={t('home.skeletonLabel')} count={8} />
           ) : error ? (
             <ErrorState
               title={t('home.errorTitle')}

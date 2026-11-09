@@ -168,11 +168,11 @@ export function DetailSkeleton({ label }: { label: string }) {
 
 export function SidebarStatsSkeleton() {
   return (
-    <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+    <div className="grid grid-cols-2 gap-x-4 gap-y-4">
       {Array.from({ length: 4 }).map((_, index) => (
         <div key={index}>
-          <div className="skeleton h-6 w-12" />
-          <div className="skeleton mt-2 h-3 w-16" />
+          <div className="skeleton h-[22px] w-12" />
+          <div className="skeleton mt-1.5 h-4 w-16" />
         </div>
       ))}
     </div>
