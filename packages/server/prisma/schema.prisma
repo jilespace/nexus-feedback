@@ -26,18 +26,19 @@ model Organization {
 }
 
 model Member {
-  id                  String    @id @default(cuid())
-  email               String
-  password_hash       String?
-  display_name        String    @default("")
-  role                String    @default("member")
-  org_id              String
-  reset_token         String?
-  reset_token_expiry  DateTime?
-  invite_token        String?
-  invite_token_expiry DateTime?
-  created_at          DateTime  @default(now())
-  updated_at          DateTime  @updatedAt
+  id                    String    @id @default(cuid())
+  email                 String
+  password_hash         String?
+  display_name          String    @default("")
+  role                  String    @default("member")
+  org_id                String
+  reset_token           String?
+  reset_token_expiry    DateTime?
+  invite_token          String?
+  invite_token_expiry   DateTime?
+  notification_settings Json?
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
 
   organization       Organization    @relation(fields: [org_id], references: [id], onDelete: Cascade)
   replies            Reply[]

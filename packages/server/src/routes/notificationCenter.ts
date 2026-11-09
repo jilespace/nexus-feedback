@@ -7,11 +7,35 @@ import {
   getUnreadNotificationCount,
   markNotificationRead,
   markAllNotificationsRead,
+  getNotificationSettings,
+  updateNotificationSettings,
 } from '../services/notificationCenter.js';
 
 export const notificationCenterRouter = Router();
 
 notificationCenterRouter.use(orgAuth);
+
+notificationCenterRouter.get('/notifications/settings', async (req, res, next) => {
+  try {
+    const settings = await getNotificationSettings(req.memberId!, req.orgId!);
+    success(res, settings);
+  } catch (err) {
+    next(err);
+  }
+});
+
+notificationCenterRouter.put('/notifications/settings', async (req, res, next) => {
+  try {
+    const settings = await updateNotificationSettings(
+      req.memberId!,
+      req.orgId!,
+      req.body?.settings,
+    );
+    success(res, settings);
+  } catch (err) {
+    next(err);
+  }
+});
 
 notificationCenterRouter.get('/notifications/unread-count', async (req, res, next) => {
   try {

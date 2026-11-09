@@ -320,6 +320,27 @@ export function FeedbackList() {
                 </option>
               ))}
             </select>
+            {currentMember && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAssigneeFilter((prev) => (prev === currentMember.id ? '' : currentMember.id));
+                  setPage(1);
+                }}
+                aria-pressed={assigneeFilter === currentMember.id}
+                className={clsx(
+                  'inline-flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-[13px] font-medium transition-colors',
+                  assigneeFilter === currentMember.id
+                    ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-500/40 dark:bg-brand-600/15 dark:text-brand-300'
+                    : 'border-surface-3 bg-surface-0 text-gray-600 hover:border-gray-300 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-gray-600',
+                )}
+              >
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-brand-100 text-[9px] font-semibold text-brand-700 dark:bg-brand-600/25 dark:text-brand-300">
+                  {(currentMember.display_name || currentMember.email || '我').slice(0, 1)}
+                </span>
+                分配给我
+              </button>
+            )}
             <select
               value={projectFilter}
               onChange={(e) => {

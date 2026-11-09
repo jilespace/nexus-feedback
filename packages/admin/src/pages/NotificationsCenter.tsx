@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import { apiRequest } from '@/api/client';
 import { PageHeader } from '@/components/PageHeader';
-import { Badge, Button, Card, EmptyState, Skeleton } from '@/components/ui';
+import { Badge, Button, Card, CardHeader, EmptyState, Skeleton, Switch } from '@/components/ui';
 import { Pagination } from '@/components/feedback/Pagination';
 import { useToast } from '@/components/Toast';
 import { formatRelativeTime } from '@/utils/formatRelativeTime';
@@ -23,6 +23,31 @@ const TYPE_META: Record<
 };
 
 const PAGE_SIZE = 20;
+
+type NotificationSettings = Record<NotificationType, boolean>;
+
+const SETTING_ROWS: Array<{ key: NotificationType; label: string; description: string }> = [
+  {
+    key: 'feedback.created',
+    label: '新反馈',
+    description: '有新的用户反馈提交时通知我',
+  },
+  {
+    key: 'feedback.assigned',
+    label: '指派给我',
+    description: '反馈负责人变更为我时通知我',
+  },
+  {
+    key: 'feedback.status_changed',
+    label: '状态变更',
+    description: '我负责的反馈状态发生变化时通知我',
+  },
+  {
+    key: 'feedback.comment',
+    label: '新评论',
+    description: '反馈收到新评论时通知我',
+  },
+];
 
 export function NotificationsCenter() {
   const navigate = useNavigate();
@@ -67,10 +92,32 @@ export function NotificationsCenter() {
     if (target) navigate(target);
   };
 
+  const { data: settings } = useQuery({
+    queryKey: ['notification-settings'],
+    queryFn: () => apiRequest<NotificationSettings>('/org/notifications/settings'),
+  });
+
+  const settingsMutation = useMutation({
+    mutationFn: (patch: Partial<NotificationSettings>) =>
+      apiRequest<NotificationSettings>('/org/notifications/settings', {
+        method: 'PUT',
+        body: JSON.stringify({ settings: patch }),
+      }),
+    onSuccess: (next) => {
+      queryClient.setQueryData(['notification-settings'], next);
+    },
+    onError: () => toast.show('通知偏好保存失败', 'error'),
+  });
+
+  const toggleSetting = (key: NotificationType, value: boolean) => {
+    if (!settings) return;
+    queryClient.setQueryData(['notification-settings'], { ...settings, [key]: value });
+    settingsMutation.mutate({ [key]: value });
+  };
+
   const items = data?.items ?? [];
   const totalPages = data ? Math.ceil(data.total / data.page_size) : 0;
   const unreadCount = data?.unread_count ?? 0;
-
   return (
     <div className="animate-fade-in space-y-5">
       <PageHeader
@@ -197,6 +244,44 @@ export function NotificationsCenter() {
           />
         </>
       )}
+
+      <Card className="p-5">
+        <CardHeader
+          title="通知偏好"
+          description="选择你希望收到的站内通知类型；关闭后仍可在上方列表中查看历史通知。"
+          className="mb-2"
+        />
+        {!settings ? (
+          <div className="space-y-2 pt-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-9" />
+            ))}
+          </div>
+        ) : (
+          <ul className="divide-y divide-surface-2 dark:divide-gray-700/60">
+            {SETTING_ROWS.map((row) => (
+              <li key={row.key} className="flex items-center justify-between gap-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium text-gray-800 dark:text-gray-200">
+                    {row.label}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500">
+                    {row.description}
+                  </p>
+                </div>
+                <Switch
+                  checked={settings[row.key]}
+                  onChange={(value) => toggleSetting(row.key, value)}
+                  label={`${row.label}通知`}
+                  showState
+                  stateLabels={['已开启', '已关闭']}
+                  disabled={settingsMutation.isPending}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
     </div>
   );
 }
