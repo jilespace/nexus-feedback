@@ -94,6 +94,15 @@
         "sameTimeError": "Start and end cannot be the same",
         "emptySlotsHint": "Add at least one window for quiet hours to take effect",
         "maxSlotsHint": "Up to {{count}} windows"
+      },
+      "mutedProjects": {
+        "title": "Muted projects",
+        "description": "In-app notifications from muted projects are skipped. You can unmute at any time. Email subscriptions are not affected.",
+        "count": "{{count}} muted",
+        "muted": "Muted",
+        "switchLabel": "Mute project: {{name}}",
+        "empty": "No projects in this organization yet",
+        "limitHint": "Up to {{count}} muted projects"
       }
     },
     "clear": {

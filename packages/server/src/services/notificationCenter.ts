@@ -27,6 +27,8 @@ export interface DndSettings {
 
 export interface NotificationSettings extends Record<NotificationType, boolean> {
   dnd: DndSettings;
+  /** Project ids whose in-app notifications are muted for this member. */
+  mutedProjects: string[];
 }
 
 export const NOTIFICATION_TYPE_KEYS: NotificationType[] = [
@@ -38,6 +40,9 @@ export const NOTIFICATION_TYPE_KEYS: NotificationType[] = [
 
 export const MAX_DND_SLOTS = 5;
 
+/** Upper bound for muted project ids stored per member. */
+export const MAX_MUTED_PROJECTS = 50;
+
 export const DEFAULT_DND: DndSettings = { enabled: false, slots: [] };
 
 const DEFAULT_SETTINGS: NotificationSettings = {
@@ -46,6 +51,7 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   'feedback.status_changed': true,
   'feedback.comment': true,
   dnd: { enabled: false, slots: [] },
+  mutedProjects: [],
 };
 
 const DND_TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -119,14 +125,50 @@ function normalizeDnd(raw: unknown): DndSettings {
   };
 }
 
+function normalizeMutedProjects(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const muted: string[] = [];
+  for (const entry of raw) {
+    if (typeof entry !== 'string') continue;
+    const id = entry.trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    muted.push(id);
+    if (muted.length >= MAX_MUTED_PROJECTS) break;
+  }
+  return muted;
+}
+
 function normalizeSettings(raw: unknown): NotificationSettings {
   const source =
     raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
-  const settings: NotificationSettings = { ...DEFAULT_SETTINGS, dnd: normalizeDnd(source.dnd) };
+  const settings: NotificationSettings = {
+    ...DEFAULT_SETTINGS,
+    dnd: normalizeDnd(source.dnd),
+    mutedProjects: normalizeMutedProjects(source.mutedProjects),
+  };
   for (const key of NOTIFICATION_TYPE_KEYS) {
     if (typeof source[key] === 'boolean') settings[key] = source[key] as boolean;
   }
   return settings;
+}
+
+/**
+ * Resolve the project a notification belongs to. Notify call sites pass the
+ * feedback id, so the project is looked up (org-scoped) only when at least one
+ * recipient actually mutes projects. Missing feedback yields null (no filter).
+ */
+async function resolveNotificationProjectId(
+  orgId: string,
+  feedbackId?: string | null,
+): Promise<string | null> {
+  if (!feedbackId) return null;
+  const feedback = await prisma.feedback.findFirst({
+    where: { id: feedbackId, project: { org_id: orgId } },
+    select: { project_id: true },
+  });
+  return feedback?.project_id ?? null;
 }
 
 const STAFF_ROLES = ['owner', 'admin'];
@@ -147,6 +189,8 @@ async function createForRecipients(params: {
   body?: string | null;
   link?: string | null;
   feedbackId?: string | null;
+  /** Optional explicit project id; resolved from feedbackId when omitted. */
+  projectId?: string | null;
   excludeMemberId?: string | null;
 }) {
   const recipients = [...new Set(params.memberIds)].filter(
@@ -161,10 +205,21 @@ async function createForRecipients(params: {
     select: { id: true, notification_settings: true },
   });
   const now = new Date();
-  const allowed = members
+  const normalized = members.map((member) => ({
+    id: member.id,
+    settings: normalizeSettings(member.notification_settings),
+  }));
+  const needsProject =
+    !params.projectId && normalized.some((member) => member.settings.mutedProjects.length > 0);
+  const projectId =
+    params.projectId ?? (needsProject ? await resolveNotificationProjectId(params.orgId, params.feedbackId) : null);
+
+  const allowed = normalized
     .filter((member) => {
-      const settings = normalizeSettings(member.notification_settings);
+      const settings = member.settings;
+      // Recipient filters stack: muted type, then muted project, then quiet hours.
       if (!settings[params.type]) return false;
+      if (projectId && settings.mutedProjects.includes(projectId)) return false;
       // Quiet hours only mute in-app notifications; email subscriptions live in
       // a separate service and are intentionally unaffected by DND.
       return !isWithinDnd(settings.dnd, now);
@@ -366,6 +421,31 @@ export async function getNotificationSettings(
 type DndPatch = { enabled?: boolean; slots?: DndSlot[] };
 
 /**
+ * Validate the mutedProjects payload. The list replaces the stored one when
+ * present; unknown ids are allowed (they are simply never matched at fan-out).
+ */
+function readMutedProjects(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    throw new ValidationError('静音项目列表必须是数组');
+  }
+  if (value.length > MAX_MUTED_PROJECTS) {
+    throw new ValidationError(`最多静音 ${MAX_MUTED_PROJECTS} 个项目`);
+  }
+  const seen = new Set<string>();
+  const muted: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== 'string' || !entry.trim()) {
+      throw new ValidationError('静音项目 ID 必须是非空字符串');
+    }
+    const id = entry.trim();
+    if (seen.has(id)) continue;
+    seen.add(id);
+    muted.push(id);
+  }
+  return muted;
+}
+
+/**
  * Validate a (partial) DND payload. Slots replace the whole list when present.
  * The legacy single-window { start, end } payload is still accepted and folded
  * into a one-item slot list so older clients keep working during upgrades.
@@ -438,9 +518,14 @@ export async function updateNotificationSettings(
   }
   const patch = input as Record<string, unknown>;
   let validatedDndPatch: DndPatch | undefined;
+  let validatedMutedProjects: string[] | undefined;
   for (const [key, value] of Object.entries(patch)) {
     if (key === 'dnd') {
       validatedDndPatch = readDndPatch(value);
+      continue;
+    }
+    if (key === 'mutedProjects') {
+      validatedMutedProjects = readMutedProjects(value);
       continue;
     }
     if (!NOTIFICATION_TYPE_KEYS.includes(key as NotificationType)) {
@@ -455,6 +540,7 @@ export async function updateNotificationSettings(
   const next: NotificationSettings = {
     ...current,
     dnd: { enabled: current.dnd.enabled, slots: [...current.dnd.slots] },
+    mutedProjects: [...current.mutedProjects],
   };
   for (const key of NOTIFICATION_TYPE_KEYS) {
     if (typeof patch[key] === 'boolean') next[key] = patch[key] as boolean;
@@ -463,6 +549,7 @@ export async function updateNotificationSettings(
     if (validatedDndPatch.enabled !== undefined) next.dnd.enabled = validatedDndPatch.enabled;
     if (validatedDndPatch.slots !== undefined) next.dnd.slots = validatedDndPatch.slots;
   }
+  if (validatedMutedProjects !== undefined) next.mutedProjects = validatedMutedProjects;
 
   await prisma.member.update({
     where: { id: memberId },

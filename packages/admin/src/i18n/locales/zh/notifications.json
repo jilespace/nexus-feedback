@@ -93,6 +93,15 @@
         "sameTimeError": "开始和结束时间不能相同",
         "emptySlotsHint": "至少添加一个时段，免打扰才会生效",
         "maxSlotsHint": "最多添加 {{count}} 个时段"
+      },
+      "mutedProjects": {
+        "title": "静音项目",
+        "description": "被静音的项目不会发送站内通知；可随时取消。邮件订阅不受影响。",
+        "count": "已静音 {{count}} 个",
+        "muted": "已静音",
+        "switchLabel": "静音项目：{{name}}",
+        "empty": "当前组织暂无项目",
+        "limitHint": "最多静音 {{count}} 个项目"
       }
     },
     "clear": {

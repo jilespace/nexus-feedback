@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../../db/client.js', () => ({
   prisma: {
     member: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
+    feedback: { findFirst: vi.fn() },
     notification: {
       createMany: vi.fn(),
       findMany: vi.fn(),
@@ -26,6 +27,7 @@ const {
   updateNotificationSettings,
   isWithinDnd,
   MAX_DND_SLOTS,
+  MAX_MUTED_PROJECTS,
 } = await import('../notificationCenter.js');
 const { prisma } = await import('../../db/client.js');
 
@@ -182,6 +184,7 @@ describe('notification center service', () => {
         'feedback.status_changed': true,
         'feedback.comment': true,
         dnd: { enabled: false, slots: [] },
+        mutedProjects: [],
       });
     });
 
@@ -564,4 +567,194 @@ describe('notification center service', () => {
       expect(prisma.member.update).not.toHaveBeenCalled();
     });
   });
+
+  describe('muted projects', () => {
+    function mockMembers(memberSettings: Record<string, unknown>) {
+      (prisma.member.findMany as ReturnType<typeof vi.fn>).mockImplementation(
+        async (args?: { where?: { id?: { in?: string[] } } }) => {
+          const ids = args?.where?.id?.in;
+          if (ids) {
+            return ids.map((id) => ({ id, notification_settings: memberSettings[id] ?? null }));
+          }
+          return Object.keys(memberSettings).map((id) => ({ id }));
+        },
+      );
+    }
+
+    function createFeedbackNotification() {
+      return notifyFeedbackCreated({
+        orgId: 'org-1',
+        feedbackId: 'fb-1',
+        title: 'Login is slow',
+        category: 'performance',
+        priority: 'high',
+        source: 'api',
+      });
+    }
+
+    function scheduledMemberIds(): string[] {
+      const data = (prisma.notification.createMany as ReturnType<typeof vi.fn>).mock
+        .calls[0]?.[0] as { data: Array<{ member_id: string }> } | undefined;
+      return (data?.data ?? []).map((item) => item.member_id).sort();
+    }
+
+    it('defaults mutedProjects to an empty list', async () => {
+      (prisma.member.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+        notification_settings: null,
+      });
+
+      const settings = await getNotificationSettings('admin-1', 'org-1');
+
+      expect(settings.mutedProjects).toEqual([]);
+    });
+
+    it('normalizes stored muted project ids', async () => {
+      (prisma.member.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+        notification_settings: { mutedProjects: ['proj-1', 'proj-1', 42, '', 'proj-2'] },
+      });
+
+      const settings = await getNotificationSettings('admin-1', 'org-1');
+
+      expect(settings.mutedProjects).toEqual(['proj-1', 'proj-2']);
+    });
+
+    it('ignores a non-array stored value', async () => {
+      (prisma.member.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+        notification_settings: { mutedProjects: 'proj-1' },
+      });
+
+      const settings = await getNotificationSettings('admin-1', 'org-1');
+
+      expect(settings.mutedProjects).toEqual([]);
+    });
+
+    it('skips a recipient who muted the notification project', async () => {
+      mockMembers({ 'owner-1': { mutedProjects: ['proj-1'] }, 'admin-1': null });
+      (prisma.feedback.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+        project_id: 'proj-1',
+      });
+
+      await createFeedbackNotification();
+
+      expect(scheduledMemberIds()).toEqual(['admin-1']);
+    });
+
+    it('notifies when the project is not muted', async () => {
+      mockMembers({ 'owner-1': { mutedProjects: ['proj-2'] }, 'admin-1': null });
+      (prisma.feedback.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+        project_id: 'proj-1',
+      });
+
+      await createFeedbackNotification();
+
+      expect(scheduledMemberIds()).toEqual(['admin-1', 'owner-1']);
+    });
+
+    it('does not filter when the project cannot be resolved', async () => {
+      mockMembers({ 'owner-1': { mutedProjects: ['proj-1'] }, 'admin-1': null });
+      (prisma.feedback.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      await createFeedbackNotification();
+
+      expect(scheduledMemberIds()).toEqual(['admin-1', 'owner-1']);
+    });
+
+    it('supports several muted projects per member', async () => {
+      mockMembers({ 'owner-1': { mutedProjects: ['proj-0', 'proj-1'] }, 'admin-1': null });
+      (prisma.feedback.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+        project_id: 'proj-1',
+      });
+
+      await createFeedbackNotification();
+
+      expect(scheduledMemberIds()).toEqual(['admin-1']);
+    });
+
+    it('stacks muted projects with quiet hours', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2026, 10, 10, 2, 0, 0));
+      try {
+        mockMembers({
+          'owner-1': { mutedProjects: ['proj-1'] },
+          'admin-1': { dnd: { enabled: true, slots: [{ start: '23:00', end: '07:00' }] } },
+        });
+        (prisma.feedback.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+          project_id: 'proj-1',
+        });
+
+        await createFeedbackNotification();
+
+        expect(prisma.notification.createMany).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('persists and replaces the muted project list', async () => {
+      (prisma.member.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+        notification_settings: { mutedProjects: ['old'] },
+      });
+      (prisma.member.update as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+      const first = await updateNotificationSettings('admin-1', 'org-1', {
+        mutedProjects: ['proj-1', 'proj-2'],
+      });
+      expect(first.mutedProjects).toEqual(['proj-1', 'proj-2']);
+      expect(first.dnd).toEqual({ enabled: false, slots: [] });
+      expect(prisma.member.update).toHaveBeenCalledWith({
+        where: { id: 'admin-1' },
+        data: {
+          notification_settings: expect.objectContaining({
+            mutedProjects: ['proj-1', 'proj-2'],
+          }),
+        },
+      });
+
+      const cleared = await updateNotificationSettings('admin-1', 'org-1', {
+        mutedProjects: [],
+      });
+      expect(cleared.mutedProjects).toEqual([]);
+    });
+
+    it('deduplicates ids when saving', async () => {
+      (prisma.member.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+        notification_settings: null,
+      });
+      (prisma.member.update as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+      const settings = await updateNotificationSettings('admin-1', 'org-1', {
+        mutedProjects: ['proj-1', 'proj-1', 'proj-2'],
+      });
+
+      expect(settings.mutedProjects).toEqual(['proj-1', 'proj-2']);
+    });
+
+    it('rejects a non-array or oversized muted project list', async () => {
+      await expect(
+        updateNotificationSettings('admin-1', 'org-1', { mutedProjects: 'proj-1' }),
+      ).rejects.toThrow('静音项目列表必须是数组');
+
+      const tooMany = Array.from({ length: MAX_MUTED_PROJECTS + 1 }, (_, index) => `p-${index}`);
+      await expect(
+        updateNotificationSettings('admin-1', 'org-1', { mutedProjects: tooMany }),
+      ).rejects.toThrow(`最多静音 ${MAX_MUTED_PROJECTS} 个项目`);
+
+      for (const invalid of [[42], [''], ['proj-1', '   ']]) {
+        await expect(
+          updateNotificationSettings('admin-1', 'org-1', { mutedProjects: invalid }),
+        ).rejects.toThrow('静音项目 ID 必须是非空字符串');
+      }
+      expect(prisma.member.update).not.toHaveBeenCalled();
+    });
+
+    it('does not call the feedback lookup when nobody mutes projects', async () => {
+      mockMembers({ 'owner-1': null, 'admin-1': null });
+
+      await createFeedbackNotification();
+
+      expect(prisma.feedback.findFirst).not.toHaveBeenCalled();
+      expect(scheduledMemberIds()).toEqual(['admin-1', 'owner-1']);
+    });
+  });
 });
+

@@ -23,6 +23,7 @@ import {
   useNotificationPage,
 } from '@/hooks/useNotifications';
 import type { NotificationItem, NotificationType } from '@/hooks/useNotifications';
+import type { ProjectAccessInfo } from '@/types';
 
 type Filter = 'all' | 'unread';
 
@@ -38,6 +39,8 @@ const TYPE_META: Record<
 
 type NotificationSettings = Record<NotificationType, boolean> & {
   dnd: DndSettings;
+  /** Project ids whose in-app notifications are muted. */
+  mutedProjects: string[];
 };
 
 type DndSlot = {
@@ -55,6 +58,7 @@ type DndSettings = {
 
 const DEFAULT_DND: DndSettings = { enabled: false, slots: [] };
 const MAX_DND_SLOTS = 5;
+const MAX_MUTED_PROJECTS = 50;
 const DND_TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DEFAULT_SLOT: DndSlot = { start: '22:00', end: '08:00' };
 
@@ -173,6 +177,26 @@ export function NotificationsCenter() {
     if (!settings) return;
     queryClient.setQueryData(['notification-settings'], { ...settings, [key]: value });
     settingsMutation.mutate({ [key]: value });
+  };
+
+  // Muted projects read from the existing org project list; unknown stored ids
+  // are kept untouched but not shown (the list only covers this organization).
+  const { data: orgProjects, isLoading: projectsLoading } = useQuery({
+    queryKey: ['projects'],
+    queryFn: () => apiRequest<ProjectAccessInfo[]>('/org/projects'),
+  });
+  const projectOptions = orgProjects ?? [];
+  const mutedProjects = settings?.mutedProjects ?? [];
+
+  const toggleMutedProject = (projectId: string) => {
+    if (!settings) return;
+    const isMuted = mutedProjects.includes(projectId);
+    if (!isMuted && mutedProjects.length >= MAX_MUTED_PROJECTS) return;
+    const next = isMuted
+      ? mutedProjects.filter((id) => id !== projectId)
+      : [...mutedProjects, projectId];
+    queryClient.setQueryData(['notification-settings'], { ...settings, mutedProjects: next });
+    settingsMutation.mutate({ mutedProjects: next });
   };
 
   // DND editing is local until "save": toggling the switch, editing or adding
@@ -578,6 +602,81 @@ export function NotificationsCenter() {
                   </p>
                 )}
               </div>
+            </li>
+            <li className="py-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium text-gray-800 dark:text-gray-200">
+                    {t('page.settings.mutedProjects.title')}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500">
+                    {t('page.settings.mutedProjects.description')}
+                  </p>
+                </div>
+                <Badge tone="gray">
+                  {t('page.settings.mutedProjects.count', { count: mutedProjects.length })}
+                </Badge>
+              </div>
+
+              {projectsLoading ? (
+                <div className="mt-2 space-y-1.5">
+                  {Array.from({ length: 2 }).map((_, index) => (
+                    <Skeleton key={index} className="h-9 w-full" />
+                  ))}
+                </div>
+              ) : projectOptions.length === 0 ? (
+                <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">
+                  {t('page.settings.mutedProjects.empty')}
+                </p>
+              ) : (
+                <ul className="mt-2 divide-y divide-surface-2 overflow-hidden rounded-lg border border-surface-3 dark:divide-gray-700/60 dark:border-gray-700/60">
+                  {projectOptions.map((project) => {
+                    const muted = mutedProjects.includes(project.id);
+                    const atLimit =
+                      !muted && mutedProjects.length >= MAX_MUTED_PROJECTS;
+                    const disabled = atLimit || settingsMutation.isPending;
+                    return (
+                      <li key={project.id}>
+                        <label
+                          className={clsx(
+                            'flex items-center gap-3 px-3 py-2.5 transition-colors',
+                            disabled
+                              ? 'cursor-not-allowed opacity-60'
+                              : 'cursor-pointer hover:bg-surface-1/60 dark:hover:bg-gray-700/20',
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={muted}
+                            disabled={disabled}
+                            onChange={() => toggleMutedProject(project.id)}
+                            aria-label={t('page.settings.mutedProjects.switchLabel', {
+                              name: project.name,
+                            })}
+                            className="h-3.5 w-3.5 cursor-pointer rounded border-gray-300 text-brand-600 accent-brand-600 focus:ring-2 focus:ring-brand-500/30 disabled:cursor-not-allowed dark:border-gray-600 dark:bg-gray-700"
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[13px] font-medium text-gray-800 dark:text-gray-200">
+                              {project.name}
+                            </span>
+                            <span className="mt-0.5 block truncate font-mono text-[11px] text-gray-400 dark:text-gray-500">
+                              {project.slug}
+                            </span>
+                          </span>
+                          {muted && (
+                            <Badge tone="gray">{t('page.settings.mutedProjects.muted')}</Badge>
+                          )}
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {mutedProjects.length >= MAX_MUTED_PROJECTS && (
+                <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">
+                  {t('page.settings.mutedProjects.limitHint', { count: MAX_MUTED_PROJECTS })}
+                </p>
+              )}
             </li>
           </ul>
         )}
