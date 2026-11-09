@@ -3,6 +3,7 @@ import { env } from '../config/index.js';
 import { NotFoundError, ValidationError, AuthError } from '../utils/errors.js';
 import { validatePasswordStrength } from '../utils/passwordPolicy.js';
 import { sendEmail } from './email.js';
+import { buildPasswordResetEmail } from '../utils/emailTemplates.js';
 import argon2 from 'argon2';
 import crypto from 'crypto';
 
@@ -98,7 +99,7 @@ export async function forgotPassword(email: string, orgSlug: string) {
   sendEmail(
     email,
     '重置密码 - Nexus Feedback',
-    `<p>您好，</p><p>您请求了密码重置。请点击以下链接重置密码：</p><p><a href="${resetUrl}">重置密码</a></p><p>此链接将在 1 小时后过期。</p><p>如果您没有请求重置密码，请忽略此邮件。</p>`,
+    buildPasswordResetEmail(resetUrl),
     org.id
   ).catch(() => {});
 

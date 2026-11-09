@@ -225,5 +225,22 @@
     "hours_ago": "{{count}} h ago",
     "days_ago": "{{count}} d ago",
     "weeks_ago": "{{count}} w ago"
+  },
+  "errors": {
+    "validation": "Validation failed",
+    "conflict": "Action conflict",
+    "unauthenticated": "Please sign in first",
+    "invalid_credentials": "Invalid email or password",
+    "invalid_session": "Your session has expired, please sign in again",
+    "forbidden": "You do not have permission for this action",
+    "not_found": "Not found or already deleted",
+    "file_too_large": "File is too large",
+    "unsupported_file": "Unsupported file type",
+    "too_many_attempts": "Too many attempts, try again later",
+    "rate_limited": "Too many requests, please try again later",
+    "rate_limited_api": "API rate limit reached, please try again later",
+    "internal": "Something went wrong on our side, please retry",
+    "network": "Network request failed, check your connection and retry",
+    "account_not_activated": "Account not activated yet, use your invite link to set a password"
   }
 }

@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { prisma } from '../db/client.js';
 import { sendBatchEmails } from '../services/email.js';
+import { buildDigestEmail } from '../utils/emailTemplates.js';
 
 export function startDigestJob(): void {
   // Monday 9:00 AM — weekly digest
@@ -84,27 +85,11 @@ async function runWeeklyDigest(): Promise<void> {
     if (recipients.length === 0) continue;
 
     const subject = `Weekly Digest: ${project.name}`;
-    const html = buildDigestEmail(project.name, newCount, resolvedCount, topVoted);
+    const html = buildDigestEmail({
+      newCount,
+      resolvedCount,
+      topFeedback: topVoted.map((item) => ({ title: item.title, votes: item.vote_count })),
+    });
     await sendBatchEmails(recipients, subject, html, project.org_id);
   }
-}
-
-function buildDigestEmail(
-  projectName: string,
-  newCount: number,
-  resolvedCount: number,
-  topVoted: { id: string; title: string; vote_count: number }[],
-): string {
-  const topItems = topVoted
-    .map((item) => `<li>${item.title} (${item.vote_count} votes)</li>`)
-    .join('');
-
-  return `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
-<h2>Weekly Digest: ${projectName}</h2>
-<p><strong>${newCount}</strong> new feedback items this week</p>
-<p><strong>${resolvedCount}</strong> items resolved</p>
-${topItems ? `<h3>Top Voted</h3><ul>${topItems}</ul>` : ''}
-<hr/>
-<p style="font-size:12px;color:#666"><a href="https://app.nexus-feedback.dev/unsubscribe">Unsubscribe</a></p>
-</div>`;
 }

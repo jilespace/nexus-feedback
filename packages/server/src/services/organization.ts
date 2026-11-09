@@ -94,14 +94,14 @@ export async function memberLogin(email: string, password: string, orgSlug: stri
   const member = await prisma.member.findUnique({
     where: { email_org_id: { email, org_id: org.id } },
   });
-  if (!member) throw new AuthError(40110, '邮箱或密码错误');
+  if (!member) throw new AuthError(40101, '邮箱或密码错误');
 
   if (!member.password_hash) {
-    throw new AuthError(40110, '请先通过邮件邀请链接设置密码');
+    throw new AuthError(40111, '请先通过邮件邀请链接设置密码');
   }
 
   const valid = await argon2.verify(member.password_hash, password);
-  if (!valid) throw new AuthError(40110, '邮箱或密码错误');
+  if (!valid) throw new AuthError(40101, '邮箱或密码错误');
 
   const token = jwt.sign(
     { memberId: member.id, orgId: org.id, role: member.role, typ: 'org' },

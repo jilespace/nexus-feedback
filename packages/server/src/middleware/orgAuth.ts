@@ -25,7 +25,7 @@ export function orgAuth(req: Request, _res: Response, next: NextFunction): void 
     req.memberRole = payload.role;
     next();
   } catch {
-    next(new AuthError(40101, '认证令牌无效或已过期'));
+    next(new AuthError(40110, '认证令牌无效或已过期'));
   }
 }
 

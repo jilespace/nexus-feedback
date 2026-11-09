@@ -1,4 +1,5 @@
 import type { ProjectAccessInfo } from '@/types';
+import { localizeApiError, localizeNetworkError } from '@/utils/apiErrors';
 
 type ApiResponse<T> = {
   code: number;
@@ -31,10 +32,15 @@ export async function apiRequest<T>(
     ...(options.headers as Record<string, string> ?? {}),
   };
 
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      ...options,
+      headers,
+    });
+  } catch {
+    throw new ApiError(50000, localizeNetworkError(), 0);
+  }
 
   // An expired/invalid session should land the user back on the login screen
   // instead of leaving the workspace in a half-broken state.
@@ -59,7 +65,7 @@ export async function apiRequest<T>(
   }
 
   if (json.code !== 0) {
-    throw new ApiError(json.code, json.message, res.status);
+    throw new ApiError(json.code, localizeApiError(json.code, json.message), res.status);
   }
 
   return json.data;

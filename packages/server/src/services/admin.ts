@@ -7,12 +7,12 @@ import { AuthError } from '../utils/errors.js';
 export async function adminLogin(username: string, password: string) {
   const admin = await prisma.admin.findUnique({ where: { username } });
   if (!admin) {
-    throw new AuthError(40110, 'Invalid credentials');
+    throw new AuthError(40101, 'Invalid credentials');
   }
 
   const valid = await argon2.verify(admin.password_hash, password);
   if (!valid) {
-    throw new AuthError(40110, 'Invalid credentials');
+    throw new AuthError(40101, 'Invalid credentials');
   }
 
   // Get the first organization for the admin
