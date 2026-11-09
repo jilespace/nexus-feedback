@@ -39,8 +39,8 @@ export function Layout({ children }: { children: ReactNode }) {
   };
 
   const displayName = member?.display_name || member?.email?.split('@')[0] || '用户';
-  const ROLE_LABELS: Record<string, string> = { owner: '所有者', admin: '管理员', member: '成员' };
-  const roleBadge = ROLE_LABELS[member?.role ?? 'member'] ?? '成员';
+  const roleBadge = t(`members.role_${member?.role ?? 'member'}`, { defaultValue: t('members.role_member') });
+
   const orgName = organization?.name || 'Nexus';
   const memberRole = (member?.role ?? 'member') as OrgMemberRole;
   const pageKey = matchPageKey(location.pathname);
@@ -84,7 +84,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <button
             onClick={() => setSidebarOpen(false)}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-surface-2 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200 lg:hidden"
-            aria-label="关闭导航"
+            aria-label={t('shell.close_nav')}
           >
             <CloseIcon />
           </button>
@@ -97,7 +97,7 @@ export function Layout({ children }: { children: ReactNode }) {
             className="group flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-surface-3 bg-surface-1/60 px-2.5 py-2 text-left text-xs text-gray-400 transition-colors hover:border-gray-300 hover:bg-surface-2 hover:text-gray-600 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-500 dark:hover:border-gray-600 dark:hover:text-gray-300"
           >
             <SearchIcon className="h-3.5 w-3.5 shrink-0" />
-            <span className="flex-1 truncate">搜索、跳转或执行操作…</span>
+            <span className="flex-1 truncate">{t('shell.search_trigger')}</span>
             <kbd className="shrink-0 rounded border border-surface-3 bg-surface-0 px-1 py-0.5 font-sans text-[10px] font-semibold text-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-500">
               ⌘K
             </kbd>
@@ -180,7 +180,7 @@ export function Layout({ children }: { children: ReactNode }) {
               onClick={toggleLang}
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-gray-400 transition-colors hover:bg-surface-2 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
               title={i18n.language === 'zh' ? 'English' : '中文'}
-              aria-label="切换语言"
+              aria-label={t('shell.switch_language')}
             >
               {i18n.language === 'zh' ? 'EN' : '中'}
             </button>
@@ -188,7 +188,7 @@ export function Layout({ children }: { children: ReactNode }) {
               onClick={toggleTheme}
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-surface-2 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
               title={theme === 'dark' ? t('common.lightMode') : t('common.darkMode')}
-              aria-label="切换主题"
+              aria-label={t('shell.switch_theme')}
             >
               {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
             </button>
@@ -210,7 +210,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <button
             onClick={() => setSidebarOpen(true)}
             className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-surface-2 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700"
-            aria-label="打开导航"
+            aria-label={t('shell.open_nav')}
           >
             <MenuIcon />
           </button>
@@ -229,14 +229,14 @@ export function Layout({ children }: { children: ReactNode }) {
             <button
               onClick={() => setPaletteOpen(true)}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-surface-2 dark:text-gray-400 dark:hover:bg-gray-700"
-              aria-label="搜索与快捷操作"
+              aria-label={t('shell.search_actions')}
             >
               <SearchIcon className="h-4 w-4" />
             </button>
             <button
               onClick={toggleTheme}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-surface-2 dark:text-gray-400 dark:hover:bg-gray-700"
-              aria-label="切换主题"
+              aria-label={t('shell.switch_theme')}
             >
               {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
             </button>

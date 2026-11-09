@@ -150,14 +150,14 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
   const copyBoardLink = async () => {
     const project = (projects as ProjectAccessInfo[] | undefined)?.[0];
     if (!project) {
-      toast.show('还没有可用的项目', 'error');
+      toast.show(t('palette.no_project'), 'error');
       return;
     }
     try {
       await navigator.clipboard.writeText(boardUrlFor(project.slug));
-      toast.show('公开看板链接已复制');
+      toast.show(t('palette.copy_success'));
     } catch {
-      toast.show('复制失败', 'error');
+      toast.show(t('palette.copy_failed'), 'error');
     }
     close();
   };
@@ -167,8 +167,8 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
       {
         id: 'action-new-changelog',
         group: 'actions',
-        label: '新建更新日志',
-        hint: '创建一条产品更新',
+        label: t('palette.action_new_changelog'),
+        hint: t('palette.action_new_changelog_hint'),
         icon: ICONS.plus,
         keywords: 'changelog release new 新建 更新 发布',
         run: () => {
@@ -179,8 +179,8 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
       {
         id: 'action-copy-board',
         group: 'actions',
-        label: '复制公开看板链接',
-        hint: '分享给用户查看反馈与路线图',
+        label: t('palette.action_copy_board'),
+        hint: t('palette.action_copy_board_hint'),
         icon: ICONS.copy,
         keywords: 'copy board share link 复制 看板 链接 分享',
         run: () => void copyBoardLink(),
@@ -188,8 +188,8 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
       {
         id: 'action-invite',
         group: 'actions',
-        label: '邀请团队成员',
-        hint: '添加协作成员',
+        label: t('palette.action_invite'),
+        hint: t('palette.action_invite_hint'),
         icon: ICONS.user,
         keywords: 'invite member team 邀请 成员',
         run: () => {
@@ -200,8 +200,8 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
       {
         id: 'action-notifications',
         group: 'actions',
-        label: '查看通知',
-        hint: '最新反馈动态与指派',
+        label: t('palette.action_notifications'),
+        hint: t('palette.action_notifications_hint'),
         icon: ICONS.bell,
         keywords: 'notification inbox bell 通知 消息 未读',
         run: () => {
@@ -212,7 +212,7 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
       {
         id: 'action-theme',
         group: 'actions',
-        label: theme === 'dark' ? '切换到亮色模式' : '切换到暗色模式',
+        label: theme === 'dark' ? t('palette.action_theme_light') : t('palette.action_theme_dark'),
         icon: ICONS.theme,
         keywords: 'theme dark light 主题 暗色 亮色',
         run: () => {
@@ -223,7 +223,7 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
       {
         id: 'action-language',
         group: 'actions',
-        label: i18n.language === 'zh' ? 'Switch to English' : '切换到中文',
+        label: i18n.language === 'zh' ? t('palette.action_language_to_en') : t('palette.action_language_to_zh'),
         icon: ICONS.language,
         keywords: 'language english chinese 语言 中英文',
         run: () => {
@@ -236,8 +236,8 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
       {
         id: 'action-shortcuts',
         group: 'actions',
-        label: '键盘快捷键',
-        hint: '查看全部快捷键',
+        label: t('palette.action_shortcuts'),
+        hint: t('palette.action_shortcuts_hint'),
         icon: ICONS.keyboard,
         keywords: 'keyboard shortcuts help 快捷键 帮助',
         run: () => {
@@ -288,11 +288,11 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
   }));
 
   const groups: Array<{ key: PaletteItem['group']; title: string; items: PaletteItem[] }> = [
-    { key: 'actions', title: '快捷操作', items: actions.filter(matches) },
-    { key: 'pages', title: '页面导航', items: pageItems.filter(matches) },
+    { key: 'actions', title: t('palette.group_actions'), items: actions.filter(matches) },
+    { key: 'pages', title: t('palette.group_pages'), items: pageItems.filter(matches) },
     {
       key: 'feedback',
-      title: isFetching ? '反馈搜索…' : debounced.length >= 2 ? '反馈' : '反馈搜索',
+      title: isFetching ? t('palette.group_feedback_loading') : debounced.length >= 2 ? t('palette.group_feedback') : t('palette.group_feedback_search'),
       items: feedbackItems,
     },
   ].filter((group) => group.items.length > 0) as Array<{
@@ -323,7 +323,7 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="命令面板"
+        aria-label={t('palette.aria_label')}
         className="relative z-10 w-full max-w-xl animate-scale-in overflow-hidden rounded-2xl border border-surface-3 bg-surface-0 shadow-pop dark:border-gray-700 dark:bg-gray-800"
       >
         <div className="flex items-center gap-2.5 border-b border-surface-2 px-4 dark:border-gray-700/60">
@@ -347,7 +347,7 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
                 runAt(active);
               }
             }}
-            placeholder="搜索反馈、页面或执行操作…"
+            placeholder={t('palette.placeholder')}
             className="h-12 flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none dark:text-gray-100"
           />
           <kbd className="hidden rounded border border-surface-3 bg-surface-1 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-gray-400 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-500 sm:block">
@@ -358,7 +358,7 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
         <div className="max-h-[56vh] overflow-y-auto py-2">
           {flat.length === 0 ? (
             <p className="px-4 py-8 text-center text-xs text-gray-400 dark:text-gray-500">
-              没有找到匹配结果
+              {t('palette.empty')}
             </p>
           ) : (
             groups.map((group) => (
@@ -418,13 +418,13 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
           <span className="flex items-center gap-1">
             <kbd className="rounded border border-surface-3 px-1 dark:border-gray-600">↑</kbd>
             <kbd className="rounded border border-surface-3 px-1 dark:border-gray-600">↓</kbd>
-            选择
+            {t('palette.hint_select')}
           </span>
           <span className="flex items-center gap-1">
             <kbd className="rounded border border-surface-3 px-1 dark:border-gray-600">↵</kbd>
-            打开
+            {t('palette.hint_open')}
           </span>
-          <span className="ml-auto">⌘K 随时唤起</span>
+          <span className="ml-auto">{t('palette.hint_shortcut')}</span>
         </div>
       </div>
     </div>

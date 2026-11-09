@@ -1,27 +1,29 @@
+import { useTranslation } from 'react-i18next';
 import { Modal } from '@/components/Modal';
 
 interface ShortcutHelpProps {
   onClose: () => void;
 }
 
-const shortcuts = [
-  { keys: '⌘ K / Ctrl K', description: '打开命令面板（跳转/搜索/操作）' },
-  { keys: '/', description: '聚焦当前页面搜索' },
-  { keys: 'J', description: '下一项' },
-  { keys: 'K', description: '上一项' },
-  { keys: 'Enter', description: '打开选中项' },
-  { keys: '?', description: '显示快捷键帮助' },
-  { keys: 'Esc', description: '关闭弹层 / 命令面板' },
+const SHORTCUTS = [
+  { keys: '⌘ K / Ctrl K', labelKey: 'shell.shortcut_command_palette' },
+  { keys: '/', labelKey: 'shell.shortcut_focus_search' },
+  { keys: 'J', labelKey: 'shell.shortcut_next' },
+  { keys: 'K', labelKey: 'shell.shortcut_prev' },
+  { keys: 'Enter', labelKey: 'shell.shortcut_open' },
+  { keys: '?', labelKey: 'shell.shortcut_help' },
+  { keys: 'Esc', labelKey: 'shell.shortcut_close' },
 ];
 
 export function ShortcutHelp({ onClose }: ShortcutHelpProps) {
+  const { t } = useTranslation();
   return (
-    <Modal title="键盘快捷键" onClose={onClose} size="sm">
+    <Modal title={t('shell.shortcuts_title')} onClose={onClose} size="sm">
       <div className="space-y-2.5">
-        {shortcuts.map((shortcut) => (
+        {SHORTCUTS.map((shortcut) => (
           <div key={shortcut.keys} className="flex items-center justify-between gap-4">
             <span className="text-[13px] text-gray-600 dark:text-gray-300">
-              {shortcut.description}
+              {t(shortcut.labelKey)}
             </span>
             <kbd className="shrink-0 rounded-md border border-surface-3 bg-surface-1 px-2 py-0.5 font-sans text-[11px] font-semibold text-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300">
               {shortcut.keys}

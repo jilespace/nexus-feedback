@@ -1,3 +1,5 @@
+import i18n from '@/i18n';
+
 const MINUTE = 60;
 const HOUR = 3600;
 const DAY = 86400;
@@ -8,12 +10,13 @@ export function formatRelativeTime(dateStr: string): string {
   const now = Date.now();
   const date = new Date(dateStr).getTime();
   const diff = Math.floor((now - date) / 1000);
+  const t = i18n.getFixedT(i18n.language);
 
-  if (diff < 0) return '刚刚';
-  if (diff < MINUTE) return '刚刚';
-  if (diff < HOUR) return `${Math.floor(diff / MINUTE)} 分钟前`;
-  if (diff < DAY) return `${Math.floor(diff / HOUR)} 小时前`;
-  if (diff < WEEK) return `${Math.floor(diff / DAY)} 天前`;
-  if (diff < MONTH) return `${Math.floor(diff / WEEK)} 周前`;
-  return new Date(dateStr).toLocaleDateString('zh-CN');
+  if (diff < 0) return t('time.just_now');
+  if (diff < MINUTE) return t('time.just_now');
+  if (diff < HOUR) return t('time.minutes_ago', { count: Math.floor(diff / MINUTE) });
+  if (diff < DAY) return t('time.hours_ago', { count: Math.floor(diff / HOUR) });
+  if (diff < WEEK) return t('time.days_ago', { count: Math.floor(diff / DAY) });
+  if (diff < MONTH) return t('time.weeks_ago', { count: Math.floor(diff / WEEK) });
+  return new Date(dateStr).toLocaleDateString(i18n.language === 'zh' ? 'zh-CN' : 'en-US');
 }

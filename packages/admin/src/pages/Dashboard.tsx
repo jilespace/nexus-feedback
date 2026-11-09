@@ -269,7 +269,7 @@ export function Dashboard() {
               </ul>
             </>
           ) : (
-            <EmptyState title={t('dashboard.no_data')} className="py-8" />
+            <EmptyState title={t('dashboard.activity_empty')} className="py-8" />
           )}
         </Card>
       </div>
@@ -364,7 +364,7 @@ export function Dashboard() {
               ))}
             </div>
           ) : (
-            <EmptyState title={t('dashboard.no_data')} className="py-8" />
+            <EmptyState title={t('dashboard.activity_empty')} className="py-8" />
           )}
         </Card>
       </div>
@@ -373,8 +373,8 @@ export function Dashboard() {
         {canViewAudit && (
           <Card className="p-5 lg:col-span-2">
             <CardHeader
-              title="最近动态"
-              description="组织内的最新操作记录"
+              title={t('dashboard.activity_title')}
+              description={t('dashboard.activity_desc')}
               className="mb-4"
               action={
                 <button
@@ -405,7 +405,7 @@ export function Dashboard() {
                             : ''}
                       </span>
                       <span className="hidden shrink-0 text-[11px] text-gray-400 dark:text-gray-500 sm:block">
-                        {activity.member?.display_name || '系统'}
+                        {activity.member?.display_name || t('dashboard.system_actor')}
                       </span>
                       <span className="w-16 shrink-0 text-right text-[11px] text-gray-400 dark:text-gray-500">
                         {formatRelativeTime(activity.created_at)}
@@ -415,22 +415,22 @@ export function Dashboard() {
                 ))}
               </ul>
             ) : (
-              <EmptyState title={t('dashboard.no_data')} className="py-8" />
+              <EmptyState title={t('dashboard.activity_empty')} className="py-8" />
             )}
           </Card>
         )}
 
         <Card className="p-5">
           <CardHeader
-            title="分配给我"
-            description="需要你跟进处理的反馈"
+            title={t('dashboard.assigned_title')}
+            description={t('dashboard.assigned_desc')}
             className="mb-4"
             action={
               <button
                 onClick={() => navigate('/feedback')}
                 className="text-xs font-medium text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
               >
-                全部 →
+                {t('dashboard.view_all')} →
               </button>
             }
           />
@@ -459,8 +459,8 @@ export function Dashboard() {
             </ul>
           ) : (
             <EmptyState
-              title="暂无指派给你的反馈"
-              description="在反馈详情页指派负责人后，会出现在这里"
+              title={t('dashboard.assigned_empty')}
+              description={t('dashboard.assigned_empty_desc')}
               className="py-6"
             />
           )}
