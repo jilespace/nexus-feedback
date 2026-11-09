@@ -11,9 +11,11 @@ const {
   scoreSimilarity,
   rankSimilarFeedback,
   findSimilarFeedback,
+  findMergedSources,
   SIMILARITY_THRESHOLD,
   SIMILARITY_LIMIT,
   SIMILARITY_CANDIDATE_LIMIT,
+  MERGED_SOURCES_LIMIT,
 } = await import('../feedbackSimilarity.js');
 const { prisma } = await import('../../db/client.js');
 
@@ -237,5 +239,52 @@ describe('findSimilarFeedback', () => {
     projectFindFirst.mockResolvedValue(null);
     await expect(findSimilarFeedback('fb-1', 'org-2')).rejects.toThrow('反馈不存在');
     expect(findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('findMergedSources', () => {
+  const rows = [
+    {
+      id: 'fb-a',
+      title: 'Login page is slow',
+      status: 'closed',
+      created_at: new Date('2026-01-02T00:00:00Z'),
+    },
+    {
+      id: 'fb-b',
+      title: 'Slow login page',
+      status: 'closed',
+      created_at: new Date('2026-01-01T00:00:00Z'),
+    },
+  ];
+
+  it('queries non-deleted feedbacks merged into the given feedback', async () => {
+    findMany.mockResolvedValue(rows);
+    const result = await findMergedSources('fb-target');
+    expect(findMany).toHaveBeenCalledWith({
+      where: { merged_into_id: 'fb-target', deleted_at: null },
+      orderBy: { created_at: 'desc' },
+      take: MERGED_SOURCES_LIMIT,
+      select: { id: true, title: true, status: true, created_at: true },
+    });
+    expect(result).toEqual(rows);
+  });
+
+  it('caps the list at ten merged sources', async () => {
+    expect(MERGED_SOURCES_LIMIT).toBe(10);
+    findMany.mockResolvedValue(rows);
+    await findMergedSources('fb-target');
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 10 }));
+  });
+
+  it('returns only the public fields of each merged source', async () => {
+    findMany.mockResolvedValue(rows);
+    const [first] = await findMergedSources('fb-target');
+    expect(Object.keys(first ?? {}).sort()).toEqual(['created_at', 'id', 'status', 'title']);
+  });
+
+  it('returns an empty list when nothing was merged into the feedback', async () => {
+    findMany.mockResolvedValue([]);
+    await expect(findMergedSources('fb-target')).resolves.toEqual([]);
   });
 });

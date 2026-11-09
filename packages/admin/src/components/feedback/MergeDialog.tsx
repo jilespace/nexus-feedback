@@ -7,6 +7,7 @@ import { Button } from '@/components/ui';
 import { StatusBadge } from '@/components/StatusBadge';
 import { useToast } from '@/components/Toast';
 import { SearchIcon } from '@/components/icons';
+import { formatRelativeTime } from '@/utils/formatRelativeTime';
 import type { FeedbackItem, FeedbackStatus, PaginatedResponse } from '@/types';
 
 interface MergeDialogProps {
@@ -21,6 +22,13 @@ type SimilarSuggestion = {
   status: FeedbackStatus;
   category: string;
   score: number;
+};
+
+type MergedSource = {
+  id: string;
+  title: string;
+  status: FeedbackStatus;
+  created_at: string;
 };
 
 const SEARCH_QUERY_MIN_LENGTH = 2;
@@ -43,7 +51,9 @@ export function MergeDialog({ feedbackId, onClose, onMerged }: MergeDialogProps)
   const { data: suggestionsData, isPending: suggestionsPending, isError: suggestionsError } = useQuery({
     queryKey: ['feedback-similar', feedbackId],
     queryFn: () =>
-      apiRequest<{ items: SimilarSuggestion[] }>(`/admin/feedback/${feedbackId}/similar`),
+      apiRequest<{ items: SimilarSuggestion[]; mergedSources?: MergedSource[] }>(
+        `/admin/feedback/${feedbackId}/similar`,
+      ),
     enabled: showSuggestions,
   });
 
@@ -63,6 +73,7 @@ export function MergeDialog({ feedbackId, onClose, onMerged }: MergeDialogProps)
 
   const items = (results?.items ?? []).filter((item) => item.id !== feedbackId);
   const suggestions = (suggestionsData?.items ?? []).filter((item) => item.id !== feedbackId);
+  const mergedSources = suggestionsData?.mergedSources ?? [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
@@ -96,6 +107,32 @@ export function MergeDialog({ feedbackId, onClose, onMerged }: MergeDialogProps)
             className="h-10 w-full rounded-lg border border-surface-3 bg-surface-1/60 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-400 focus:bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-100"
           />
         </div>
+
+        {mergedSources.length > 0 && (
+          <div className="mt-3 rounded-lg border border-surface-3 bg-surface-1/50 px-3 py-2 dark:border-gray-700/70 dark:bg-gray-900/30">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500">
+                {t('mergedSources.title')}
+              </p>
+              <span className="text-[11px] tabular-nums text-gray-400 dark:text-gray-500">
+                {t('mergedSources.count', { num: mergedSources.length })}
+              </span>
+            </div>
+            <ul className="mt-1.5 max-h-28 space-y-1 overflow-y-auto">
+              {mergedSources.map((source) => (
+                <li key={source.id} className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-gray-700 dark:text-gray-200">
+                    {source.title}
+                  </span>
+                  <StatusBadge status={source.status} />
+                  <span className="shrink-0 text-[11px] tabular-nums text-gray-400 dark:text-gray-500">
+                    {formatRelativeTime(source.created_at)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="mt-2 max-h-64 min-h-[80px] overflow-y-auto rounded-lg border border-surface-3 dark:border-gray-700">
           {showSuggestions ? (

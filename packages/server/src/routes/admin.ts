@@ -19,7 +19,7 @@ import {
 import { exportFeedbackCSV } from '../services/export.js';
 import { batchAssignTags, batchUnassignTags } from '../services/tag.js';
 import { mergeFeedback, previewMerge } from '../services/merge.js';
-import { findSimilarFeedback } from '../services/feedbackSimilarity.js';
+import { findSimilarFeedback, findMergedSources } from '../services/feedbackSimilarity.js';
 import { listComments, deleteComment } from '../services/comment.js';
 import { previewFeedbackImport, commitFeedbackImport } from '../services/feedbackImport.js';
 import { success } from '../utils/response.js';
@@ -160,8 +160,11 @@ adminRouter.post('/feedback/import', adminAuth, requireRole(['owner', 'admin']),
 // Registered before `/feedback/:id` so the similarity path always wins over the generic detail route.
 adminRouter.get('/feedback/:id/similar', adminAuth, async (req, res, next) => {
   try {
-    const result = await findSimilarFeedback(String(req.params.id), req.orgId!);
-    success(res, result);
+    const id = String(req.params.id);
+    const result = await findSimilarFeedback(id, req.orgId!);
+    // The dialog also lists feedbacks that were already merged into this one.
+    const mergedSources = await findMergedSources(id);
+    success(res, { ...result, mergedSources });
   } catch (err) {
     next(err);
   }

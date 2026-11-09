@@ -61,6 +61,10 @@
     "empty": "暂无高度相似的反馈，可输入关键词手动搜索",
     "score": "{{percent}}% 相似"
   },
+  "mergedSources": {
+    "title": "已合并到此反馈",
+    "count": "{{num}} 条"
+  },
   "changelog": {
     "title": "关联更新日志",
     "linkedCount": "{{num}} 条关联",

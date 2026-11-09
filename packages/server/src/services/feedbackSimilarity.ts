@@ -30,6 +30,26 @@ export type SimilarityMatch = {
   score: number;
 };
 
+/** How many merged sources the merge dialog lists. */
+export const MERGED_SOURCES_LIMIT = 10;
+
+export type MergedSource = {
+  id: string;
+  title: string;
+  status: string;
+  created_at: Date;
+};
+
+/** Feedback items that were merged into `feedbackId`, most recent first. */
+export async function findMergedSources(feedbackId: string): Promise<MergedSource[]> {
+  return prisma.feedback.findMany({
+    where: { merged_into_id: feedbackId, deleted_at: null },
+    orderBy: { created_at: 'desc' },
+    take: MERGED_SOURCES_LIMIT,
+    select: { id: true, title: true, status: true, created_at: true },
+  });
+}
+
 const CJK_RUN = /[\u3400-\u9fff\uf900-\ufaff]+/g;
 const LATIN_WORD = /[a-z0-9]+/g;
 const NON_SIGNAL = /[^\u3400-\u9fff\uf900-\ufaffa-z0-9]+/g;

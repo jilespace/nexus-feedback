@@ -61,6 +61,10 @@
     "empty": "No highly similar feedback found. Search manually to pick a target.",
     "score": "{{percent}}% similar"
   },
+  "mergedSources": {
+    "title": "Merged into this feedback",
+    "count": "{{num}} merged"
+  },
   "changelog": {
     "title": "Linked changelogs",
     "linkedCount": "{{num}} linked",
