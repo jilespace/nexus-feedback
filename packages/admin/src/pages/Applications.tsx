@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { apiRequest } from '@/api/client';
-import { Skeleton } from '@/components/Skeleton';
+import { PageHeader } from '@/components/PageHeader';
+import { Modal } from '@/components/Modal';
+import { Badge, Button, Card, EmptyState, Skeleton } from '@/components/ui';
 import { useToast } from '@/components/Toast';
 import type { ProjectAccessInfo } from '@/types';
 
@@ -24,19 +26,35 @@ type NewProject = {
 
 function getBoardUrl(slug: string, boardUrl?: string | null): string {
   if (boardUrl) return `${boardUrl.replace(/\/$/, '')}/${slug}`;
-  const origin = window.location.origin;
-  return `${origin}/${slug}`;
+  const devBoard = import.meta.env.DEV ? 'http://localhost:8082' : window.location.origin;
+  return `${devBoard}/${slug}`;
 }
 
-function formatOrigins(origins: string[]): string {
-  return origins.length > 0 ? origins.join(', ') : '未限制';
+function CopyButton({ value, onCopied, label = '复制' }: { value: string; onCopied: (v: string, label: string) => void; label?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onCopied(value, label)}
+      className="inline-flex h-6 items-center gap-1 rounded-md border border-surface-3 bg-surface-0 px-1.5 text-[11px] font-medium text-gray-500 transition-colors hover:border-brand-300 hover:text-brand-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+    >
+      <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+        <path
+          d="M6 9.5a2.5 2.5 0 0 1 3.5-.3l1.8 1.8a2.5 2.5 0 0 1-3.5 3.5l-.9-.9M10 8.5a2.5 2.5 0 0 0-3.5.3L4.7 10.6a2.5 2.5 0 0 0 3.5 3.5l.9-.9"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+        />
+      </svg>
+      {label}
+    </button>
+  );
 }
 
 export function Applications() {
   const queryClient = useQueryClient();
   const { show: toast } = useToast();
   const [regeneratedKey, setRegeneratedKey] = useState<RegeneratedKey | null>(null);
-  const [confirmProjectId, setConfirmProjectId] = useState<string | null>(null);
+  const [confirmProject, setConfirmProject] = useState<ProjectAccessInfo | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newProjectKey, setNewProjectKey] = useState<NewProject | null>(null);
 
@@ -53,60 +71,198 @@ export function Applications() {
 
   const regenerateMutation = useMutation({
     mutationFn: (id: string) =>
-      apiRequest<RegeneratedKey>(`/org/projects/${id}/regenerate-key`, {
-        method: 'POST',
-      }),
+      apiRequest<RegeneratedKey>(`/org/projects/${id}/regenerate-key`, { method: 'POST' }),
     onSuccess: (data) => {
       setRegeneratedKey(data);
-      setConfirmProjectId(null);
+      setConfirmProject(null);
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       toast('Project API Key 已重新生成', 'success');
     },
     onError: (err: Error) => {
-      setConfirmProjectId(null);
+      setConfirmProject(null);
       toast(err.message || '重新生成失败', 'error');
     },
   });
 
   const createMutation = useMutation({
     mutationFn: (input: { name: string; slug?: string }) =>
-      apiRequest<NewProject>('/org/projects', {
-        method: 'POST',
-        body: JSON.stringify(input),
-      }),
+      apiRequest<NewProject>('/org/projects', { method: 'POST', body: JSON.stringify(input) }),
     onSuccess: (data) => {
       setNewProjectKey(data);
       setShowCreateModal(false);
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       toast('项目创建成功', 'success');
     },
-    onError: (err: Error) => {
-      toast(err.message || '创建失败', 'error');
-    },
+    onError: (err: Error) => toast(err.message || '创建失败', 'error'),
   });
 
   const handleCopy = async (text: string, label: string) => {
-    await navigator.clipboard.writeText(text);
-    toast(`${label} 已复制`, 'success');
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(`${label} 已复制`, 'success');
+    } catch {
+      toast('复制失败', 'error');
+    }
   };
 
+  const list = projects ?? [];
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">项目接入</h1>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            每个项目使用自己的 Project API Key 接收反馈，公开看板和 Widget 共用同一份项目数据。
-          </p>
+    <div className="animate-fade-in space-y-5">
+      <PageHeader
+        title="项目接入"
+        description="每个项目使用自己的 Project API Key 接收反馈，公开看板与 Widget 共用同一份项目数据。"
+        actions={
+          <Button onClick={() => setShowCreateModal(true)}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+            </svg>
+            新建项目
+          </Button>
+        }
+      />
+
+      {newProjectKey && (
+        <ApiKeyBanner
+          tone="success"
+          title="项目创建成功"
+          description="请立即保存以下 Project API Key，它只会显示一次。"
+          apiKey={newProjectKey.api_key}
+          onCopy={() => handleCopy(newProjectKey.api_key, 'API Key')}
+          onDismiss={() => setNewProjectKey(null)}
+        />
+      )}
+
+      {regeneratedKey && (
+        <ApiKeyBanner
+          tone="warning"
+          title="Project API Key 已重新生成"
+          description="旧 Key 已失效。请更新所有使用该项目的接入方。"
+          apiKey={regeneratedKey.api_key}
+          onCopy={() => handleCopy(regeneratedKey.api_key, 'API Key')}
+          onDismiss={() => setRegeneratedKey(null)}
+        />
+      )}
+
+      {isLoading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Skeleton key={i} className="h-40 rounded-xl" />
+          ))}
         </div>
-        <button
-          type="button"
-          onClick={() => setShowCreateModal(true)}
-          className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
-        >
-          新建项目
-        </button>
-      </div>
+      ) : list.length === 0 ? (
+        <Card>
+          <EmptyState
+            title="暂无项目"
+            description="注册组织时会自动创建默认项目，也可以手动新建一个项目。"
+            action={{ label: '新建项目', onClick: () => setShowCreateModal(true) }}
+          />
+        </Card>
+      ) : (
+        <div className="grid gap-3">
+          {list.map((project) => {
+            const boardUrl = getBoardUrl(project.slug, orgBoardUrl);
+            return (
+              <Card key={project.id} className="p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-sm font-bold text-white shadow-sm">
+                      {project.name.slice(0, 1).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="truncate text-[15px] font-semibold text-gray-900 dark:text-gray-50">
+                          {project.name}
+                        </h2>
+                        <Badge tone="brand">/{project.slug}</Badge>
+                        <Badge tone="gray">{project.feedback_count ?? 0} 条反馈</Badge>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                        <span className="text-gray-400 dark:text-gray-500">公开看板</span>
+                        <a
+                          href={boardUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="max-w-full truncate font-mono text-[11px] text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+                        >
+                          {boardUrl}
+                        </a>
+                        <CopyButton value={boardUrl} label="复制" onCopied={handleCopy} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Link
+                      to={`/projects/${project.id}/widget`}
+                      className="inline-flex h-8 items-center rounded-lg border border-surface-3 bg-surface-0 px-2.5 text-xs font-medium text-gray-600 transition-colors hover:border-brand-300 hover:text-brand-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-brand-500/40 dark:hover:text-brand-300"
+                    >
+                      Widget 配置
+                    </Link>
+                    <Link
+                      to={`/projects/${project.id}/settings`}
+                      className="inline-flex h-8 items-center rounded-lg border border-surface-3 bg-surface-0 px-2.5 text-xs font-medium text-gray-600 transition-colors hover:border-brand-300 hover:text-brand-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-brand-500/40 dark:hover:text-brand-300"
+                    >
+                      项目设置
+                    </Link>
+                    <Link
+                      to={`/projects/${project.id}/webhooks`}
+                      className="inline-flex h-8 items-center rounded-lg border border-surface-3 bg-surface-0 px-2.5 text-xs font-medium text-gray-600 transition-colors hover:border-brand-300 hover:text-brand-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-brand-500/40 dark:hover:text-brand-300"
+                    >
+                      Webhook
+                    </Link>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-gray-500"
+                      onClick={() => setConfirmProject(project)}
+                    >
+                      重置 Key
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3 border-t border-surface-2 pt-4 dark:border-gray-700/60 sm:grid-cols-2">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500">
+                      Project API Key
+                    </p>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <code className="rounded-md bg-surface-2 px-2 py-1 font-mono text-[11px] text-gray-600 dark:bg-gray-700/60 dark:text-gray-300">
+                        {project.api_key_prefix ? `${project.api_key_prefix}…` : '未生成'}
+                      </code>
+                      <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                        完整 Key 仅在创建/重置时显示
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500">
+                      Allowed origins
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {project.allowed_origins.length > 0 ? (
+                        project.allowed_origins.map((origin) => (
+                          <span
+                            key={origin}
+                            className="rounded-md bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-gray-500 dark:bg-gray-700/60 dark:text-gray-400"
+                          >
+                            {origin}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                          未限制（建议在项目设置中配置）
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       {showCreateModal && (
         <CreateProjectModal
@@ -116,190 +272,79 @@ export function Applications() {
         />
       )}
 
-      {newProjectKey && (
-        <div className="rounded-xl border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/20">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-green-800 dark:text-green-200">
-                项目创建成功 — 请保存以下 API Key（仅显示一次）
-              </p>
-              <code className="mt-2 block overflow-x-auto rounded-lg bg-white px-3 py-2 text-xs text-green-900 dark:bg-gray-900 dark:text-green-100">
-                {newProjectKey.api_key}
-              </code>
-            </div>
-            <div className="flex shrink-0 gap-2">
-              <button
-                type="button"
-                onClick={() => handleCopy(newProjectKey.api_key, 'API Key')}
-                className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700"
+      {confirmProject && (
+        <Modal
+          title="重置 Project API Key"
+          description={`项目「${confirmProject.name}」的旧 Key 将立即失效，所有使用旧 Key 的接入方都会收到 401。`}
+          onClose={() => setConfirmProject(null)}
+          size="md"
+          footer={
+            <>
+              <Button variant="secondary" size="sm" onClick={() => setConfirmProject(null)}>
+                取消
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                disabled={regenerateMutation.isPending}
+                onClick={() => regenerateMutation.mutate(confirmProject.id)}
               >
-                复制
-              </button>
-              <button
-                type="button"
-                onClick={() => setNewProjectKey(null)}
-                className="rounded-lg px-3 py-1.5 text-xs text-green-700 hover:bg-green-100 dark:text-green-200 dark:hover:bg-green-900/40"
-              >
-                关闭
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {regeneratedKey && (
-        <ApiKeyBanner
-          apiKey={regeneratedKey.api_key}
-          onCopy={(text) => handleCopy(text, 'API Key')}
-          onDismiss={() => setRegeneratedKey(null)}
-        />
-      )}
-
-      {isLoading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-16 rounded-xl" variant="rectangular" />
-          ))}
-        </div>
-      ) : projects && projects.length > 0 ? (
-        <div className="overflow-hidden rounded-xl border border-surface-3 bg-surface-0 dark:border-gray-700 dark:bg-gray-800">
-          <table className="min-w-full divide-y divide-surface-3 text-left text-sm dark:divide-gray-700">
-            <thead className="bg-surface-1 dark:bg-gray-900">
-              <tr>
-                <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">项目</th>
-                <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Project API Key</th>
-                <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Allowed origins</th>
-                <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">反馈</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">操作</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-surface-3 dark:divide-gray-700">
-              {projects.map((project) => {
-                const boardUrl = getBoardUrl(project.slug, orgBoardUrl);
-                const isConfirming = confirmProjectId === project.id;
-                return (
-                  <tr key={project.id} className="transition-colors hover:bg-brand-50/40 dark:hover:bg-gray-700">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900 dark:text-gray-100">{project.name}</div>
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(boardUrl, '公开看板地址')}
-                        className="mt-1 font-mono text-xs text-brand-600 hover:text-brand-700"
-                      >
-                        {boardUrl}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      <code className="rounded bg-surface-2 px-2 py-1 text-xs text-gray-700 dark:bg-gray-700 dark:text-gray-200">
-                        {project.api_key_prefix ? `${project.api_key_prefix}...` : '未生成'}
-                      </code>
-                    </td>
-                    <td className="max-w-xs px-4 py-3 text-xs text-gray-600 dark:text-gray-300">
-                      <span className="line-clamp-2">{formatOrigins(project.allowed_origins)}</span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                      {project.feedback_count ?? 0}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap justify-end gap-2">
-                        <Link className="text-xs text-brand-600 hover:text-brand-700" to={`/projects/${project.id}/widget`}>
-                          Widget
-                        </Link>
-                        <Link className="text-xs text-brand-600 hover:text-brand-700" to={`/projects/${project.id}/webhooks`}>
-                          Webhook
-                        </Link>
-                        <Link className="text-xs text-brand-600 hover:text-brand-700" to={`/projects/${project.id}/statuses`}>
-                          状态
-                        </Link>
-                        <Link className="text-xs text-brand-600 hover:text-brand-700" to={`/projects/${project.id}/settings`}>
-                          设置
-                        </Link>
-                        {isConfirming ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => regenerateMutation.mutate(project.id)}
-                              disabled={regenerateMutation.isPending}
-                              className="text-xs font-medium text-red-600 hover:text-red-700 disabled:opacity-60"
-                            >
-                              确认重置
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setConfirmProjectId(null)}
-                              className="text-xs text-gray-500 hover:text-gray-700"
-                            >
-                              取消
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setConfirmProjectId(project.id)}
-                            className="text-xs text-gray-500 hover:text-gray-700"
-                          >
-                            重置 Key
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <EmptyState />
+                {regenerateMutation.isPending ? '重置中...' : '确认重置'}
+              </Button>
+            </>
+          }
+        >
+          <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+            重置后请立即把新 Key 配置到 Widget、提交页或 API 调用方，避免反馈收集中断。
+          </p>
+        </Modal>
       )}
     </div>
   );
 }
 
 function ApiKeyBanner({
+  tone,
+  title,
+  description,
   apiKey,
   onCopy,
   onDismiss,
 }: {
+  tone: 'success' | 'warning';
+  title: string;
+  description: string;
   apiKey: string;
-  onCopy: (text: string) => void;
+  onCopy: () => void;
   onDismiss: () => void;
 }) {
+  const styles =
+    tone === 'success'
+      ? 'border-emerald-200 bg-emerald-50/80 dark:border-emerald-500/25 dark:bg-emerald-500/10'
+      : 'border-accent-200 bg-accent-50/80 dark:border-accent-500/25 dark:bg-accent-500/10';
+  const titleColor =
+    tone === 'success'
+      ? 'text-emerald-800 dark:text-emerald-300'
+      : 'text-accent-700 dark:text-accent-300';
   return (
-    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
-      <div className="flex items-start justify-between gap-3">
+    <div className={`animate-fade-up rounded-xl border p-4 ${styles}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">Project API Key（仅显示一次）</p>
-          <code className="mt-2 block overflow-x-auto rounded-lg bg-white px-3 py-2 text-xs text-amber-900 dark:bg-gray-900 dark:text-amber-100">
+          <p className={`text-sm font-semibold ${titleColor}`}>{title}</p>
+          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{description}</p>
+          <code className="mt-2 block max-w-full overflow-x-auto rounded-lg bg-surface-0 px-3 py-2 font-mono text-xs text-gray-800 ring-1 ring-surface-3 dark:bg-gray-900 dark:text-gray-100 dark:ring-gray-700">
             {apiKey}
           </code>
         </div>
         <div className="flex shrink-0 gap-2">
-          <button
-            type="button"
-            onClick={() => onCopy(apiKey)}
-            className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
-          >
-            复制
-          </button>
-          <button
-            type="button"
-            onClick={onDismiss}
-            className="rounded-lg px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-100 dark:text-amber-200 dark:hover:bg-amber-900/40"
-          >
+          <Button size="sm" onClick={onCopy}>
+            复制 Key
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onDismiss}>
             关闭
-          </button>
+          </Button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="rounded-xl border border-dashed border-surface-3 bg-surface-0 p-10 text-center dark:border-gray-700 dark:bg-gray-800">
-      <p className="text-sm font-medium text-gray-600 dark:text-gray-300">暂无项目</p>
-      <p className="mt-1 text-xs text-gray-400">注册组织时会自动创建默认项目。</p>
     </div>
   );
 }
@@ -323,56 +368,53 @@ function CreateProjectModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-800">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">新建项目</h2>
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          创建后将自动生成 Project API Key。
-        </p>
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              项目名称 <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="例如：移动端 App"
-              required
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              项目标识 (slug)
-            </label>
-            <input
-              type="text"
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              placeholder="留空则根据名称自动生成"
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-            />
-          </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              disabled={isPending || !name.trim()}
-              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
-            >
-              {isPending ? '创建中...' : '创建'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <Modal
+      title="新建项目"
+      description="创建后将自动生成 Project API Key，用于 Widget、提交页与 API 接入。"
+      onClose={onClose}
+      size="md"
+      footer={
+        <>
+          <Button variant="secondary" size="sm" onClick={onClose}>
+            取消
+          </Button>
+          <Button size="sm" type="submit" form="create-project-form" disabled={isPending || !name.trim()}>
+            {isPending ? '创建中...' : '创建项目'}
+          </Button>
+        </>
+      }
+    >
+      <form id="create-project-form" onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500">
+            项目名称 <span className="text-rose-500">*</span>
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="例如：移动端 App"
+            required
+            autoFocus
+            className="h-9 w-full rounded-lg border border-surface-3 bg-surface-1/60 px-3 text-[13px] text-gray-900 placeholder:text-gray-400 focus:border-brand-400 focus:bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-100"
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500">
+            项目标识（slug）
+          </label>
+          <input
+            type="text"
+            value={slug}
+            onChange={(e) => setSlug(e.target.value)}
+            placeholder="留空则根据名称自动生成"
+            className="h-9 w-full rounded-lg border border-surface-3 bg-surface-1/60 px-3 font-mono text-[13px] text-gray-900 placeholder:text-gray-400 focus:border-brand-400 focus:bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-100"
+          />
+          <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">
+            用作公开看板地址：/&#123;slug&#125;
+          </p>
+        </div>
+      </form>
+    </Modal>
   );
 }

@@ -1,27 +1,54 @@
+import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Layout } from '@/components/Layout';
+import { PageFallback } from '@/components/PageFallback';
 import type { OrgMemberRole } from '@/types';
-import { Login } from '@/pages/Login';
 import { Landing } from '@/pages/Landing';
-import { Dashboard } from '@/pages/Dashboard';
-import { FeedbackList } from '@/pages/FeedbackList';
-import { FeedbackDetail } from '@/pages/FeedbackDetail';
-import { Applications } from '@/pages/Applications';
-import { ProjectSettings } from '@/pages/ProjectSettings';
-import { Members } from '@/pages/Members';
-import { Tags } from '@/pages/Tags';
-import { Changelog } from '@/pages/Changelog';
-import { OrgSettings } from '@/pages/OrgSettings';
-import { Webhooks } from '@/pages/Webhooks';
-import { StatusSettings } from '@/pages/StatusSettings';
-import { WidgetConfig } from '@/pages/WidgetConfig';
-import { SystemConfig } from '@/pages/SystemConfig';
-import { Notifications } from '@/pages/Notifications';
-import { Categories } from '@/pages/Categories';
-import { AuditLogs } from '@/pages/AuditLogs';
-import { AcceptInvite } from '@/pages/AcceptInvite';
+import { Login } from '@/pages/Login';
+
+// Route chunks keep the first paint small; recharts and the settings-heavy
+// pages only load when they are actually opened.
+const Dashboard = lazy(() => import('@/pages/Dashboard').then((m) => ({ default: m.Dashboard })));
+const FeedbackList = lazy(() =>
+  import('@/pages/FeedbackList').then((m) => ({ default: m.FeedbackList })),
+);
+const FeedbackDetail = lazy(() =>
+  import('@/pages/FeedbackDetail').then((m) => ({ default: m.FeedbackDetail })),
+);
+const Applications = lazy(() =>
+  import('@/pages/Applications').then((m) => ({ default: m.Applications })),
+);
+const ProjectSettings = lazy(() =>
+  import('@/pages/ProjectSettings').then((m) => ({ default: m.ProjectSettings })),
+);
+const Members = lazy(() => import('@/pages/Members').then((m) => ({ default: m.Members })));
+const Tags = lazy(() => import('@/pages/Tags').then((m) => ({ default: m.Tags })));
+const Changelog = lazy(() => import('@/pages/Changelog').then((m) => ({ default: m.Changelog })));
+const OrgSettings = lazy(() =>
+  import('@/pages/OrgSettings').then((m) => ({ default: m.OrgSettings })),
+);
+const Webhooks = lazy(() => import('@/pages/Webhooks').then((m) => ({ default: m.Webhooks })));
+const StatusSettings = lazy(() =>
+  import('@/pages/StatusSettings').then((m) => ({ default: m.StatusSettings })),
+);
+const WidgetConfig = lazy(() =>
+  import('@/pages/WidgetConfig').then((m) => ({ default: m.WidgetConfig })),
+);
+const SystemConfig = lazy(() =>
+  import('@/pages/SystemConfig').then((m) => ({ default: m.SystemConfig })),
+);
+const Notifications = lazy(() =>
+  import('@/pages/Notifications').then((m) => ({ default: m.Notifications })),
+);
+const Categories = lazy(() =>
+  import('@/pages/Categories').then((m) => ({ default: m.Categories })),
+);
+const AuditLogs = lazy(() => import('@/pages/AuditLogs').then((m) => ({ default: m.AuditLogs })));
+const AcceptInvite = lazy(() =>
+  import('@/pages/AcceptInvite').then((m) => ({ default: m.AcceptInvite })),
+);
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -47,7 +74,11 @@ function PublicRoute({ children }: { children: ReactNode }) {
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
   }
-  return <>{children}</>;
+  return (
+    <Suspense fallback={<PageFallback />}>
+      {children}
+    </Suspense>
+  );
 }
 
 export function App() {
@@ -59,12 +90,10 @@ export function App() {
       <Route path="/feedback/:id" element={<ProtectedRoute><FeedbackDetail /></ProtectedRoute>} />
       <Route path="/changelog" element={<ProtectedRoute><Changelog /></ProtectedRoute>} />
       <Route path="/applications" element={<ProtectedRoute><Applications /></ProtectedRoute>} />
-      <Route path="/projects/:projectId/settings" element={<ProtectedRoute><ProjectSettings /></ProtectedRoute>} />
-      <Route path="/projects/:projectId/widget" element={<ProtectedRoute><WidgetConfig /></ProtectedRoute>} />
-      <Route path="/members" element={<RoleRoute roles={['owner', 'admin']}><Members /></RoleRoute>} />
-      <Route path="/tags" element={<RoleRoute roles={['owner', 'admin']}><Tags /></RoleRoute>} />
       <Route path="/projects/:projectId/settings" element={<RoleRoute roles={['owner', 'admin']}><ProjectSettings /></RoleRoute>} />
       <Route path="/projects/:projectId/widget" element={<RoleRoute roles={['owner', 'admin']}><WidgetConfig /></RoleRoute>} />
+      <Route path="/members" element={<RoleRoute roles={['owner', 'admin']}><Members /></RoleRoute>} />
+      <Route path="/tags" element={<RoleRoute roles={['owner', 'admin']}><Tags /></RoleRoute>} />
       <Route path="/projects/:projectId/webhooks" element={<RoleRoute roles={['owner', 'admin']}><Webhooks /></RoleRoute>} />
       <Route path="/projects/:projectId/statuses" element={<RoleRoute roles={['owner', 'admin']}><StatusSettings /></RoleRoute>} />
       <Route path="/projects/:projectId/notifications" element={<RoleRoute roles={['owner', 'admin']}><Notifications /></RoleRoute>} />

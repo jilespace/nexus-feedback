@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { ShortcutHelp } from '@/components/ShortcutHelp';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { PageFallback } from '@/components/PageFallback';
 import { clsx } from 'clsx';
 import type { ReactNode } from 'react';
 import {
@@ -280,7 +282,11 @@ export function Layout({ children }: { children: ReactNode }) {
         </header>
 
         <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-[1440px] p-4 sm:p-6 lg:p-8">{children}</div>
+          <div className="mx-auto w-full max-w-[1440px] p-4 sm:p-6 lg:p-8">
+            <ErrorBoundary>
+              <Suspense fallback={<PageFallback />}>{children}</Suspense>
+            </ErrorBoundary>
+          </div>
         </main>
       </div>
 
