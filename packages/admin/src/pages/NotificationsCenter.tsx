@@ -5,10 +5,19 @@ import { clsx } from 'clsx';
 import { apiRequest } from '@/api/client';
 import { PageHeader } from '@/components/PageHeader';
 import { Badge, Button, Card, CardHeader, EmptyState, Skeleton, Switch } from '@/components/ui';
+import { Modal } from '@/components/Modal';
 import { Pagination } from '@/components/feedback/Pagination';
 import { useToast } from '@/components/Toast';
+import { TrashIcon } from '@/components/notifications/NotificationIcons';
 import { formatRelativeTime } from '@/utils/formatRelativeTime';
-import type { NotificationItem, NotificationPage, NotificationType } from '@/hooks/useNotifications';
+import {
+  useClearNotifications,
+  useDeleteNotification,
+  useMarkAllNotificationsRead,
+  useMarkNotificationRead,
+  useNotificationPage,
+} from '@/hooks/useNotifications';
+import type { NotificationItem, NotificationType } from '@/hooks/useNotifications';
 
 type Filter = 'all' | 'unread';
 
@@ -21,8 +30,6 @@ const TYPE_META: Record<
   'feedback.status_changed': { label: '状态', tone: 'blue', dot: '#0EA5E9' },
   'feedback.comment': { label: '评论', tone: 'green', dot: '#10B981' },
 };
-
-const PAGE_SIZE = 20;
 
 type NotificationSettings = Record<NotificationType, boolean>;
 
@@ -55,41 +62,47 @@ export function NotificationsCenter() {
   const toast = useToast();
   const [filter, setFilter] = useState<Filter>('all');
   const [page, setPage] = useState(1);
+  const [confirmClear, setConfirmClear] = useState(false);
 
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['notifications-page', filter, page],
-    queryFn: () =>
-      apiRequest<NotificationPage>(
-        `/org/notifications?page=${page}&page_size=${PAGE_SIZE}${filter === 'unread' ? '&unread=true' : ''}`,
-      ),
-  });
-
-  const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    queryClient.invalidateQueries({ queryKey: ['notifications-page'] });
-  };
-
-  const readMutation = useMutation({
-    mutationFn: (id: string) =>
-      apiRequest<{ updated: boolean }>(`/org/notifications/${id}/read`, { method: 'POST' }),
-    onSuccess: invalidate,
-    onError: () => toast.show('标记已读失败', 'error'),
-  });
-
-  const readAllMutation = useMutation({
-    mutationFn: () =>
-      apiRequest<{ updated: number }>('/org/notifications/read-all', { method: 'POST' }),
-    onSuccess: (result) => {
-      toast.show(result.updated > 0 ? `已标记 ${result.updated} 条为已读` : '没有未读通知');
-      invalidate();
-    },
-    onError: () => toast.show('操作失败', 'error'),
-  });
+  const { data, isLoading, isError, refetch } = useNotificationPage(filter, page);
+  const markRead = useMarkNotificationRead();
+  const markAllRead = useMarkAllNotificationsRead();
+  const deleteNotification = useDeleteNotification();
+  const clearNotifications = useClearNotifications();
 
   const open = (item: NotificationItem) => {
-    if (!item.read_at) readMutation.mutate(item.id);
+    if (!item.read_at) {
+      markRead.mutate(item.id, {
+        onError: () => toast.show('标记已读失败', 'error'),
+      });
+    }
     const target = item.link || (item.feedback_id ? `/feedback/${item.feedback_id}` : null);
     if (target) navigate(target);
+  };
+
+  const remove = (item: NotificationItem) => {
+    deleteNotification.mutate(item.id, {
+      onError: () => toast.show('删除通知失败', 'error'),
+    });
+  };
+
+  const readAll = () => {
+    markAllRead.mutate(undefined, {
+      onSuccess: (result) =>
+        toast.show(result.updated > 0 ? `已标记 ${result.updated} 条为已读` : '没有未读通知'),
+      onError: () => toast.show('操作失败', 'error'),
+    });
+  };
+
+  const confirmClearAll = () => {
+    clearNotifications.mutate(undefined, {
+      onSuccess: (result) => {
+        toast.show(`已清空 ${result.deleted} 条通知`);
+        setConfirmClear(false);
+        setPage(1);
+      },
+      onError: () => toast.show('清空通知失败', 'error'),
+    });
   };
 
   const { data: settings } = useQuery({
@@ -116,21 +129,35 @@ export function NotificationsCenter() {
   };
 
   const items = data?.items ?? [];
+  const totalCount = data?.total ?? 0;
   const totalPages = data ? Math.ceil(data.total / data.page_size) : 0;
   const unreadCount = data?.unread_count ?? 0;
+
   return (
     <div className="animate-fade-in space-y-5">
       <PageHeader
         title="通知"
         description="反馈创建、指派、状态变更与评论都会在这里提醒你。"
         actions={
-          <Button
-            variant="secondary"
-            onClick={() => readAllMutation.mutate()}
-            disabled={readAllMutation.isPending || unreadCount === 0}
-          >
-            {readAllMutation.isPending ? '处理中...' : '全部标为已读'}
-          </Button>
+          <>
+            <Button variant="secondary" onClick={readAll} disabled={markAllRead.isPending || unreadCount === 0}>
+              {markAllRead.isPending ? '处理中...' : '全部标为已读'}
+            </Button>
+            <button
+              type="button"
+              onClick={() => setConfirmClear(true)}
+              disabled={totalCount === 0 || clearNotifications.isPending}
+              className={clsx(
+                'inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors',
+                'text-rose-600 hover:bg-rose-50 active:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-40',
+                'dark:text-rose-300 dark:hover:bg-rose-500/10 dark:active:bg-rose-500/15',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0 dark:focus-visible:ring-offset-gray-800',
+              )}
+            >
+              <TrashIcon className="h-3.5 w-3.5" />
+              清空全部
+            </button>
+          </>
         }
       />
 
@@ -159,9 +186,7 @@ export function NotificationsCenter() {
             </button>
           ))}
         </div>
-        <span className="text-xs text-gray-400 dark:text-gray-500">
-          共 {data?.total ?? 0} 条
-        </span>
+        <span className="text-xs text-gray-400 dark:text-gray-500">共 {totalCount} 条</span>
       </div>
 
       {isLoading ? (
@@ -193,15 +218,18 @@ export function NotificationsCenter() {
                 const meta = TYPE_META[item.type] ?? TYPE_META['feedback.created'];
                 const unread = !item.read_at;
                 return (
-                  <li key={item.id}>
+                  <li
+                    key={item.id}
+                    className={clsx(
+                      'group flex items-stretch transition-colors',
+                      unread
+                        ? 'bg-brand-50/40 hover:bg-brand-50/70 dark:bg-brand-600/10 dark:hover:bg-brand-600/15'
+                        : 'hover:bg-surface-1/60 dark:hover:bg-gray-700/20',
+                    )}
+                  >
                     <button
                       onClick={() => open(item)}
-                      className={clsx(
-                        'flex w-full items-start gap-3 px-5 py-3.5 text-left transition-colors',
-                        unread
-                          ? 'bg-brand-50/40 hover:bg-brand-50/70 dark:bg-brand-600/10 dark:hover:bg-brand-600/15'
-                          : 'hover:bg-surface-1/60 dark:hover:bg-gray-700/20',
-                      )}
+                      className="flex min-w-0 flex-1 items-start gap-3 py-3.5 pl-5 pr-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500/45"
                     >
                       <span
                         className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
@@ -210,11 +238,13 @@ export function NotificationsCenter() {
                         <span className="h-2 w-2 rounded-full" style={{ backgroundColor: meta.dot }} />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-2">
-                          <span className="truncate text-[13px] font-medium text-gray-800 dark:text-gray-100">
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-gray-800 dark:text-gray-100">
                             {item.title}
                           </span>
-                          <Badge tone={meta.tone}>{meta.label}</Badge>
+                          <span className="shrink-0">
+                            <Badge tone={meta.tone}>{meta.label}</Badge>
+                          </span>
                           {unread && (
                             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" />
                           )}
@@ -229,6 +259,29 @@ export function NotificationsCenter() {
                         </span>
                       </span>
                     </button>
+                    <span className="flex shrink-0 items-start pr-2.5 pt-2">
+                      <button
+                        type="button"
+                        aria-label="删除通知"
+                        title="删除通知"
+                        disabled={
+                          deleteNotification.isPending &&
+                          deleteNotification.variables === item.id
+                        }
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          remove(item);
+                        }}
+                        className={clsx(
+                          'flex h-9 w-9 items-center justify-center rounded-lg transition-all',
+                          'text-gray-400 hover:bg-rose-50 hover:text-rose-600 dark:text-gray-500 dark:hover:bg-rose-500/10 dark:hover:text-rose-400',
+                          'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 max-md:opacity-100',
+                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 disabled:cursor-not-allowed',
+                        )}
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
+                    </span>
                   </li>
                 );
               })}
@@ -282,6 +335,39 @@ export function NotificationsCenter() {
           </ul>
         )}
       </Card>
+
+      {confirmClear && (
+        <Modal
+          title="清空全部通知"
+          description="此操作不可恢复"
+          size="sm"
+          onClose={() => setConfirmClear(false)}
+          footer={
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setConfirmClear(false)}
+                disabled={clearNotifications.isPending}
+              >
+                取消
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={confirmClearAll}
+                disabled={clearNotifications.isPending}
+              >
+                {clearNotifications.isPending ? '清空中...' : '确认清空'}
+              </Button>
+            </>
+          }
+        >
+          <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+            将删除全部 {totalCount} 条通知（包含已读与未读），删除后不可恢复。
+          </p>
+        </Modal>
+      )}
     </div>
   );
 }

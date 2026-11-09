@@ -441,6 +441,15 @@ class PageSession {
     this.diagnostics = { consoleErrors: [], exceptions: [], logErrors: [], networkFailures: [] };
   }
 
+  async setViewport({ width, height, mobile = false, deviceScaleFactor = 1 }) {
+    await this.send('Emulation.setDeviceMetricsOverride', {
+      width,
+      height,
+      deviceScaleFactor,
+      mobile,
+    });
+  }
+
   async evaluate(expression, { awaitPromise = true } = {}) {
     const result = await this.send('Runtime.evaluate', {
       expression,
@@ -777,6 +786,7 @@ async function checkAdmin(page, options, context) {
     }
     skipCheck('后台 · 命令面板 ⌘K', '登录失败，跳过');
     skipCheck('后台 · 通知铃铛', '登录失败，跳过');
+    skipCheck('后台 · 命令面板输入「通知」回车跳转', '登录失败，跳过');
     return;
   }
 
@@ -1176,6 +1186,246 @@ async function checkWriteFlows(page, options, context) {
   });
 }
 
+/** 统一响应信封：{ code: number, data: any, message: string }。 */
+function assertEnvelope(label, body) {
+  assert(body && typeof body === 'object', `${label} 响应不是 JSON 对象`);
+  assert(typeof body.code === 'number', `${label} 缺少数字 code（got ${typeof body.code}）`);
+  assert(Object.prototype.hasOwnProperty.call(body, 'data'), `${label} 缺少 data 字段`);
+  assert(typeof body.message === 'string', `${label} 缺少 message 字符串`);
+}
+
+async function checkApiContract(options, context) {
+  const names = [
+    'API 契约 · 统一响应信封（health / notifications / feedback）',
+    'API 契约 · 未认证 org/notifications 返回 401 且 code≠0',
+  ];
+  if (!context.auth) {
+    for (const name of names) skipCheck(name, '未建立后台登录态，跳过契约检查');
+    return;
+  }
+  const headers = { Authorization: `Bearer ${context.auth.token}` };
+
+  await runCheck(names[0], async () => {
+    const health = await httpJson(`${options.baseApi}/api/v1/health`);
+    assert(health.status === 200, `health HTTP ${health.status}`);
+    assertEnvelope('health', health.json);
+    assert(health.json.code === 0, `health code=${health.json.code}`);
+
+    const notifications = await httpJson(
+      `${options.baseApi}/api/v1/org/notifications?page=1&page_size=1`,
+      { headers },
+    );
+    assert(notifications.status === 200, `org/notifications HTTP ${notifications.status}`);
+    assertEnvelope('org/notifications', notifications.json);
+    assert(notifications.json.code === 0, `org/notifications code=${notifications.json.code}`);
+    assert(
+      Array.isArray(notifications.json.data?.items),
+      'org/notifications data.items 不是数组',
+    );
+
+    const feedback = await httpJson(`${options.baseApi}/api/v1/admin/feedback?page_size=1`, {
+      headers,
+    });
+    assert(feedback.status === 200, `admin/feedback HTTP ${feedback.status}`);
+    assertEnvelope('admin/feedback', feedback.json);
+    assert(feedback.json.code === 0, `admin/feedback code=${feedback.json.code}`);
+    assert(Array.isArray(feedback.json.data?.items), 'admin/feedback data.items 不是数组');
+    assert(feedback.json.data.items.length <= 1, 'admin/feedback page_size=1 返回超过 1 条');
+    return 'health / notifications / admin feedback 信封均为 {code:number,data,message} 且 code=0';
+  });
+
+  await runCheck(names[1], async () => {
+    const response = await httpJson(`${options.baseApi}/api/v1/org/notifications`);
+    assert(response.status === 401, `期望 HTTP 401，实际 ${response.status}`);
+    assertEnvelope('未认证 org/notifications', response.json);
+    assert(response.json.code !== 0, '未认证响应 code 不应为 0');
+    return `HTTP 401 · code=${response.json.code} · data=null`;
+  });
+}
+
+async function checkCsvImport(options, context) {
+  const name = '写操作 · CSV 导入 dry_run → commit → 检索 → 软删除';
+  if (!context.auth) {
+    skipCheck(name, '未建立后台登录态，跳过 CSV 导入检查');
+    return;
+  }
+
+  const token = context.auth.token;
+  const authHeaders = { Authorization: `Bearer ${token}` };
+  const jsonHeaders = { 'Content-Type': 'application/json', ...authHeaders };
+  const projectId = context.projectId ?? DEMO_PROJECT_ID;
+  const stamp = Date.now();
+  const dryRunTitle = `[SMOKE] 导入 dry-run ${stamp}`;
+  const commitTitle = `[SMOKE] 导入 commit ${stamp}`;
+  const importUrl = `${options.baseApi}/api/v1/admin/feedback/import`;
+  const searchUrl = (title) =>
+    `${options.baseApi}/api/v1/admin/feedback?keyword=${encodeURIComponent(title)}&page_size=10`;
+
+  await runCheck(name, async () => {
+    let importedId = null;
+    try {
+      // a) 混合 dry-run：1 有效 + 1 无效分类，断言索引且不写库。
+      const mixed = await httpJson(importUrl, {
+        method: 'POST',
+        headers: jsonHeaders,
+        body: JSON.stringify({
+          project_id: projectId,
+          dry_run: true,
+          rows: [
+            { title: dryRunTitle, content: 'dry_run 有效行，不应写入数据库。', category: 'other' },
+            { title: '[SMOKE] 导入无效行', content: '分类非法，应被标记为无效。', category: 'nope' },
+          ],
+        }),
+      });
+      assert(mixed.status === 200, `混合 dry_run HTTP ${mixed.status}`);
+      assert(mixed.json?.code === 0, `混合 dry_run code=${mixed.json?.code}`);
+      const mixedData = mixed.json?.data ?? {};
+      assert(mixedData.total === 2, `dry_run total=${mixedData.total}（期望 2）`);
+      assert(mixedData.valid === 1, `dry_run valid=${mixedData.valid}（期望 1）`);
+      assert(
+        Array.isArray(mixedData.invalid_rows) && mixedData.invalid_rows.length === 1,
+        `dry_run invalid_rows 数量=${mixedData.invalid_rows?.length}（期望 1）`,
+      );
+      assert(
+        mixedData.invalid_rows[0].index === 1,
+        `invalid_rows[0].index=${mixedData.invalid_rows[0].index}（期望 1）`,
+      );
+      const drySearch = await httpJson(searchUrl(dryRunTitle), { headers: authHeaders });
+      const dryWritten = (drySearch.json?.data?.items ?? []).some(
+        (item) => item.title === dryRunTitle,
+      );
+      assert(!dryWritten, 'dry_run 后按标题检索到数据（不应写库）');
+
+      // b) 单条有效 dry-run → commit → 检索确认 → 软删除。
+      const rows = [
+        {
+          title: commitTitle,
+          content: '由 pnpm smoke 通过 CSV 导入创建的测试反馈，验证后会软删除。',
+          category: 'other',
+          priority: 'medium',
+        },
+      ];
+      const single = await httpJson(importUrl, {
+        method: 'POST',
+        headers: jsonHeaders,
+        body: JSON.stringify({ project_id: projectId, dry_run: true, rows }),
+      });
+      assert(
+        single.status === 200 && single.json?.code === 0 && single.json?.data?.valid === 1,
+        `单条 dry_run 未通过（HTTP ${single.status} code=${single.json?.code}）`,
+      );
+
+      const commit = await httpJson(importUrl, {
+        method: 'POST',
+        headers: jsonHeaders,
+        body: JSON.stringify({ project_id: projectId, dry_run: false, rows }),
+      });
+      assert(commit.status === 200, `commit HTTP ${commit.status}`);
+      assert(commit.json?.code === 0, `commit code=${commit.json?.code}`);
+      assert(commit.json?.data?.imported === 1, `imported=${commit.json?.data?.imported}（期望 1）`);
+
+      const found = await httpJson(searchUrl(commitTitle), { headers: authHeaders });
+      const target = (found.json?.data?.items ?? []).find(
+        (item) => item.title === commitTitle,
+      );
+      assert(target?.id, 'commit 后未按标题检索到导入的反馈');
+      importedId = target.id;
+
+      const deleted = await httpJson(`${options.baseApi}/api/v1/admin/feedback/${importedId}`, {
+        method: 'DELETE',
+        headers: authHeaders,
+      });
+      assert(deleted.status === 200 && deleted.json?.code === 0, `软删除失败 HTTP ${deleted.status}`);
+      importedId = null;
+
+      const after = await httpJson(searchUrl(commitTitle), { headers: authHeaders });
+      const stillExists = (after.json?.data?.items ?? []).some(
+        (item) => item.title === commitTitle,
+      );
+      assert(!stillExists, '软删除后仍能检索到导入的反馈');
+
+      // audit 子断言：接口支持 action 过滤时校验，不支持则跳过。
+      let auditDetail = 'audit 过滤不可用，跳过';
+      try {
+        const audit = await httpJson(
+          `${options.baseApi}/api/v1/org/audit-logs?action=feedback.import&page_size=10`,
+          { headers: authHeaders },
+        );
+        if (audit.status === 200 && audit.json?.code === 0) {
+          const hit = (audit.json.data?.items ?? []).find(
+            (item) => item.action === 'feedback.import',
+          );
+          auditDetail = hit
+            ? 'audit=feedback.import ✓'
+            : 'audit 暂无 feedback.import（子断言跳过）';
+        } else {
+          auditDetail = `audit 过滤不支持（HTTP ${audit.status}），跳过`;
+        }
+      } catch {
+        auditDetail = 'audit 请求失败，跳过';
+      }
+
+      return `dry_run valid=1/invalid index=1 不写库 · imported=1 · 检索+软删除 ✓ · ${auditDetail}`;
+    } finally {
+      if (importedId) {
+        try {
+          await httpJson(`${options.baseApi}/api/v1/admin/feedback/${importedId}`, {
+            method: 'DELETE',
+            headers: authHeaders,
+          });
+        } catch {
+          /* 尽力而为 */
+        }
+      }
+      await deleteFeedbackByTitle(options, token, dryRunTitle).catch(() => {});
+      await deleteFeedbackByTitle(options, token, commitTitle).catch(() => {});
+    }
+  });
+}
+
+async function checkMobile(page, options, context) {
+  const targets = [
+    ['移动端 390 · 仪表盘', '/dashboard', 'mobile-dashboard'],
+    ['移动端 390 · 反馈列表', '/feedback', 'mobile-feedback'],
+    ['移动端 390 · 通知中心', '/notifications', 'mobile-notifications'],
+  ];
+  if (!context.auth) {
+    for (const [name] of targets) skipCheck(name, '未建立后台登录态，跳过移动端检查');
+    return;
+  }
+
+  const metricsExpr = `(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    innerWidth: window.innerWidth,
+    pathname: location.pathname,
+    mainText: (document.querySelector('main')?.innerText ?? '').trim().length,
+  }))()`;
+
+  try {
+    await page.setViewport({ width: 390, height: 844, mobile: true, deviceScaleFactor: 2 });
+    for (const [name, pagePath, fileName] of targets) {
+      await runCheck(name, async () => {
+        await page.navigate(`${options.baseAdmin}${pagePath}`, {
+          readyExpression: ADMIN_READY,
+          timeoutMs: 20000,
+        });
+        const metrics = await page.evaluate(metricsExpr);
+        assert(metrics.pathname === pagePath, `期望路径 ${pagePath}，实际 ${metrics.pathname}`);
+        assert(metrics.mainText > 20, `main 内容过少（${metrics.mainText} 字）`);
+        assert(
+          metrics.scrollWidth <= metrics.innerWidth,
+          `横向溢出：scrollWidth=${metrics.scrollWidth} > innerWidth=${metrics.innerWidth}`,
+        );
+        page.assertClean(name);
+        const shot = await page.screenshot(fileName);
+        return `${metrics.innerWidth}px · main ${metrics.mainText} 字 · 无横向溢出${shot ? ` · ${shot}` : ''}`;
+      });
+    }
+  } finally {
+    await page.setViewport({ width: 1440, height: 900, mobile: false, deviceScaleFactor: 1 });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 输出
 // ---------------------------------------------------------------------------
@@ -1256,6 +1506,9 @@ async function main() {
     await checkWidget(page, options, context);
     await checkAdmin(page, options, context);
     await checkWriteFlows(page, options, context);
+    await checkApiContract(options, context);
+    await checkCsvImport(options, context);
+    await checkMobile(page, options, context);
   } catch (error) {
     results.push({
       name: '环境初始化',

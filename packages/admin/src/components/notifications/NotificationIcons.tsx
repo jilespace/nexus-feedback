@@ -59,6 +59,27 @@ export function BellOffIcon({ className }: IconProps) {
   );
 }
 
+export function TrashIcon({ className }: IconProps) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      aria-hidden="true"
+      className={clsx('shrink-0', className)}
+    >
+      <path
+        d="M2.8 4.4h10.4M6.4 4.4V3.2c0-.5.4-.9.9-.9h1.4c.5 0 .9.4.9.9v1.2M4.2 4.4l.6 7.8c0 .7.6 1.2 1.3 1.2h3.8c.7 0 1.3-.5 1.3-1.2l.6-7.8M6.7 6.8v4.1M9.3 6.8v4.1"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 /** One distinct colour + glyph per notification type so type is never signalled by colour alone. */
 const TYPE_META: Record<NotificationType, { label: string; wrapper: string; icon: ReactNode }> = {
   'feedback.created': {

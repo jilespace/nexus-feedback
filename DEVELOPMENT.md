@@ -634,6 +634,13 @@ node scripts/smoke.mjs \
      随后软删除测试反馈；
   3. 命令面板 ⌘K 输入「通知」并回车，断言 URL 跳转到 `/notifications`。
   写操作产生的测试反馈即使中途失败也会尽力清理，通知会被标记为已读。
+- **API 响应契约**：`health` / `org/notifications`（带 token）/ `admin/feedback` 统一信封
+  `{ code: number, data, message: string }` 且 `code === 0`；未认证 `org/notifications` 为 401 且 `code !== 0`。
+- **CSV 导入链路**：`admin/feedback/import` 混合 dry-run（`valid=1`、`invalid_rows[0].index` 正确、不写库）
+  → 单条 dry-run + commit（`imported=1`）→ 按标题检索 → 软删除；`audit-logs?action=feedback.import`
+  可查到记录（过滤不支持时跳过该子断言）。
+- **移动端 390×844**：`dashboard` / `feedback` / `notifications` 三页断言
+  `scrollWidth <= innerWidth`（无横向溢出）、无 console error、`main` 内容存在。
 - 截图全部保存到 `.tools/shots/smoke/`。
 
 ### 输出与退出码

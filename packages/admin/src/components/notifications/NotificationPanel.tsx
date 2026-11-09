@@ -3,15 +3,22 @@ import { useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
 import type { CSSProperties } from 'react';
 import { Button } from '@/components/ui';
+import { useToast } from '@/components/Toast';
 import { formatRelativeTime } from '@/utils/formatRelativeTime';
 import {
+  useDeleteNotification,
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
   useNotifications,
   useUnreadNotificationCount,
 } from '@/hooks/useNotifications';
 import type { NotificationItem } from '@/hooks/useNotifications';
-import { BellOffIcon, NotificationTypeIcon, notificationTypeLabel } from './NotificationIcons';
+import {
+  BellOffIcon,
+  NotificationTypeIcon,
+  notificationTypeLabel,
+  TrashIcon,
+} from './NotificationIcons';
 
 interface NotificationPanelProps {
   variant: 'sidebar' | 'mobile';
@@ -24,10 +31,12 @@ interface NotificationPanelProps {
 export const NotificationPanel = forwardRef<HTMLDivElement, NotificationPanelProps>(
   function NotificationPanel({ variant, onClose, style, id }, ref) {
     const navigate = useNavigate();
+    const toast = useToast();
     const { data, isPending, isError, isFetching, refetch } = useNotifications(true);
     const { data: unreadData, refetch: refetchUnreadCount } = useUnreadNotificationCount();
     const markRead = useMarkNotificationRead();
     const markAllRead = useMarkAllNotificationsRead();
+    const deleteNotification = useDeleteNotification();
 
     // Opening the panel is the natural refresh point for the badge.
     useEffect(() => {
@@ -43,6 +52,12 @@ export const NotificationPanel = forwardRef<HTMLDivElement, NotificationPanelPro
       onClose();
       const target = item.link || (item.feedback_id ? `/feedback/${item.feedback_id}` : null);
       if (target) navigate(target);
+    };
+
+    const removeNotification = (item: NotificationItem) => {
+      deleteNotification.mutate(item.id, {
+        onError: () => toast.show('删除通知失败', 'error'),
+      });
     };
 
     return (
@@ -96,7 +111,15 @@ export const NotificationPanel = forwardRef<HTMLDivElement, NotificationPanelPro
           ) : (
             <ul role="list" className="divide-y divide-surface-2 dark:divide-gray-700/50">
               {items.map((item) => (
-                <NotificationRow key={item.id} item={item} onOpen={openNotification} />
+                <NotificationRow
+                  key={item.id}
+                  item={item}
+                  onOpen={openNotification}
+                  onDelete={removeNotification}
+                  deleting={
+                    deleteNotification.isPending && deleteNotification.variables === item.id
+                  }
+                />
               ))}
             </ul>
           )}
@@ -133,22 +156,25 @@ export const NotificationPanel = forwardRef<HTMLDivElement, NotificationPanelPro
 interface NotificationRowProps {
   item: NotificationItem;
   onOpen: (item: NotificationItem) => void;
+  onDelete: (item: NotificationItem) => void;
+  deleting: boolean;
 }
 
-function NotificationRow({ item, onOpen }: NotificationRowProps) {
+function NotificationRow({ item, onOpen, onDelete, deleting }: NotificationRowProps) {
   const unread = !item.read_at;
   return (
-    <li>
+    <li
+      className={clsx(
+        'group flex items-stretch transition-colors',
+        unread
+          ? 'bg-brand-50/60 hover:bg-brand-50 dark:bg-brand-600/10 dark:hover:bg-brand-600/20'
+          : 'hover:bg-surface-1 dark:hover:bg-gray-700/40',
+      )}
+    >
       <button
         type="button"
         onClick={() => onOpen(item)}
-        className={clsx(
-          'flex w-full items-start gap-2.5 px-3.5 py-2.5 text-left transition-colors',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500/45',
-          unread
-            ? 'bg-brand-50/60 hover:bg-brand-50 dark:bg-brand-600/10 dark:hover:bg-brand-600/20'
-            : 'hover:bg-surface-1 dark:hover:bg-gray-700/40',
-        )}
+        className="flex min-w-0 flex-1 items-start gap-2.5 py-2.5 pl-3.5 pr-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500/45"
       >
         <NotificationTypeIcon type={item.type} className="mt-0.5" />
         <span className="min-w-0 flex-1">
@@ -184,6 +210,26 @@ function NotificationRow({ item, onOpen }: NotificationRowProps) {
           </span>
         </span>
       </button>
+      <span className="flex shrink-0 items-start pr-1.5 pt-2">
+        <button
+          type="button"
+          aria-label="删除通知"
+          title="删除通知"
+          disabled={deleting}
+          onClick={(event) => {
+            event.stopPropagation();
+            onDelete(item);
+          }}
+          className={clsx(
+            'flex h-9 w-9 items-center justify-center rounded-lg transition-all md:h-7 md:w-7',
+            'text-gray-400 hover:bg-rose-50 hover:text-rose-600 dark:text-gray-500 dark:hover:bg-rose-500/10 dark:hover:text-rose-400',
+            'opacity-0 focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 disabled:opacity-40',
+          )}
+        >
+          <TrashIcon className="h-3.5 w-3.5" />
+        </button>
+      </span>
     </li>
   );
 }
