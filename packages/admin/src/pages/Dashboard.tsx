@@ -1,18 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { lazy, Suspense } from 'react';
 import { apiRequest, fetchAuditLogs } from '@/api/client';
 import { StatusBadge } from '@/components/StatusBadge';
 import { CategoryBadge, SourceBadge } from '@/components/badges';
@@ -36,6 +25,9 @@ import { fillLastWeeks } from '@/utils/weekSeries';
 import type { AuditLog, FeedbackItem, PaginatedResponse, Stats } from '@/types';
 
 type DashboardStats = Stats;
+
+const TrendChart = lazy(() => import('@/components/dashboard/TrendChart'));
+const SourceDonut = lazy(() => import('@/components/dashboard/SourceDonut'));
 
 function greetingKey(hour: number): string {
   if (hour < 12) return 'dashboard.greeting_morning';
@@ -95,16 +87,7 @@ export function Dashboard() {
 
   const weekly = fillLastWeeks(stats.by_week ?? [], 8);
   const weekNew = weekly[weekly.length - 1]?.count ?? 0;
-  const axisColor = theme === 'dark' ? '#64748b' : '#94a3b8';
-  const gridColor = theme === 'dark' ? '#1f2937' : '#eef1f5';
-  const tooltipStyle = {
-    borderRadius: 10,
-    border: `1px solid ${theme === 'dark' ? '#334155' : '#e5e8ee'}`,
-    background: theme === 'dark' ? '#111827' : '#ffffff',
-    boxShadow: '0 8px 24px -12px rgb(15 23 42 / 0.2)',
-    fontSize: 12,
-    color: theme === 'dark' ? '#e2e8f0' : '#0f172a',
-  } as const;
+  const isDark = theme === 'dark';
 
   const sourceEntries = Object.entries(stats.by_source ?? {});
   const sourceTotal = sourceEntries.reduce((sum, [, value]) => sum + value, 0);
@@ -244,47 +227,9 @@ export function Dashboard() {
               </span>
             }
           />
-          <div className="h-[220px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={weekly} margin={{ top: 4, right: 8, bottom: 0, left: -18 }}>
-                <defs>
-                  <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#3D5AFE" stopOpacity={0.28} />
-                    <stop offset="100%" stopColor="#3D5AFE" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke={gridColor} strokeDasharray="4 4" vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 11, fill: axisColor }}
-                  axisLine={false}
-                  tickLine={false}
-                  dy={8}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: axisColor }}
-                  axisLine={false}
-                  tickLine={false}
-                  allowDecimals={false}
-                  width={40}
-                />
-                <Tooltip
-                  contentStyle={tooltipStyle}
-                  cursor={{ stroke: '#3D5AFE', strokeDasharray: '4 4', strokeOpacity: 0.35 }}
-                  formatter={(value) => [`${value}`, t('dashboard.total_feedback')]}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="count"
-                  stroke="#3D5AFE"
-                  strokeWidth={2.4}
-                  fill="url(#trendGradient)"
-                  dot={{ r: 3, strokeWidth: 2, fill: theme === 'dark' ? '#111827' : '#ffffff' }}
-                  activeDot={{ r: 5, strokeWidth: 2 }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          <Suspense fallback={<Skeleton className="h-[220px] rounded-lg" />}>
+            <TrendChart data={weekly} isDark={isDark} tooltipLabel={t('dashboard.total_feedback')} />
+          </Suspense>
         </Card>
 
         <Card className="flex flex-col p-5">
@@ -295,33 +240,14 @@ export function Dashboard() {
           />
           {sourceData.length ? (
             <>
-              <div className="relative mx-auto h-[168px] w-full max-w-[220px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={sourceData}
-                      dataKey="value"
-                      innerRadius="62%"
-                      outerRadius="92%"
-                      paddingAngle={3}
-                      strokeWidth={0}
-                    >
-                      {sourceData.map((entry) => (
-                        <Cell key={entry.name} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={tooltipStyle} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-2xl font-semibold tabular-nums text-gray-900 dark:text-gray-50">
-                    {sourceTotal}
-                  </span>
-                  <span className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500">
-                    {t('dashboard.total_hint')}
-                  </span>
-                </div>
-              </div>
+              <Suspense fallback={<Skeleton className="mx-auto h-[168px] max-w-[220px] rounded-full" />}>
+                <SourceDonut
+                  sources={sourceData}
+                  total={sourceTotal}
+                  totalLabel={t('dashboard.total_hint')}
+                  isDark={isDark}
+                />
+              </Suspense>
               <ul className="mt-3 space-y-2">
                 {sourceData.map((source) => (
                   <li key={source.name} className="flex items-center gap-2.5 text-xs">

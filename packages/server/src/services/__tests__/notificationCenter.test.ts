@@ -21,6 +21,7 @@ const {
   markNotificationRead,
   markAllNotificationsRead,
   deleteNotification,
+  clearNotifications,
   getNotificationSettings,
   updateNotificationSettings,
 } = await import('../notificationCenter.js');
@@ -143,6 +144,17 @@ describe('notification center service', () => {
     expect(result).toEqual({ deleted: true });
     expect(prisma.notification.deleteMany).toHaveBeenCalledWith({
       where: { id: 'n-9', member_id: 'admin-1', org_id: 'org-1' },
+    });
+  });
+
+  it('clears all notifications for the member', async () => {
+    (prisma.notification.deleteMany as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 5 });
+
+    const result = await clearNotifications('admin-1', 'org-1');
+
+    expect(result).toEqual({ deleted: 5 });
+    expect(prisma.notification.deleteMany).toHaveBeenCalledWith({
+      where: { member_id: 'admin-1', org_id: 'org-1' },
     });
   });
 

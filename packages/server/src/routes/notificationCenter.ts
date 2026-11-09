@@ -8,6 +8,7 @@ import {
   markNotificationRead,
   markAllNotificationsRead,
   deleteNotification,
+  clearNotifications,
   getNotificationSettings,
   updateNotificationSettings,
 } from '../services/notificationCenter.js';
@@ -77,6 +78,15 @@ notificationCenterRouter.post('/notifications/:id/read', async (req, res, next) 
       req.orgId!,
       String(req.params.id),
     );
+    success(res, result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+notificationCenterRouter.delete('/notifications', async (req, res, next) => {
+  try {
+    const result = await clearNotifications(req.memberId!, req.orgId!);
     success(res, result);
   } catch (err) {
     next(err);
