@@ -5,6 +5,52 @@
 
 ## 轮次记录
 
+### Round 10 — 2026-11-10（合并建议 / 邮件预览 / 错误本地化 / 性能与冒烟）
+
+**本轮完成（Lead + 4 个 teammate 并行）**
+- **相似反馈合并建议（全栈，teammate）**：`GET /admin/feedback/:id/similar` 基于标题 token
+  （英文词 + 中文 2-gram）Jaccard/containment、内容 2-gram、同分类/同标签加成打分，阈值 0.2、
+  top5、候选最近 500 且排除 deleted/merged/self/跨 org；合并弹窗搜索为空时展示建议（相似度 %、点击合并）；
+  13 条单测。
+- **邮件模板预览（全栈，teammate）**：`GET /org/system-config/email-preview?type=invite|reset|status|digest`
+  用品牌模板渲染示例数据（无需邮件配置）；系统配置邮件卡新增预览 Modal（类型切换/主题行/sandbox iframe/
+  加载错误重试）；8 条路由测试。Lead 顺手收敛实际发送路径：密码重置邮件与周报 job 改用共享模板
+  （预览=实发）。
+- **API 错误本地化（Lead）**：客户端在一处把稳定错误码翻译为当前语言（鉴权/权限/404/限流/网络/500），
+  validation/conflict 保留服务端细节 + 本地化前缀；拆分 40101 无效凭证 / 40110 会话过期 / 40111 未激活；
+  实测 en 登录失败显示 "Invalid email or password"。
+- **首屏性能（teammate）**：Landing 拆为 copy.ts/icons/MockPanel/useScrollReveal，Landing.tsx
+  1207→349 行，DOM 输出逐字一致；Landing 路由 lazy 加载 → 登录用户 index JS 476→447KB（-6.1%）、
+  index CSS 106→79KB（-25.7%），登录首屏 raw -57KB / gzip -12.6KB。
+- **冒烟扩展到 39 项（teammate）**：新增 i18n 切换（en↔zh + html lang + 侧边栏/命令面板英文断言）、
+  移动端 390 三项交互（抽屉开/遮罩关、通知面板开/Esc 关、⌘K 跳转无溢出），总耗时 ~29s。
+- 工程注记：本轮发现 Vite dev server 的模块 transform 缓存可能陈旧（client.ts 改动未生效），
+  重启 admin dev server 后恢复；生产 build 不受影响。
+
+**验证**
+- `pnpm typecheck` ✅、`pnpm test` **217/217** ✅、`pnpm build` 5 包 ✅、`pnpm lint` 0 error ✅、
+  `pnpm smoke` **39/39 PASS**（28.2s）✅
+- CDP：合并建议 zh/en/390/空态/成功合并；邮件预览四类型中英 iframe 渲染；en 错误文案；
+  Landing 中英 1440/390 与拆分前 DOM 等价；移动端交互；0 console error/exception。
+
+**提交**：`4f6f2a1`（合并建议）、`22fec2b`（邮件预览）、`ee43013`（错误本地化 + 模板收敛）、
+`a3f2783`（Landing 拆分/lazy）、`e73320d`（smoke 39）、`1cef1cb`（测试对齐）
+
+**遗留 / 技术债**
+- 前端尚无单元测试（纯函数 weekSeries/labels/apiErrors/date 等可测）；建议引入 vitest 前端配置。
+- 相似度算法：内容统一字符 2-gram、候选按时间倒序 500；可加 IDF/阈值调优。
+- 通知面板固定 20 条；免打扰/按项目静音未做；服务端通知标题/正文仍为中文数据。
+- smoke 单文件 ~1724 行，建议拆分模块；移动端未覆盖表单输入交互。
+- admin index CSS 仍 ~79KB，可继续拆分 shell 样式。
+
+**下一轮计划（Round 11）**
+1. 前端单元测试基建：admin 引入 vitest（devDependency）+ 纯函数测试（labels/weekSeries/apiErrors/
+   formatRelativeTime/auditLabels），纳入 `pnpm test`。
+2. smoke 模块化拆分（scripts/smoke/）+ 移动端表单交互检查。
+3. 功能候选：合并建议阈值/IDF 优化 + 建议显示已合并关系；通知免打扰时段；反馈详情「关联更新日志」。
+4. 性能：admin shell CSS 拆分、Board/Submit Lighthouse 式指标采集（CDP 采集 LCP/FCP）。
+
+
 ### Round 9 — 2026-11-10（i18n 全站收尾：7 个命名空间并行落地）
 
 **本轮完成（Lead + 7 个 teammate 并行，写作用域按命名空间隔离）**
