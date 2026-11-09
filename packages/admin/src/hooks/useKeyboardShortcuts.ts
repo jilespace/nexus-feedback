@@ -5,10 +5,10 @@ export function useKeyboardShortcuts() {
   const [selectedIndex, setSelectedIndex] = useState(-1);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    const target = e.target as HTMLElement;
-    const tag = target.tagName.toLowerCase();
+    const target = e.target as HTMLElement | null;
+    const tag = target?.tagName?.toLowerCase() ?? '';
     if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-    if (target.isContentEditable) return;
+    if (target?.isContentEditable) return;
 
     if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();

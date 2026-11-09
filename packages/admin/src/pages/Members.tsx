@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/api/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -55,6 +56,7 @@ export function Members() {
   const [inviteRole, setInviteRole] = useState<OrgMemberRole>('member');
   const [confirmRemove, setConfirmRemove] = useState<OrgMember | null>(null);
   const [roleChange, setRoleChange] = useState<{ member: OrgMember; role: OrgMemberRole } | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const { data, isLoading } = useQuery({
     queryKey: ['org-members'],
@@ -128,6 +130,15 @@ export function Members() {
 
   const isOwner = currentMember?.role === 'owner';
   const canInvite = currentMember?.role === 'owner' || currentMember?.role === 'admin';
+
+  useEffect(() => {
+    if (searchParams.get('invite') === '1' && canInvite) {
+      setShowInvite(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('invite');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams, canInvite]);
 
   const copyInvite = async () => {
     try {

@@ -9,6 +9,7 @@ import { CategoryBadge, PriorityBadge, SourceBadge } from '@/components/badges';
 import { PageHeader } from '@/components/PageHeader';
 import { Button, Card, EmptyState, Skeleton } from '@/components/ui';
 import { MergeDialog } from '@/components/feedback/MergeDialog';
+import { EditFeedback } from '@/components/feedback/EditFeedback';
 import { InternalNotes } from '@/components/feedback/InternalNotes';
 import { StatusHistory } from '@/components/feedback/StatusHistory';
 import { useToast } from '@/components/Toast';
@@ -31,8 +32,10 @@ export function FeedbackDetail() {
   const toast = useToast();
   const { member } = useAuth();
   const canAssign = member?.role === 'owner' || member?.role === 'admin';
+  const canEdit = member?.role === 'owner' || member?.role === 'admin';
   const [replyContent, setReplyContent] = useState('');
   const [showMergeModal, setShowMergeModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['feedback', id],
@@ -156,6 +159,19 @@ export function FeedbackDetail() {
         backTo={{ label: t('feedback.list_title'), onClick: () => navigate('/feedback') }}
         actions={
           <>
+            {canEdit && (
+              <Button variant="secondary" size="sm" onClick={() => setShowEditModal(true)}>
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                  <path
+                    d="M11.2 2.8 13.2 4.8 5.6 12.4 3 13l.6-2.6 7.6-7.6Z"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                编辑
+              </Button>
+            )}
             <Button variant="secondary" size="sm" onClick={copyLink}>
               <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
                 <path
@@ -490,6 +506,10 @@ export function FeedbackDetail() {
           </Card>
         </aside>
       </div>
+
+      {showEditModal && (
+        <EditFeedback feedback={data} onClose={() => setShowEditModal(false)} />
+      )}
 
       {showMergeModal && (
         <MergeDialog

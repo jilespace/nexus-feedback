@@ -6,6 +6,7 @@ import {
   listFeedback,
   getFeedbackDetail,
   updateFeedbackStatus,
+  updateFeedbackContent,
   addReply,
   getStats,
   batchUpdateStatus,
@@ -146,6 +147,20 @@ adminRouter.patch('/feedback/:id/status', adminAuth, async (req, res, next) => {
     const { status } = req.body;
     if (!status) throw new ValidationError('状态不能为空');
     const result = await updateFeedbackStatus(id, status, req.memberId, req.orgId);
+    success(res, result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.patch('/feedback/:id', adminAuth, requireRole(['owner', 'admin']), async (req, res, next) => {
+  try {
+    const result = await updateFeedbackContent(
+      req.params.id as string,
+      req.body,
+      req.memberId,
+      req.orgId,
+    );
     success(res, result);
   } catch (err) {
     next(err);

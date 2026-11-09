@@ -282,6 +282,63 @@ export async function updateFeedbackStatus(
   return { id: updated.id, status: updated.status };
 }
 
+const updateFeedbackContentSchema = z.object({
+  title: z.string().min(1).max(200).transform(sanitizeHtml).optional(),
+  content: z.string().min(1).max(5000).transform(sanitizeHtml).optional(),
+  category: z.string().min(1).max(50).optional(),
+  priority: z.enum(PRIORITIES).optional(),
+  contact: z.string().max(200).nullable().optional(),
+  app_version: z.string().max(50).nullable().optional(),
+});
+
+export async function updateFeedbackContent(
+  id: string,
+  input: unknown,
+  memberId?: string,
+  orgId?: string,
+) {
+  if (orgId) {
+    await assertFeedbackInOrg(orgId, id);
+  }
+  const feedback = await prisma.feedback.findUnique({ where: { id } });
+  if (!feedback) throw new NotFoundError('反馈不存在');
+
+  const parsed = updateFeedbackContentSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new ValidationError(parsed.error.issues[0]?.message ?? '参数校验失败');
+  }
+  const changes = Object.fromEntries(
+    Object.entries(parsed.data).filter(([, value]) => value !== undefined),
+  );
+  if (Object.keys(changes).length === 0) {
+    throw new ValidationError('没有需要更新的字段');
+  }
+  if (changes.category && feedback.project_id) {
+    const categories = await getProjectCategories(feedback.project_id);
+    if (!categories.includes(changes.category)) {
+      throw new ValidationError(`无效的分类: ${changes.category}`);
+    }
+  }
+
+  const updated = await prisma.feedback.update({
+    where: { id },
+    data: changes as Prisma.FeedbackUpdateInput,
+  });
+
+  if (orgId) {
+    logAudit({
+      orgId,
+      memberId,
+      action: 'feedback.update',
+      targetType: 'feedback',
+      targetId: id,
+      metadata: { changed_fields: Object.keys(changes) },
+    }).catch(() => {});
+  }
+
+  return updated;
+}
+
 export async function addReply(
   feedbackId: string,
   content: string,

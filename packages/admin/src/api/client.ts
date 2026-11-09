@@ -1,3 +1,5 @@
+import type { ProjectAccessInfo } from '@/types';
+
 type ApiResponse<T> = {
   code: number;
   data: T;
@@ -88,6 +90,10 @@ export async function fetchOrgTags(): Promise<OrgTagItem[]> {
   const result = await apiRequest<{ items?: OrgTagItem[] } | OrgTagItem[]>('/org/tags');
   if (Array.isArray(result)) return result;
   return Array.isArray(result?.items) ? result.items : [];
+}
+
+export async function fetchOrgProjects(): Promise<ProjectAccessInfo[]> {
+  return apiRequest<ProjectAccessInfo[]>('/org/projects');
 }
 
 export async function fetchProjectCategories(): Promise<Array<{ name: string; color: string }>> {

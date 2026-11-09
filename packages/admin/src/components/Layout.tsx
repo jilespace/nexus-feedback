@@ -5,85 +5,22 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { ShortcutHelp } from '@/components/ShortcutHelp';
+import { CommandPalette } from '@/components/CommandPalette';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { PageFallback } from '@/components/PageFallback';
 import { clsx } from 'clsx';
 import type { ReactNode } from 'react';
+import { NAV_GROUPS, matchPageKey } from '@/config/navigation';
 import {
-  DashboardIcon,
-  FeedbackIcon,
-  ChangelogNavIcon,
-  AppsIcon,
-  MembersIcon,
-  TagsIcon,
-  SystemConfigIcon,
-  SettingsIcon,
   LogoutIcon,
   SunIcon,
   MoonIcon,
   MenuIcon,
   CloseIcon,
-  AuditLogsIcon,
   HelpIcon,
+  SearchIcon,
 } from '@/components/icons';
 import type { OrgMemberRole } from '@/types';
-
-const ALL_ROLES: OrgMemberRole[] = ['owner', 'admin', 'member'];
-const ADMIN_ROLES: OrgMemberRole[] = ['owner', 'admin'];
-const OWNER_ROLES: OrgMemberRole[] = ['owner'];
-
-const navGroups: Array<{
-  labelKey: string;
-  items: Array<{ to: string; labelKey: string; icon: typeof DashboardIcon; roles: OrgMemberRole[] }>;
-}> = [
-  {
-    labelKey: 'nav.group_workspace',
-    items: [
-      { to: '/dashboard', labelKey: 'nav.dashboard', icon: DashboardIcon, roles: ALL_ROLES },
-      { to: '/feedback', labelKey: 'nav.feedback', icon: FeedbackIcon, roles: ALL_ROLES },
-    ],
-  },
-  {
-    labelKey: 'nav.group_content',
-    items: [
-      { to: '/changelog', labelKey: 'nav.changelog', icon: ChangelogNavIcon, roles: ALL_ROLES },
-      { to: '/applications', labelKey: 'nav.applications', icon: AppsIcon, roles: ADMIN_ROLES },
-    ],
-  },
-  {
-    labelKey: 'nav.group_team',
-    items: [
-      { to: '/members', labelKey: 'nav.members', icon: MembersIcon, roles: ADMIN_ROLES },
-      { to: '/tags', labelKey: 'nav.tags', icon: TagsIcon, roles: ADMIN_ROLES },
-      { to: '/audit-logs', labelKey: 'nav.auditLogs', icon: AuditLogsIcon, roles: ADMIN_ROLES },
-    ],
-  },
-  {
-    labelKey: 'nav.group_settings',
-    items: [
-      { to: '/system-config', labelKey: 'nav.systemConfig', icon: SystemConfigIcon, roles: OWNER_ROLES },
-      { to: '/settings', labelKey: 'nav.settings', icon: SettingsIcon, roles: OWNER_ROLES },
-    ],
-  },
-];
-
-const PAGE_TITLES: Record<string, string> = {
-  '/dashboard': 'nav.dashboard',
-  '/feedback': 'nav.feedback',
-  '/changelog': 'nav.changelog',
-  '/applications': 'nav.applications',
-  '/members': 'nav.members',
-  '/tags': 'nav.tags',
-  '/audit-logs': 'nav.auditLogs',
-  '/system-config': 'nav.systemConfig',
-  '/settings': 'nav.settings',
-};
-
-function matchPageKey(pathname: string): string | null {
-  if (pathname.startsWith('/feedback/')) return 'nav.feedback';
-  if (pathname.startsWith('/projects/')) return 'nav.applications';
-  return PAGE_TITLES[pathname] ?? null;
-}
 
 export function Layout({ children }: { children: ReactNode }) {
   const { t, i18n } = useTranslation();
@@ -91,6 +28,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const { theme, toggleTheme } = useTheme();
   const { showHelp, setShowHelp } = useKeyboardShortcuts();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const location = useLocation();
 
   const toggleLang = () => {
@@ -151,9 +89,23 @@ export function Layout({ children }: { children: ReactNode }) {
           </button>
         </div>
 
+        {/* Command palette trigger */}
+        <div className="px-3 pb-2">
+          <button
+            onClick={() => setPaletteOpen(true)}
+            className="group flex w-full items-center gap-2 rounded-lg border border-surface-3 bg-surface-1/60 px-2.5 py-2 text-left text-xs text-gray-400 transition-colors hover:border-gray-300 hover:bg-surface-2 hover:text-gray-600 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-500 dark:hover:border-gray-600 dark:hover:text-gray-300"
+          >
+            <SearchIcon className="h-3.5 w-3.5 shrink-0" />
+            <span className="flex-1 truncate">搜索、跳转或执行操作…</span>
+            <kbd className="shrink-0 rounded border border-surface-3 bg-surface-0 px-1 py-0.5 font-sans text-[10px] font-semibold text-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-500">
+              ⌘K
+            </kbd>
+          </button>
+        </div>
+
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-3 pb-4">
-          {navGroups.map((group) => {
+          {NAV_GROUPS.map((group) => {
             const items = group.items.filter((item) => item.roles.includes(memberRole));
             if (!items.length) return null;
             return (
@@ -272,6 +224,13 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
           <div className="ml-auto flex items-center gap-1">
             <button
+              onClick={() => setPaletteOpen(true)}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-surface-2 dark:text-gray-400 dark:hover:bg-gray-700"
+              aria-label="搜索与快捷操作"
+            >
+              <SearchIcon className="h-4 w-4" />
+            </button>
+            <button
               onClick={toggleTheme}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-surface-2 dark:text-gray-400 dark:hover:bg-gray-700"
               aria-label="切换主题"
@@ -291,6 +250,12 @@ export function Layout({ children }: { children: ReactNode }) {
       </div>
 
       {showHelp && <ShortcutHelp onClose={() => setShowHelp(false)} />}
+
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        onShowShortcuts={() => setShowHelp(true)}
+      />
     </div>
   );
 }
