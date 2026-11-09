@@ -6,6 +6,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { ShortcutHelp } from '@/components/ShortcutHelp';
 import { CommandPalette } from '@/components/CommandPalette';
+import { NotificationBell } from '@/components/notifications';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { PageFallback } from '@/components/PageFallback';
 import { clsx } from 'clsx';
@@ -89,11 +90,11 @@ export function Layout({ children }: { children: ReactNode }) {
           </button>
         </div>
 
-        {/* Command palette trigger */}
-        <div className="px-3 pb-2">
+        {/* Command palette trigger + notifications */}
+        <div className="flex items-center gap-2 px-3 pb-2">
           <button
             onClick={() => setPaletteOpen(true)}
-            className="group flex w-full items-center gap-2 rounded-lg border border-surface-3 bg-surface-1/60 px-2.5 py-2 text-left text-xs text-gray-400 transition-colors hover:border-gray-300 hover:bg-surface-2 hover:text-gray-600 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-500 dark:hover:border-gray-600 dark:hover:text-gray-300"
+            className="group flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-surface-3 bg-surface-1/60 px-2.5 py-2 text-left text-xs text-gray-400 transition-colors hover:border-gray-300 hover:bg-surface-2 hover:text-gray-600 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-500 dark:hover:border-gray-600 dark:hover:text-gray-300"
           >
             <SearchIcon className="h-3.5 w-3.5 shrink-0" />
             <span className="flex-1 truncate">搜索、跳转或执行操作…</span>
@@ -101,6 +102,7 @@ export function Layout({ children }: { children: ReactNode }) {
               ⌘K
             </kbd>
           </button>
+          <NotificationBell variant="sidebar" />
         </div>
 
         {/* Nav */}
@@ -223,6 +225,7 @@ export function Layout({ children }: { children: ReactNode }) {
             </span>
           </div>
           <div className="ml-auto flex items-center gap-1">
+            <NotificationBell variant="mobile" />
             <button
               onClick={() => setPaletteOpen(true)}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-surface-2 dark:text-gray-400 dark:hover:bg-gray-700"

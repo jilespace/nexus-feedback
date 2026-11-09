@@ -46,6 +46,9 @@ const Categories = lazy(() =>
   import('@/pages/Categories').then((m) => ({ default: m.Categories })),
 );
 const AuditLogs = lazy(() => import('@/pages/AuditLogs').then((m) => ({ default: m.AuditLogs })));
+const NotificationsCenter = lazy(() =>
+  import('@/pages/NotificationsCenter').then((m) => ({ default: m.NotificationsCenter })),
+);
 const AcceptInvite = lazy(() =>
   import('@/pages/AcceptInvite').then((m) => ({ default: m.AcceptInvite })),
 );
@@ -89,6 +92,7 @@ export function App() {
       <Route path="/feedback" element={<ProtectedRoute><FeedbackList /></ProtectedRoute>} />
       <Route path="/feedback/:id" element={<ProtectedRoute><FeedbackDetail /></ProtectedRoute>} />
       <Route path="/changelog" element={<ProtectedRoute><Changelog /></ProtectedRoute>} />
+      <Route path="/notifications" element={<ProtectedRoute><NotificationsCenter /></ProtectedRoute>} />
       <Route path="/applications" element={<ProtectedRoute><Applications /></ProtectedRoute>} />
       <Route path="/projects/:projectId/settings" element={<RoleRoute roles={['owner', 'admin']}><ProjectSettings /></RoleRoute>} />
       <Route path="/projects/:projectId/widget" element={<RoleRoute roles={['owner', 'admin']}><WidgetConfig /></RoleRoute>} />
