@@ -30,6 +30,10 @@ const DEMO_API_KEY = 'nf_demo_project_key_789';
 const DEMO_PROJECT_SLUG = 'demo-project';
 const DEMO_PROJECT_ID = 'cms3916d60003v5m8fk4x7bpg';
 const LOGIN = { email: 'admin@nexus.dev', password: 'admin123', org_slug: 'demo' };
+const WIDGET_DEMO_SERVER = path.join(ROOT, 'packages', 'widget', 'demo', 'server.mjs');
+const WIDGET_DIST_IIFE = path.join(ROOT, 'packages', 'widget', 'dist', 'nexus-feedback-widget.iife.js');
+const WIDGET_DEMO_ORIGIN = 'http://127.0.0.1:8099';
+const WIDGET_DEMO_URL = `${WIDGET_DEMO_ORIGIN}/demo/`;
 
 const ADMIN_READY = `(document.querySelector('main')?.innerText.trim().length ?? 0) > 20`;
 
@@ -215,6 +219,7 @@ const chromeCommand = {
       { stdio: 'ignore', windowsHide: true },
     );
     this.started = { child, profileDir };
+    this.port = port;
     const deadline = Date.now() + 20000;
     while (Date.now() < deadline) {
       const webSocketDebuggerUrl = await this.probe(port);
@@ -231,16 +236,30 @@ const chromeCommand = {
   async stop() {
     if (!this.started) return;
     const { child, profileDir } = this.started;
+    const port = this.port;
     this.started = null;
     // 优先用 CDP 优雅关闭整个浏览器（node 拿到的 pid 可能只是 Chrome 的启动器进程）。
     if (this.client) {
       try {
         await this.client.send('Browser.close');
       } catch {
-        /* 浏览器可能已关闭 */
+        /* 浏览器关闭时连接会先断开，属于预期 */
       }
       this.client = null;
-      await sleep(800);
+      // 等端口释放，确保随后可以清理临时 profile。
+      const deadline = Date.now() + 6000;
+      while (Date.now() < deadline) {
+        try {
+          const response = await fetch(`http://127.0.0.1:${port}/json/version`, {
+            signal: AbortSignal.timeout(400),
+          });
+          if (!response.ok) break;
+        } catch {
+          break;
+        }
+        await sleep(200);
+      }
+      await sleep(300);
     }
     try {
       if (process.platform === 'win32' && child.pid) {
@@ -283,6 +302,14 @@ class CdpClient {
     this.pending = new Map();
     this.listeners = new Map();
     webSocket.onmessage = (event) => this.handleMessage(event);
+    webSocket.onclose = () => this.rejectPending(new Error('CDP 连接已关闭'));
+    webSocket.onerror = () => this.rejectPending(new Error('CDP 连接出错'));
+  }
+
+  /** 连接断开时让所有未决请求立即失败，避免 await 永久挂起。 */
+  rejectPending(error) {
+    for (const { reject } of this.pending.values()) reject(error);
+    this.pending.clear();
   }
 
   static async connect(webSocketDebuggerUrl) {
@@ -638,34 +665,34 @@ async function waitForHttp(url, timeoutMs = 12000) {
   return false;
 }
 
-async function checkWidget(page, options, context) {
-  const serverPath = path.join(ROOT, '.tools', 'widget-demo', 'server.mjs');
-  const isRunning = await (async () => {
-    try {
-      const response = await fetch('http://127.0.0.1:8099/demo.html', { signal: AbortSignal.timeout(1200) });
-      return response.ok;
-    } catch {
-      return false;
-    }
-  })();
+async function checkWidget(page, _options, context) {
+  const name = '公开端 · widget demo 嵌入';
 
-  if (!existsSync(serverPath)) {
-    skipCheck('公开端 · widget demo 嵌入', '未找到 .tools/widget-demo/server.mjs（临时验证目录，按需跳过）');
+  if (!existsSync(WIDGET_DEMO_SERVER)) {
+    skipCheck(name, '未找到 packages/widget/demo/server.mjs（仓库内 demo 缺失）');
+    return;
+  }
+  if (!existsSync(WIDGET_DIST_IIFE)) {
+    skipCheck(
+      name,
+      'widget dist 不存在，先运行 pnpm --filter @nexus-feedback/widget build 后重试',
+    );
     return;
   }
 
-  await runCheck('公开端 · widget demo 嵌入', async () => {
-    if (!isRunning) {
-      context.widgetProcess = spawn(process.execPath, [serverPath], {
+  await runCheck(name, async () => {
+    const alreadyRunning = await waitForHttp(WIDGET_DEMO_URL, 1500);
+    if (!alreadyRunning) {
+      context.widgetProcess = spawn(process.execPath, [WIDGET_DEMO_SERVER], {
         cwd: ROOT,
         stdio: 'ignore',
         windowsHide: true,
       });
-      const ready = await waitForHttp('http://127.0.0.1:8099/demo.html', 12000);
-      assert(ready, 'widget demo 服务器未能在 12s 内启动（端口 8099）');
+      const ready = await waitForHttp(WIDGET_DEMO_URL, 12000);
+      assert(ready, 'widget demo 服务器未能在 12s 内启动（端口 8099，可先手动启动排查）');
     }
 
-    await page.navigate('http://127.0.0.1:8099/demo.html', {
+    await page.navigate(WIDGET_DEMO_URL, {
       readyExpression: `!!document.querySelector('#nexus-widget-root > div')?.shadowRoot?.querySelector('.nf-launcher')`,
       timeoutMs: 15000,
     });
@@ -703,7 +730,7 @@ async function checkWidget(page, options, context) {
     assert(panel.close, '面板缺少关闭按钮');
     page.assertClean('widget demo');
     const shot = await page.screenshot('widget-demo');
-    return `launcher「${launcher.label}」· 面板 ${panel.width}px · tooltip「${truncate(launcher.tooltip, 12)}」${shot ? ` · ${shot}` : ''}`;
+    return `仓库内 demo · launcher「${launcher.label}」· 面板 ${panel.width}px · tooltip「${truncate(launcher.tooltip, 12)}」${shot ? ` · ${shot}` : ''}`;
   });
 }
 
@@ -866,6 +893,59 @@ async function checkAdmin(page, options, context) {
     page.assertClean('通知铃铛');
     return `面板内容 ${panelText} 字${shot ? ` · ${shot}` : ''}`;
   });
+
+  await runCheck('后台 · 命令面板输入「通知」回车跳转', async () => {
+    await page.navigate(`${options.baseAdmin}/dashboard`, { readyExpression: ADMIN_READY, timeoutMs: 20000 });
+    await page.evaluate(`(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', metaKey: true, ctrlKey: false, bubbles: true, cancelable: true }));
+      return true;
+    })()`);
+    const opened = await page.waitUntil(`!!document.querySelector('[role="dialog"][aria-label="命令面板"]')`, {
+      timeoutMs: 5000,
+    });
+    assert(opened, '⌘K 未打开命令面板');
+
+    // 用原生 setter + input 事件驱动受控输入，再按回车执行当前高亮项。
+    await page.evaluate(`(() => {
+      const input = document.querySelector('[role="dialog"][aria-label="命令面板"] input');
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '通知');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.focus();
+      return true;
+    })()`);
+    // 等过滤完成：首项必须变成「查看通知」，避免在未过滤列表上回车命中「新建更新日志」。
+    const suggestionReady = await page.waitUntil(
+      `(() => {
+        const first = document.querySelector('#cmd-item-0');
+        return !!first && first.innerText.includes('查看通知');
+      })()`,
+      { timeoutMs: 5000 },
+    );
+    assert(suggestionReady, '输入「通知」后首项未切换为「查看通知」动作');
+    await page.evaluate(`(() => {
+      const input = document.querySelector('[role="dialog"][aria-label="命令面板"] input');
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true }));
+      return true;
+    })()`);
+    const navigated = await page.waitUntil(`location.pathname === '/notifications'`, { timeoutMs: 8000 });
+    if (!navigated) {
+      const currentPath = await page.evaluate('location.pathname');
+      throw new Error(`回车后 URL 未跳转到 /notifications（当前 ${currentPath}）`);
+    }
+    const contentReady = await page.waitUntil(
+      `(document.querySelector('main')?.innerText.trim().length ?? 0) > 10`,
+      { timeoutMs: 8000 },
+    );
+    assert(contentReady, '/notifications 页面未渲染内容');
+    const paletteClosed = await page.waitUntil(
+      `!document.querySelector('[role="dialog"][aria-label="命令面板"]')`,
+      { timeoutMs: 4000 },
+    );
+    assert(paletteClosed, '跳转后命令面板未关闭');
+    page.assertClean('命令面板动作');
+    const shot = await page.screenshot('admin-command-palette-action');
+    return `URL=/notifications${shot ? ` · ${shot}` : ''}`;
+  });
 }
 
 function adminPageNames() {
@@ -886,6 +966,214 @@ function adminPageNames() {
     '后台 · Webhooks',
     '后台 · 通知偏好',
   ];
+}
+
+/** 按标题尽力检索并软删除测试反馈，用于失败时的兜底清理。 */
+async function deleteFeedbackByTitle(options, token, title) {
+  const headers = { Authorization: `Bearer ${token}` };
+  let deleted = 0;
+  try {
+    const search = await httpJson(
+      `${options.baseApi}/api/v1/admin/feedback?keyword=${encodeURIComponent(title)}&page_size=20`,
+      { headers },
+    );
+    for (const item of search.json?.data?.items ?? []) {
+      if (item.title !== title) continue;
+      try {
+        const response = await httpJson(`${options.baseApi}/api/v1/admin/feedback/${item.id}`, {
+          method: 'DELETE',
+          headers,
+        });
+        if (response.status === 200 && response.json?.code === 0) deleted += 1;
+      } catch {
+        /* 尽力而为 */
+      }
+    }
+  } catch {
+    /* 尽力而为 */
+  }
+  return deleted;
+}
+
+/** 清理冒烟产生的通知（标题含 [SMOKE]），避免重复运行时堆积。 */
+async function deleteSmokeNotifications(options, token) {
+  const headers = { Authorization: `Bearer ${token}` };
+  let deleted = 0;
+  try {
+    const list = await httpJson(`${options.baseApi}/api/v1/org/notifications?page_size=100`, {
+      headers,
+    });
+    for (const item of list.json?.data?.items ?? []) {
+      if (!String(item.title).includes('[SMOKE]') && !String(item.body ?? '').includes('[SMOKE]')) {
+        continue;
+      }
+      try {
+        const response = await httpJson(`${options.baseApi}/api/v1/org/notifications/${item.id}`, {
+          method: 'DELETE',
+          headers,
+        });
+        if (response.status === 200 && response.json?.code === 0) deleted += 1;
+      } catch {
+        /* 尽力而为 */
+      }
+    }
+  } catch {
+    /* 尽力而为 */
+  }
+  return deleted;
+}
+
+async function checkWriteFlows(page, options, context) {
+  const checkNames = [
+    '写操作 · 公开提交页提交 → 后台检索 → 软删除',
+    '写操作 · 通知触发 → unread → read-all → 0',
+  ];
+  if (!context.auth) {
+    for (const name of checkNames) skipCheck(name, '未建立后台登录态，跳过写操作检查');
+    return;
+  }
+
+  const token = context.auth.token;
+  const authHeaders = { Authorization: `Bearer ${token}` };
+
+  await runCheck(checkNames[0], async () => {
+    const title = `[SMOKE] 提交链路 ${Date.now()}`;
+    const content = `由 pnpm smoke 于 ${new Date().toISOString()} 自动提交，用于验证公开提交页写入与后台检索链路，测试结束后会自动软删除。`;
+    let feedbackId = null;
+    let cleaned = false;
+    try {
+      await page.navigate(`${options.baseSubmit}/?key=${DEMO_API_KEY}`, {
+        readyExpression: `!!document.querySelector('#feedback-title')`,
+      });
+      await page.evaluate(`(() => {
+        const setValue = (element, value) => {
+          const proto = element.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+          Object.getOwnPropertyDescriptor(proto, 'value').set.call(element, value);
+          element.dispatchEvent(new Event('input', { bubbles: true }));
+        };
+        setValue(document.querySelector('#feedback-title'), ${JSON.stringify(title)});
+        setValue(document.querySelector('#feedback-content'), ${JSON.stringify(content)});
+        return true;
+      })()`);
+      await sleep(250);
+      await page.evaluate(`document.querySelector('button[type="submit"]')?.click() ?? true`);
+      const submitted = await page.waitUntil(`document.body.innerText.includes('反馈已收到')`, {
+        timeoutMs: 15000,
+      });
+      assert(submitted, '提交后未进入成功态');
+
+      const searchUrl = `${options.baseApi}/api/v1/admin/feedback?keyword=${encodeURIComponent(title)}&page_size=20`;
+      const search = await httpJson(searchUrl, { headers: authHeaders });
+      assert(search.status === 200 && search.json?.code === 0, `后台检索失败 HTTP ${search.status}`);
+      const found = (search.json?.data?.items ?? []).find((item) => item.title === title);
+      assert(found?.id, '后台未检索到刚提交的反馈');
+      feedbackId = found.id;
+
+      const deleted = await httpJson(`${options.baseApi}/api/v1/admin/feedback/${feedbackId}`, {
+        method: 'DELETE',
+        headers: authHeaders,
+      });
+      assert(deleted.status === 200 && deleted.json?.code === 0, `软删除失败 HTTP ${deleted.status}`);
+      cleaned = true;
+
+      const after = await httpJson(searchUrl, { headers: authHeaders });
+      const stillExists = (after.json?.data?.items ?? []).some((item) => item.title === title);
+      assert(!stillExists, '软删除后仍能检索到该测试反馈');
+      const shot = await page.screenshot('write-submit-success', { full: true });
+      return `id=${feedbackId} · 检索确认 ✓ · 软删除 ✓${shot ? ` · ${shot}` : ''}`;
+    } finally {
+      if (!cleaned) await deleteFeedbackByTitle(options, token, title).catch(() => {});
+      await deleteSmokeNotifications(options, token).catch(() => {});
+    }
+  });
+
+  await runCheck(checkNames[1], async () => {
+    const title = `[SMOKE] 通知链路 ${Date.now()}`;
+    let feedbackId = null;
+    let readAllDone = false;
+
+    const unreadCount = async () => {
+      const response = await httpJson(`${options.baseApi}/api/v1/org/notifications/unread-count`, {
+        headers: authHeaders,
+      });
+      assert(response.status === 200 && response.json?.code === 0, `unread-count 失败 HTTP ${response.status}`);
+      return Number(response.json?.data?.count ?? 0);
+    };
+
+    try {
+      // 先清空基线未读，确保断言的是本轮创建触发的新通知。
+      const baseline = await httpJson(`${options.baseApi}/api/v1/org/notifications/read-all`, {
+        method: 'POST',
+        headers: authHeaders,
+      });
+      assert(baseline.status === 200 && baseline.json?.code === 0, '通知基线 read-all 失败');
+
+      const created = await httpJson(`${options.baseApi}/api/v1/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': DEMO_API_KEY },
+        body: JSON.stringify({
+          title,
+          content: 'pnpm smoke 自动创建的测试反馈，用于验证创建通知 → 未读数 → 全部已读链路。',
+          category: 'other',
+          priority: 'medium',
+          source: 'api',
+        }),
+      });
+      assert(created.status === 201 && created.json?.code === 0, `创建公开反馈失败 HTTP ${created.status}`);
+      feedbackId = created.json?.data?.id ?? null;
+      assert(feedbackId, '创建公开反馈未返回 id');
+
+      let unread = 0;
+      const unreadDeadline = Date.now() + 8000;
+      while (Date.now() < unreadDeadline) {
+        unread = await unreadCount();
+        if (unread > 0) break;
+        await sleep(250);
+      }
+      assert(unread > 0, `创建反馈后 unread-count 未增加（${unread}）`);
+
+      const readAll = await httpJson(`${options.baseApi}/api/v1/org/notifications/read-all`, {
+        method: 'POST',
+        headers: authHeaders,
+      });
+      assert(readAll.status === 200 && readAll.json?.code === 0, `read-all 失败 HTTP ${readAll.status}`);
+      readAllDone = true;
+
+      let after = -1;
+      const readDeadline = Date.now() + 4000;
+      while (Date.now() < readDeadline) {
+        after = await unreadCount();
+        if (after === 0) break;
+        await sleep(200);
+      }
+      assert(after === 0, `read-all 后 unread-count=${after}`);
+      return `unread ${unread} → read-all → 0 · feedback=${feedbackId}`;
+    } finally {
+      if (!readAllDone) {
+        try {
+          await httpJson(`${options.baseApi}/api/v1/org/notifications/read-all`, {
+            method: 'POST',
+            headers: authHeaders,
+          });
+        } catch {
+          /* 尽力而为 */
+        }
+      }
+      if (feedbackId) {
+        try {
+          await httpJson(`${options.baseApi}/api/v1/admin/feedback/${feedbackId}`, {
+            method: 'DELETE',
+            headers: authHeaders,
+          });
+        } catch {
+          /* 尽力而为 */
+        }
+      } else {
+        await deleteFeedbackByTitle(options, token, title).catch(() => {});
+      }
+      await deleteSmokeNotifications(options, token).catch(() => {});
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -967,6 +1255,7 @@ async function main() {
     await checkPublicPages(page, options, context);
     await checkWidget(page, options, context);
     await checkAdmin(page, options, context);
+    await checkWriteFlows(page, options, context);
   } catch (error) {
     results.push({
       name: '环境初始化',
@@ -983,7 +1272,7 @@ async function main() {
       }
     }
     await chromeCommand.stop();
-    if (page) await page.close().catch(() => {});
+    if (page) await Promise.race([page.close().catch(() => {}), sleep(1500)]);
     client?.close();
   }
 

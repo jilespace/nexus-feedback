@@ -231,6 +231,17 @@ export async function markAllNotificationsRead(memberId: string, orgId: string) 
   return { updated: result.count };
 }
 
+export async function deleteNotification(
+  memberId: string,
+  orgId: string,
+  notificationId: string,
+) {
+  const result = await prisma.notification.deleteMany({
+    where: { id: notificationId, member_id: memberId, org_id: orgId },
+  });
+  return { deleted: result.count > 0 };
+}
+
 export async function getNotificationSettings(
   memberId: string,
   orgId: string,

@@ -462,6 +462,25 @@ Widget 渲染一个浮动按钮，点击后弹出提交表单，包含标题、�
 - ESM（现代打包工具）
 - CJS（Node/SSR 环境可引用）
 
+### 7.4 本地 Demo 宿主页
+
+`packages/widget/demo/` 是仓库内的 Widget 演示宿主页（模拟第三方产品页面），
+用于本地联调与冒烟测试：
+
+```bash
+# 1. 先构建 widget，生成 dist/nexus-feedback-widget.iife.js
+pnpm --filter @nexus-feedback/widget build
+
+# 2. 启动 demo 服务器（默认 8099，可用 --port=8099 覆盖）
+node packages/widget/demo/server.mjs
+```
+
+打开 <http://localhost:8099/demo/> 即可看到宿主页与右下角的 Widget。demo 服务器是零依赖的
+Node http 静态服务器：只暴露 `demo/` 与 `dist/` 两个目录，并把 `/api/*` 代理到
+`http://localhost:3000`（可用 `API_ORIGIN` 环境变量覆盖），因此页面与 API 同源、无需 CORS 配置。
+`pnpm smoke` 的 Widget 检查会优先复用这个 demo（dist 缺失时会提示先构建并标记 SKIP），
+并在测试结束后关闭它启动的临时服务器。
+
 ---
 
 ## 8. 部署
@@ -571,8 +590,10 @@ ALLOWED_FILE_TYPES=image/png,image/jpeg,image/gif,image/webp
   （`pnpm dev` 或分别 `pnpm dev:server / dev:admin / dev:submit / dev:board`）。
 - 演示数据（`demo` 组织 / `demo-project`）已 seed。
 - Chrome 已在 `9222` 开启远程调试（脚本在探测不到时会自动启动 headless Chrome）。
-- 公开端 widget demo 为可选：若 `.tools/widget-demo/server.mjs` 存在，脚本会自动启动
-  `8099` 临时服务器验证后关闭；不存在则该项标记 `SKIP`。
+- Widget demo：脚本优先使用仓库内 `packages/widget/demo/` 宿主页。若尚无构建产物
+  （`packages/widget/dist/nexus-feedback-widget.iife.js`），该项会提示先运行
+  `pnpm --filter @nexus-feedback/widget build` 并标记 `SKIP`（脚本不会自动构建）。
+  验证时脚本会在 `8099` 启动/复用 demo 服务器，跑完后关闭由它启动的服务器。
 
 ### 使用
 
@@ -600,13 +621,19 @@ node scripts/smoke.mjs \
 
 - **API**：`GET /api/v1/health` 返回 200；未认证访问 `/api/v1/admin/feedback` 返回 401。
 - **公开端**：board 首页 / 路线图 / 更新日志 / 反馈详情（由首页首条 href 推导）、
-  submit 页表单可见、widget demo（Shadow DOM + 面板）。
+  submit 页表单可见、仓库内 widget demo（Shadow DOM + 面板）。
   断言 HTTP 200、`document.title` 与 `link[rel=canonical]` 存在、`main` 有内容、无 console error / 异常。
 - **后台**：`POST /api/v1/org/login` 取得 token 并注入 `localStorage`
   （`admin_token` / `org_member` / `org_info`），然后遍历仪表盘、反馈、更新日志、项目接入、
   成员、标签、审计日志、组织设置、系统配置，以及项目子页（设置 / Widget / 状态 / 分类 /
   Webhooks / 通知偏好），断言 `main` 渲染且有内容、无 console error / 异常；
   另验证命令面板 ⌘K 打开与 Esc 关闭、通知铃铛存在且能打开面板。
+- **写操作链路（自动清理）**：
+  1. 公开提交页真实提交一条标题为 `[SMOKE] 提交链路 {timestamp}` 的反馈，经后台 API 检索确认存在后软删除；
+  2. 通过公开 API 创建一条反馈触发通知 → `unread-count > 0` → `read-all` → `unread-count == 0`，
+     随后软删除测试反馈；
+  3. 命令面板 ⌘K 输入「通知」并回车，断言 URL 跳转到 `/notifications`。
+  写操作产生的测试反馈即使中途失败也会尽力清理，通知会被标记为已读。
 - 截图全部保存到 `.tools/shots/smoke/`。
 
 ### 输出与退出码

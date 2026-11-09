@@ -7,6 +7,7 @@ import {
   getUnreadNotificationCount,
   markNotificationRead,
   markAllNotificationsRead,
+  deleteNotification,
   getNotificationSettings,
   updateNotificationSettings,
 } from '../services/notificationCenter.js';
@@ -72,6 +73,19 @@ notificationCenterRouter.post('/notifications/read-all', async (req, res, next) 
 notificationCenterRouter.post('/notifications/:id/read', async (req, res, next) => {
   try {
     const result = await markNotificationRead(
+      req.memberId!,
+      req.orgId!,
+      String(req.params.id),
+    );
+    success(res, result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+notificationCenterRouter.delete('/notifications/:id', async (req, res, next) => {
+  try {
+    const result = await deleteNotification(
       req.memberId!,
       req.orgId!,
       String(req.params.id),

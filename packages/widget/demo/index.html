@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Widget Demo · Nexus Feedback</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+        color: #0f172a;
+        background: #f6f7f9;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 18px 40px;
+        background: #fff;
+        border-bottom: 1px solid #e5e8ee;
+      }
+      .brand { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 650; }
+      .brand-mark {
+        display: grid;
+        place-items: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 9px;
+        background: linear-gradient(135deg, #4d66ff, #3149d8);
+        color: #fff;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      nav { display: flex; gap: 22px; font-size: 13px; color: #64748b; }
+      main { max-width: 880px; margin: 0 auto; padding: 64px 32px 140px; }
+      .eyebrow { font-size: 11px; font-weight: 650; letter-spacing: 0.16em; text-transform: uppercase; color: #3d5afe; }
+      h1 { margin: 14px 0 16px; font-size: 40px; line-height: 1.15; letter-spacing: -0.02em; }
+      .lead { max-width: 560px; margin: 0; font-size: 16px; line-height: 1.75; color: #475569; }
+      .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 44px; }
+      .card { padding: 20px; background: #fff; border: 1px solid #e5e8ee; border-radius: 14px; box-shadow: 0 1px 2px rgb(15 23 42 / 0.04); }
+      .card h2 { margin: 0 0 8px; font-size: 14px; font-weight: 650; }
+      .card p { margin: 0; font-size: 13px; line-height: 1.7; color: #64748b; }
+      .embed { margin-top: 40px; padding: 20px 22px; background: #fff; border: 1px solid #e5e8ee; border-radius: 14px; }
+      .embed h2 { margin: 0 0 8px; font-size: 13px; font-weight: 650; }
+      .embed p { margin: 0 0 12px; font-size: 12.5px; line-height: 1.7; color: #64748b; }
+      pre {
+        margin: 0;
+        padding: 14px 16px;
+        overflow-x: auto;
+        border-radius: 10px;
+        background: #0f172a;
+        color: #e2e8f0;
+        font: 12px/1.7 'Cascadia Code', 'JetBrains Mono', ui-monospace, monospace;
+      }
+      .hint {
+        display: none;
+        margin-top: 40px;
+        padding: 16px 18px;
+        border: 1px solid #fde68a;
+        border-radius: 12px;
+        background: #fffbeb;
+        color: #92400e;
+        font-size: 13px;
+      }
+      .hint code { font-family: ui-monospace, monospace; }
+      footer { padding: 20px 40px; border-top: 1px solid #e5e8ee; background: #fff; font-size: 12px; color: #94a3b8; }
+      @media (max-width: 760px) {
+        header { padding: 14px 20px; }
+        nav { display: none; }
+        main { padding: 40px 20px 120px; }
+        h1 { font-size: 30px; }
+        .cards { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand"><span class="brand-mark">A</span>Acme Analytics</div>
+      <nav><span>产品</span><span>定价</span><span>文档</span><span>更新日志</span></nav>
+    </header>
+
+    <main>
+      <p class="eyebrow">Widget Demo</p>
+      <h1>可嵌入的反馈入口</h1>
+      <p class="lead">
+        这是一个模拟宿主产品的页面，右下角通过 IIFE 脚本嵌入了 Nexus Feedback Widget。
+        宿主页与 Widget 使用不同的字体与按钮样式，可用来验证样式隔离、主题变量与同源 API 代理。
+      </p>
+
+      <div class="cards">
+        <div class="card"><h2>一键嵌入</h2><p>加载单个 IIFE 文件，调用 <code>NexusFeedbackWidget.mount()</code> 即可。</p></div>
+        <div class="card"><h2>样式隔离</h2><p>Widget 使用 Shadow DOM 渲染，宿主页面的全局样式不会影响它。</p></div>
+        <div class="card"><h2>同源代理</h2><p>本 demo 服务器把 <code>/api/*</code> 代理到本地 API，避免 CORS 配置。</p></div>
+      </div>
+
+      <div class="embed">
+        <h2>嵌入代码</h2>
+        <p>构建 <code>packages/widget</code> 后，dist 产物由本 demo 服务器直接提供。</p>
+        <pre>&lt;script src="/dist/nexus-feedback-widget.iife.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  NexusFeedbackWidget.mount(container, {
+    apiKey: 'nf_demo_project_key_789',
+    apiUrl: '/api/v1',
+    position: 'bottom-right',
+    theme: { primaryColor: '#3D5AFE', radius: 16, density: 'compact' },
+    locale: 'zh',
+  });
+&lt;/script&gt;</pre>
+      </div>
+
+      <div class="hint" id="build-hint">
+        Widget 构建产物不存在（<code>packages/widget/dist/nexus-feedback-widget.iife.js</code>）。
+        请先运行 <code>pnpm --filter @nexus-feedback/widget build</code>，然后刷新本页。
+      </div>
+    </main>
+
+    <footer>© 2026 Acme Analytics — Nexus Feedback Widget 本地演示页</footer>
+
+    <script src="../dist/nexus-feedback-widget.iife.js"></script>
+    <script>
+      (function () {
+        if (!window.NexusFeedbackWidget) {
+          document.getElementById('build-hint').style.display = 'block';
+          return;
+        }
+        var container = document.createElement('div');
+        container.id = 'nexus-widget-root';
+        document.body.appendChild(container);
+
+        window.NexusFeedbackWidget.mount(container, {
+          apiKey: 'nf_demo_project_key_789',
+          apiUrl: '/api/v1',
+          position: 'bottom-right',
+          theme: { primaryColor: '#3D5AFE', radius: 16, density: 'compact' },
+          locale: 'zh',
+        });
+      })();
+    </script>
+  </body>
+</html>
