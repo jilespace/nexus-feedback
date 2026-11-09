@@ -2,17 +2,17 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { FeedbackWidget } from './FeedbackWidget';
 import type { Locale } from './i18n';
+import type { WidgetDensity, WidgetTheme } from './theme';
 
 export type WidgetConfig = {
   apiKey: string;
   apiUrl: string;
   position?: 'bottom-right' | 'bottom-left';
-  theme?: {
-    primaryColor?: string;
-    buttonLabel?: string;
-  };
+  theme?: WidgetTheme;
   locale?: Locale;
 };
+
+export type { WidgetDensity, WidgetTheme };
 
 export { FeedbackWidget };
 

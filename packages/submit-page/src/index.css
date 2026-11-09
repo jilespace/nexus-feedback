@@ -2,16 +2,148 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer utilities {
-  .animate-check {
-    stroke-dasharray: 24;
-    stroke-dashoffset: 24;
-    animation: drawCheck 0.4s ease-out 0.2s forwards;
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-canvas font-sans text-ink-1;
+  }
+
+  ::selection {
+    background: rgb(61 90 254 / 0.16);
+  }
+
+  :focus-visible {
+    outline: 2px solid #3d5afe;
+    outline-offset: 2px;
   }
 }
 
-@keyframes drawCheck {
+@layer components {
+  .nf-card {
+    @apply rounded-card border border-line bg-surface shadow-card;
+  }
+
+  .nf-label {
+    @apply mb-2 flex items-center gap-1.5 text-[13px] font-semibold text-ink-1;
+  }
+
+  .nf-hint {
+    @apply text-xs leading-relaxed text-ink-3;
+  }
+
+  .nf-error-text {
+    @apply mt-1.5 flex items-center gap-1.5 text-xs font-medium text-danger-600;
+  }
+
+  .nf-input {
+    @apply block w-full rounded-field border border-line-strong bg-surface px-3 py-2 text-[13.5px] text-ink-1 shadow-[0_1px_1px_rgb(15_23_42_/_0.03)] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-ink-3;
+  }
+
+  .nf-input:hover {
+    @apply border-[#b6bfd0];
+  }
+
+  .nf-input:focus {
+    @apply border-brand-600 ring-[3px] ring-brand-600/15;
+  }
+
+  .nf-input[aria-invalid='true'] {
+    @apply border-danger-500 ring-[3px] ring-danger-500/10;
+  }
+
+  .nf-btn {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-field text-[13.5px] font-semibold transition-[background-color,border-color,color,box-shadow,transform] duration-150 disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .nf-btn-primary {
+    @apply nf-btn bg-brand-600 text-white shadow-[0_1px_2px_rgb(61_90_254_/_0.35)] hover:bg-brand-700 active:translate-y-px;
+  }
+
+  .nf-btn-secondary {
+    @apply nf-btn border border-line-strong bg-surface text-ink-2 hover:border-[#b6bfd0] hover:bg-surface-subtle hover:text-ink-1 active:translate-y-px;
+  }
+
+  .nf-btn-ghost {
+    @apply nf-btn text-ink-2 hover:bg-surface-sunken hover:text-ink-1;
+  }
+
+  .nf-skeleton {
+    background-color: #eef0f4;
+    background-image: linear-gradient(90deg, rgb(255 255 255 / 0) 0%, rgb(255 255 255 / 0.7) 50%, rgb(255 255 255 / 0) 100%);
+    background-size: 400px 100%;
+    background-repeat: no-repeat;
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
+}
+
+@layer utilities {
+  .nf-check-path {
+    stroke-dasharray: 32;
+    stroke-dashoffset: 32;
+    animation: checkDraw 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) 0.12s forwards;
+  }
+
+  .nf-stagger > * {
+    animation: fadeUp 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .nf-stagger > *:nth-child(2) {
+    animation-delay: 40ms;
+  }
+
+  .nf-stagger > *:nth-child(3) {
+    animation-delay: 80ms;
+  }
+
+  .nf-stagger > *:nth-child(4) {
+    animation-delay: 120ms;
+  }
+
+  .nf-tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+@keyframes checkDraw {
   to {
     stroke-dashoffset: 0;
   }
 }
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+

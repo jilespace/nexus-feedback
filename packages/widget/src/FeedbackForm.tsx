@@ -1,73 +1,100 @@
-import { useState, useRef, useEffect } from 'react';
-import { t, Locale } from './i18n';
+import { useEffect, useRef, useState } from 'react';
 import { fetchProjectCategories, ProjectCategory } from './api';
+import { t, categoryLabel, Locale } from './i18n';
+import {
+  AlertIcon,
+  CheckCircleIcon,
+  FileIcon,
+  SendIcon,
+  SpinnerIcon,
+  UploadIcon,
+  XIcon,
+} from './icons';
 
 type FeedbackFormProps = {
   apiKey: string;
   apiUrl: string;
-  primaryColor: string;
+  locale: Locale;
+  projectSlug?: string | null;
+  showCategory: boolean;
+  showContact: boolean;
   onSuccess: () => void;
-  onError: (msg: string) => void;
-  locale?: Locale;
+  onError: (message: string) => void;
 };
 
 type FileEntry = {
   id: string;
+  file: File;
   name: string;
   size: number;
   status: 'uploading' | 'done' | 'error';
   error?: string;
 };
 
-
-
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'application/pdf'];
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_FILES = 3;
 const MAX_CONTENT = 500;
 
 function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function FeedbackForm({ apiKey, apiUrl, primaryColor, onSuccess, onError, locale = 'zh' }: FeedbackFormProps) {
+export function FeedbackForm({
+  apiKey,
+  apiUrl,
+  locale,
+  projectSlug,
+  showCategory,
+  showContact,
+  onSuccess,
+  onError,
+}: FeedbackFormProps) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [category, setCategory] = useState('bug');
   const [contact, setContact] = useState('');
   const [loading, setLoading] = useState(false);
-  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [touched, setTouched] = useState<{ title: boolean; content: boolean }>({
+    title: false,
+    content: false,
+  });
   const [files, setFiles] = useState<FileEntry[]>([]);
+  const [dragOver, setDragOver] = useState(false);
+  const [attachIssue, setAttachIssue] = useState<string | null>(null);
+  const [submitIssue, setSubmitIssue] = useState<string | null>(null);
   const [categories, setCategories] = useState<ProjectCategory[]>([]);
-  const [categoryLoading, setCategoryLoading] = useState(true);
+  const [categoryLoading, setCategoryLoading] = useState(showCategory);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const slug = apiUrl.includes('/api/v1/public/')
-      ? apiUrl.split('/api/v1/public/')[1]?.split('/')[0] || ''
-      : '';
-    if (slug) {
-      fetchProjectCategories(apiUrl, slug).then(cats => {
-        setCategories(cats);
-        setCategoryLoading(false);
-        if (cats[0]) setCategory(cats[0].name);
-      });
-    } else {
+    if (!showCategory) {
       setCategoryLoading(false);
+      return;
     }
-  }, [apiUrl]);
+    let cancelled = false;
+    setCategoryLoading(true);
+    fetchProjectCategories(apiUrl, projectSlug).then((items) => {
+      if (cancelled) return;
+      setCategories(items);
+      setCategoryLoading(false);
+      setCategory((current) => (items.some((item) => item.name === current) ? current : (items[0]?.name ?? 'other')));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [apiUrl, projectSlug, showCategory]);
 
   const errors: Record<string, string> = {};
   if (touched.title && !title.trim()) errors.title = t(locale, 'titleRequired');
   if (touched.content && !content.trim()) errors.content = t(locale, 'descriptionRequired');
-  if (content.length > MAX_CONTENT) errors.content = `${t(locale, 'charLimit')} (${content.length}/${MAX_CONTENT})`;
+  if (content.length > MAX_CONTENT) errors.content = t(locale, 'charLimit');
 
-  const uploadFile = async (file: File): Promise<FileEntry | null> => {
-    const entry: FileEntry = { id: `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`, name: file.name, size: file.size, status: 'uploading' };
+  const uploadEntry = async (entry: FileEntry) => {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', entry.file);
     try {
       const res = await fetch(`${apiUrl}/upload`, {
         method: 'POST',
@@ -75,70 +102,85 @@ export function FeedbackForm({ apiKey, apiUrl, primaryColor, onSuccess, onError,
         body: formData,
       });
       const json = await res.json();
-      if (json.code !== 0) throw new Error(json.message || '上传失败');
-      return { ...entry, id: json.data.id, status: 'done' };
+      if (!res.ok || json.code !== 0) throw new Error(json.message || t(locale, 'uploadFailed'));
+      setFiles((prev) =>
+        prev.map((item) =>
+          item.id === entry.id ? { ...item, id: json.data.id as string, status: 'done' as const, error: undefined } : item,
+        ),
+      );
     } catch (err) {
-      return { ...entry, status: 'error', error: err instanceof Error ? err.message : '上传失败' };
+      setFiles((prev) =>
+        prev.map((item) =>
+          item.id === entry.id
+            ? { ...item, status: 'error' as const, error: err instanceof Error ? err.message : t(locale, 'uploadFailed') }
+            : item,
+        ),
+      );
     }
   };
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(e.target.files || []);
-    e.target.value = ''; // reset input so same file can be re-selected
-
+  const addFiles = (incoming: FileList | File[]) => {
+    const list = Array.from(incoming);
+    if (list.length === 0) return;
     const remaining = MAX_FILES - files.length;
-    if (remaining <= 0) return;
-
-    const toUpload = selectedFiles.slice(0, remaining);
-    const validFiles: File[] = [];
-
-    for (const f of toUpload) {
-      if (!ALLOWED_TYPES.includes(f.type)) {
-        onError(`文件 ${f.name} 类型不支持`);
-        continue;
-      }
-      if (f.size > MAX_FILE_SIZE) {
-        onError(`文件 ${f.name} 超过 10MB 限制`);
-        continue;
-      }
-      validFiles.push(f);
+    if (remaining <= 0) {
+      setAttachIssue(t(locale, 'attachLimit'));
+      return;
     }
 
-    if (validFiles.length === 0) return;
-
-    // Add uploading entries immediately
-    const uploadingEntries: FileEntry[] = validFiles.map(f => ({
-      id: `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      name: f.name,
-      size: f.size,
-      status: 'uploading' as const,
-    }));
-    setFiles(prev => [...prev, ...uploadingEntries]);
-
-    // Upload in parallel
-    const results = await Promise.all(validFiles.map(uploadFile));
-    setFiles(prev => {
-      const updated = [...prev];
-      for (const result of results) {
-        if (!result) continue;
-        const idx = updated.findIndex(f => f.id === result.id);
-        if (idx !== -1) updated[idx] = result;
+    const accepted: FileEntry[] = [];
+    let firstIssue: string | null = null;
+    for (const file of list.slice(0, remaining)) {
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        firstIssue = firstIssue ?? `${file.name}: ${t(locale, 'fileTypeNotSupported')}`;
+        continue;
       }
-      return updated;
-    });
+      if (file.size > MAX_FILE_SIZE) {
+        firstIssue = firstIssue ?? `${file.name}: ${t(locale, 'fileTooLarge')}`;
+        continue;
+      }
+      accepted.push({
+        id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        file,
+        name: file.name,
+        size: file.size,
+        status: 'uploading',
+      });
+    }
+
+    setAttachIssue(firstIssue);
+    if (accepted.length === 0) return;
+    setFiles((prev) => [...prev, ...accepted]);
+    for (const entry of accepted) void uploadEntry(entry);
   };
 
   const removeFile = (id: string) => {
-    setFiles(prev => prev.filter(f => f.id !== id));
+    setFiles((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const retryFile = (id: string) => {
+    const target = files.find((item) => item.id === id);
+    if (!target || target.status !== 'error') return;
+    const retried: FileEntry = { ...target, status: 'uploading', error: undefined };
+    setFiles((prev) => prev.map((item) => (item.id === id ? retried : item)));
+    void uploadEntry(retried);
+  };
+
+  const uploadingCount = files.filter((item) => item.status === 'uploading').length;
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setTouched({ title: true, content: true });
-    if (!title.trim() || !content.trim()) return;
+    setSubmitIssue(null);
+
+    if (!title.trim() || !content.trim() || content.length > MAX_CONTENT) return;
+    if (uploadingCount > 0) {
+      setSubmitIssue(t(locale, 'uploadingBlocked'));
+      return;
+    }
+
     setLoading(true);
     try {
-      const attachmentIds = files.filter(f => f.status === 'done').map(f => f.id);
       const res = await fetch(`${apiUrl}/feedback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
@@ -146,160 +188,213 @@ export function FeedbackForm({ apiKey, apiUrl, primaryColor, onSuccess, onError,
           title: title.trim(),
           content: content.trim(),
           category,
-          contact: contact.trim() || undefined,
-          attachment_ids: attachmentIds.length > 0 ? attachmentIds : undefined,
+          contact: showContact ? contact.trim() || undefined : undefined,
+          attachment_ids: files.filter((item) => item.status === 'done').map((item) => item.id),
           source: 'widget',
         }),
       });
       const json = await res.json();
-      if (json.code !== 0) throw new Error(json.message);
+      if (!res.ok || json.code !== 0) throw new Error(json.message || t(locale, 'submitFailed'));
       onSuccess();
     } catch (err) {
-      onError(err instanceof Error ? err.message : '提交失败');
+      onError(err instanceof Error ? err.message : t(locale, 'submitFailed'));
     } finally {
       setLoading(false);
     }
   };
 
-  const baseInput: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid #e0e0e0', borderRadius: '8px', fontSize: '13px', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s, box-shadow 0.15s' };
-  const errorInput: React.CSSProperties = { borderColor: '#e53935', boxShadow: '0 0 0 2px rgba(229,57,53,0.1)' };
-  const focusRing = `0 0 0 2px ${primaryColor}22`;
-
   return (
-    <form onSubmit={handleSubmit} style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-      <div>
-        <label style={{ fontSize: '12px', fontWeight: 500, color: '#555', marginBottom: '4px', display: 'block' }}>{t(locale, 'title')}</label>
-        <input value={title} onChange={e => setTitle(e.target.value)} onBlur={() => setTouched(t => ({ ...t, title: true }))} placeholder={t(locale, 'titlePlaceholder')} style={{ ...baseInput, ...(errors.title ? errorInput : {}) }} onFocus={e => { e.currentTarget.style.boxShadow = focusRing; e.currentTarget.style.borderColor = primaryColor; }} onBlurCapture={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = errors.title ? '#e53935' : '#e0e0e0'; }} aria-label={t(locale, 'title')} aria-invalid={!!errors.title} />
-        {errors.title && <span style={{ fontSize: '11px', color: '#e53935', marginTop: '2px', display: 'block' }}>{errors.title}</span>}
+    <form className="nf-form" onSubmit={handleSubmit} noValidate>
+      <div className="nf-field">
+        <label className="nf-label" htmlFor="nf-title">
+          {t(locale, 'title')}
+          <span className="nf-counter">{title.length}/200</span>
+        </label>
+        <input
+          id="nf-title"
+          className="nf-input"
+          data-autofocus="true"
+          value={title}
+          maxLength={200}
+          placeholder={t(locale, 'titlePlaceholder')}
+          onChange={(event) => setTitle(event.target.value)}
+          onBlur={() => setTouched((prev) => ({ ...prev, title: true }))}
+          aria-invalid={Boolean(errors.title)}
+        />
+        {errors.title && (
+          <span className="nf-error">
+            <AlertIcon />
+            {errors.title}
+          </span>
+        )}
       </div>
 
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-          <label style={{ fontSize: '12px', fontWeight: 500, color: '#555' }}>{t(locale, 'description')}</label>
-          <span style={{ fontSize: '11px', color: content.length > MAX_CONTENT ? '#e53935' : '#999' }}>{content.length}/{MAX_CONTENT}</span>
+      <div className="nf-field">
+        <label className="nf-label" htmlFor="nf-content">
+          {t(locale, 'description')}
+          <span className="nf-counter" data-over={content.length > MAX_CONTENT}>
+            {content.length}/{MAX_CONTENT}
+          </span>
+        </label>
+        <textarea
+          id="nf-content"
+          className="nf-textarea"
+          value={content}
+          rows={3}
+          placeholder={t(locale, 'descriptionPlaceholder')}
+          onChange={(event) => setContent(event.target.value)}
+          onBlur={() => setTouched((prev) => ({ ...prev, content: true }))}
+          aria-invalid={Boolean(errors.content)}
+        />
+        {errors.content && (
+          <span className="nf-error">
+            <AlertIcon />
+            {errors.content}
+          </span>
+        )}
+      </div>
+
+      <div className="nf-field">
+        <div className="nf-attach-bar">
+          <span className="nf-label">{t(locale, 'attachment')}</span>
+          <span className="nf-attach-count">
+            {files.length}/{MAX_FILES}
+          </span>
         </div>
-        <textarea value={content} onChange={e => setContent(e.target.value)} onBlur={() => setTouched(t => ({ ...t, content: true }))} placeholder={t(locale, 'descriptionPlaceholder')} rows={3} style={{ ...baseInput, resize: 'vertical', ...(errors.content ? errorInput : {}) }} onFocus={e => { e.currentTarget.style.boxShadow = focusRing; e.currentTarget.style.borderColor = primaryColor; }} onBlurCapture={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = errors.content ? '#e53935' : '#e0e0e0'; }} aria-label={t(locale, 'description')} aria-invalid={!!errors.content} />
-        {errors.content && <span style={{ fontSize: '11px', color: '#e53935', marginTop: '2px', display: 'block' }}>{errors.content}</span>}
-      </div>
-
-      {/* File attachment area */}
-      <div>
         <input
           ref={fileInputRef}
           type="file"
           multiple
           accept="image/png,image/jpeg,image/gif,image/webp,application/pdf"
           style={{ display: 'none' }}
-          onChange={handleFileSelect}
+          onChange={(event) => {
+            if (event.target.files?.length) addFiles(event.target.files);
+            event.target.value = '';
+          }}
         />
-        {files.length < MAX_FILES && (
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '5px 10px',
-              border: `1px solid #e0e0e0`,
-              borderRadius: '6px',
-              background: '#f9f9f9',
-              color: '#666',
-              fontSize: '12px',
-              cursor: 'pointer',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = primaryColor; e.currentTarget.style.color = primaryColor; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = '#e0e0e0'; e.currentTarget.style.color = '#666'; }}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
-            </svg>
-            {t(locale, 'attachment')} ({files.length}/{MAX_FILES})
-          </button>
-        )}
-
+        <button
+          type="button"
+          className="nf-attach-btn"
+          data-drag={dragOver}
+          disabled={files.length >= MAX_FILES}
+          onClick={() => fileInputRef.current?.click()}
+          onDragOver={(event) => {
+            event.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(event) => {
+            event.preventDefault();
+            setDragOver(false);
+            if (event.dataTransfer.files?.length) addFiles(event.dataTransfer.files);
+          }}
+        >
+          <UploadIcon />
+          {files.length >= MAX_FILES ? t(locale, 'attachLimit') : t(locale, 'attachAction')}
+          <span style={{ color: 'inherit', opacity: 0.7, fontSize: 10.5 }}>· {t(locale, 'attachHint')}</span>
+        </button>
         {files.length > 0 && (
-          <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {files.map(f => (
-              <div
-                key={f.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '6px 10px',
-                  border: `1px solid ${f.status === 'error' ? '#ffcdd2' : '#e0e0e0'}`,
-                  borderRadius: '6px',
-                  background: f.status === 'error' ? '#fff5f5' : '#fafafa',
-                  fontSize: '11px',
-                }}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={f.status === 'error' ? '#e53935' : '#999'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
-                </svg>
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: f.status === 'error' ? '#c62828' : '#333' }}>
-                  {f.name} ({formatFileSize(f.size)})
+          <div className="nf-file-list">
+            {files.map((entry) => (
+              <div className="nf-file" key={entry.id} data-status={entry.status}>
+                <span className="nf-file-icon">
+                  {entry.status === 'done' ? (
+                    <CheckCircleIcon />
+                  ) : entry.status === 'uploading' ? (
+                    <SpinnerIcon />
+                  ) : (
+                    <FileIcon />
+                  )}
                 </span>
-                {f.status === 'uploading' && (
-                  <span style={{ color: primaryColor, fontSize: '10px', flexShrink: 0 }}>{t(locale, 'uploading')}</span>
-                )}
-                {f.status === 'error' && (
-                  <span style={{ color: '#c62828', fontSize: '10px', flexShrink: 0 }} title={f.error}>{f.error || '失败'}</span>
+                <span className="nf-file-main">
+                  <span className="nf-file-name">{entry.name}</span>
+                  <span className="nf-file-meta">
+                    {formatFileSize(entry.size)} ·{' '}
+                    {entry.status === 'uploading' && t(locale, 'uploading')}
+                    {entry.status === 'done' && t(locale, 'attached')}
+                    {entry.status === 'error' && (entry.error || t(locale, 'uploadFailed'))}
+                  </span>
+                </span>
+                {entry.status === 'error' && (
+                  <button type="button" className="nf-file-retry" onClick={() => retryFile(entry.id)}>
+                    {t(locale, 'retryUpload')}
+                  </button>
                 )}
                 <button
                   type="button"
-                  onClick={() => removeFile(f.id)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#999',
-                    cursor: 'pointer',
-                    padding: '2px',
-                    fontSize: '14px',
-                    lineHeight: 1,
-                    flexShrink: 0,
-                  }}
-                  aria-label={`移除 ${f.name}`}
+                  className="nf-icon-btn"
+                  onClick={() => removeFile(entry.id)}
+                  aria-label={`${t(locale, 'remove')} ${entry.name}`}
                 >
-                  ×
+                  <XIcon />
                 </button>
               </div>
             ))}
           </div>
         )}
-      </div>
-
-      <div>
-        <label style={{ fontSize: '12px', fontWeight: 500, color: '#555', marginBottom: '6px', display: 'block' }}>{t(locale, 'category')}</label>
-        {categoryLoading ? (
-          <div style={{ display: 'flex', gap: '6px' }}>
-            {[1, 2, 3].map(i => (
-              <div key={i} style={{ width: '60px', height: '28px', borderRadius: '16px', background: '#f0f0f0', animation: 'pulse 1.5s infinite' }} />
-            ))}
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-            {categories.map(c => (
-              <button key={c.name} type="button" onClick={() => setCategory(c.name)} aria-pressed={category === c.name} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px', borderRadius: '16px', border: category === c.name ? `1.5px solid ${c.color}` : '1.5px solid #e0e0e0', background: category === c.name ? `${c.color}11` : '#fff', color: category === c.name ? c.color : '#666', fontSize: '12px', fontWeight: 500, cursor: 'pointer', transition: 'all 0.15s' }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={c.icon || ''}/></svg>
-                {c.name}
-              </button>
-            ))}
-          </div>
+        {attachIssue && (
+          <span className="nf-error">
+            <AlertIcon />
+            {attachIssue}
+          </span>
         )}
       </div>
 
-      <div>
-        <label style={{ fontSize: '12px', fontWeight: 500, color: '#555', marginBottom: '4px', display: 'block' }}>{t(locale, 'contact')}</label>
-        <input value={contact} onChange={e => setContact(e.target.value)} placeholder={t(locale, 'contactPlaceholder')} style={baseInput} onFocus={e => { e.currentTarget.style.boxShadow = focusRing; e.currentTarget.style.borderColor = primaryColor; }} onBlurCapture={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = '#e0e0e0'; }} aria-label={t(locale, 'contact')} />
-      </div>
+      {showCategory && (
+        <div className="nf-field">
+          <span className="nf-label">{t(locale, 'category')}</span>
+          <div className="nf-chips">
+            {categoryLoading
+              ? [0, 1, 2].map((index) => <span className="nf-chip-skeleton" key={index} />)
+              : categories.map((item) => (
+                  <button
+                    type="button"
+                    key={item.name}
+                    className="nf-chip"
+                    data-selected={category === item.name}
+                    aria-pressed={category === item.name}
+                    onClick={() => setCategory(item.name)}
+                  >
+                    <span className="nf-chip-dot" style={{ color: item.color }} />
+                    {categoryLabel(locale, item.name)}
+                  </button>
+                ))}
+          </div>
+        </div>
+      )}
 
-      <button type="submit" disabled={loading || !!errors.content} aria-label="Submit feedback" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: primaryColor, color: '#fff', border: 'none', borderRadius: '8px', padding: '10px', fontSize: '14px', fontWeight: 600, cursor: loading ? 'wait' : 'pointer', opacity: loading ? 0.7 : 1, transition: 'opacity 0.15s' }}>
-        {loading && <svg width="14" height="14" viewBox="0 0 24 24" style={{ animation: 'spin 0.8s linear infinite' }}><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeLinecap="round"/></svg>}
-        {loading ? t(locale, 'submitting') : t(locale, 'submit')}
-      </button>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}`}</style>
+      {showContact && (
+        <div className="nf-field">
+          <label className="nf-label" htmlFor="nf-contact">
+            {t(locale, 'contact')}
+            <span className="nf-label-optional">{t(locale, 'optional')}</span>
+          </label>
+          <input
+            id="nf-contact"
+            className="nf-input"
+            value={contact}
+            placeholder={t(locale, 'contactPlaceholder')}
+            autoComplete="email"
+            onChange={(event) => setContact(event.target.value)}
+          />
+        </div>
+      )}
+
+      <div className="nf-form-actions">
+        <button type="submit" className="nf-submit" disabled={loading}>
+          {loading ? <SpinnerIcon /> : <SendIcon />}
+          {loading ? t(locale, 'submitting') : t(locale, 'submit')}
+        </button>
+
+        {submitIssue ? (
+          <p className="nf-error" role="alert" style={{ justifyContent: 'center' }}>
+            <AlertIcon />
+            {submitIssue}
+          </p>
+        ) : (
+          <p className="nf-form-note">{t(locale, 'submitHint')}</p>
+        )}
+      </div>
     </form>
   );
 }

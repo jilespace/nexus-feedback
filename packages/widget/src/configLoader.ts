@@ -5,6 +5,7 @@ export type ServerWidgetConfig = {
   successTitle?: string;
   successMessage?: string;
   fields?: { priority?: boolean; contact?: boolean; category?: boolean };
+  project?: { slug?: string; name?: string };
 };
 
 export async function loadWidgetConfig(apiUrl: string, apiKey: string): Promise<ServerWidgetConfig | null> {
@@ -14,7 +15,9 @@ export async function loadWidgetConfig(apiUrl: string, apiKey: string): Promise<
     });
     if (!res.ok) return null;
     const json = await res.json();
-    return json?.code === 0 ? (json.data?.widget ?? {}) : null;
+    if (json?.code !== 0) return null;
+    const widget = json.data?.widget ?? {};
+    return { ...widget, project: json.data?.project ?? undefined };
   } catch {
     return null;
   }
