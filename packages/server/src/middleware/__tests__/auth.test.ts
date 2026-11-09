@@ -56,7 +56,7 @@ describe('orgAuth', () => {
     });
     const { error } = run(orgAuth, token);
     expect(error).toBeInstanceOf(AppError);
-    expect((error as AppError).code).toBe(40101);
+    expect((error as AppError).code).toBe(40110);
   });
 });
 
