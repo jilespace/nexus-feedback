@@ -25,6 +25,7 @@ export type FeedbackDetail = {
   category: FeedbackCategory;
   priority: FeedbackPriority;
   status: FeedbackStatus;
+  source?: FeedbackSource;
   contact: string | null;
   app_version: string | null;
   metadata: Record<string, unknown> | null;
@@ -90,6 +91,7 @@ export type Stats = {
   by_source: Record<string, number>;
   by_month: { month: string; count: number }[];
   avg_response_hours?: number;
+  response_count?: number;
 };
 
 export type OrgMemberRole = 'owner' | 'admin' | 'member';

@@ -112,7 +112,13 @@ export async function memberLogin(email: string, password: string, orgSlug: stri
   return {
     token,
     expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-    member: { id: member.id, email: member.email, role: member.role },
+    member: {
+      id: member.id,
+      email: member.email,
+      display_name: member.display_name,
+      role: member.role,
+    },
+    organization: { id: org.id, name: org.name, slug: org.slug },
   };
 }
 

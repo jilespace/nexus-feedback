@@ -94,6 +94,26 @@ export async function fetchProjectCategories(): Promise<Array<{ name: string; co
   return apiRequest<Array<{ name: string; color: string }>>('/admin/categories');
 }
 
+export async function downloadFeedbackCsv(params: Record<string, string>): Promise<void> {
+  const token = getToken();
+  const query = new URLSearchParams(params).toString();
+  const res = await fetch(`${BASE_URL}/admin/feedback/export?${query}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    throw new ApiError(res.status, `导出失败 (HTTP ${res.status})`, res.status);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `feedback-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export async function fetchAuditLogs(params: {
   page?: number;
   page_size?: number;

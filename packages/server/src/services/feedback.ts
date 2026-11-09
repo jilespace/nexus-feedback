@@ -210,7 +210,8 @@ export async function getFeedbackDetail(id: string, orgId?: string) {
     },
   });
   if (!feedback) throw new NotFoundError('反馈不存在');
-  return feedback;
+  const { feedbackTags, ...rest } = feedback;
+  return { ...rest, tags: feedbackTags.map((feedbackTag) => feedbackTag.tag) };
 }
 
 export async function updateFeedbackStatus(
@@ -370,6 +371,17 @@ export async function batchUpdateStatus(ids: string[], status: string, orgId?: s
   return { updated: result.count };
 }
 
+function isoWeekKey(date: Date): string {
+  const d = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
 export async function getStats(orgId?: string) {
   const baseWhere: Prisma.FeedbackWhereInput = { deleted_at: null };
   if (orgId) baseWhere.project = { org_id: orgId };
@@ -404,13 +416,10 @@ export async function getStats(orgId?: string) {
   const monthMap = new Map<string, number>();
   for (const f of recentFeedback) {
     const d = new Date(f.created_at);
-    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const monthKey = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
     monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + 1);
 
-    const weekStart = new Date(d);
-    weekStart.setDate(d.getDate() - d.getDay());
-    const weekOfYear = Math.ceil((weekStart.getTime() - new Date(weekStart.getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000));
-    const weekKey = `${weekStart.getFullYear()}-W${String(weekOfYear).padStart(2, '0')}`;
+    const weekKey = isoWeekKey(d);
     weekMap.set(weekKey, (weekMap.get(weekKey) || 0) + 1);
   }
 
@@ -456,6 +465,7 @@ export async function getStats(orgId?: string) {
     by_source: sourceMap,
     by_month: [...monthMap.entries()].map(([month, count]) => ({ month, count })),
     avg_response_hours: avgResponseHours,
+    response_count: responseCount,
   };
 }
 

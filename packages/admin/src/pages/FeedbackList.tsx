@@ -1,46 +1,55 @@
-﻿import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
-import { apiRequest, assignFeedbackBatch, fetchOrgMembers, fetchOrgTags, restoreFeedback } from '@/api/client';
-import type { FeedbackItem, PaginatedResponse, FeedbackPriority, FeedbackSource, ProjectAccessInfo } from '@/types';
-import { StatusBadge } from '@/components/StatusBadge';
+import {
+  apiRequest,
+  assignFeedbackBatch,
+  downloadFeedbackCsv,
+  fetchOrgMembers,
+  fetchOrgTags,
+  restoreFeedback,
+} from '@/api/client';
+import type { FeedbackItem, PaginatedResponse, ProjectAccessInfo } from '@/types';
 import { FilterBar } from '@/components/FilterBar';
-import { TableSkeleton, EmptyState } from '@/components/ui';
+import { PageHeader } from '@/components/PageHeader';
+import { Button, EmptyState, TableSkeleton } from '@/components/ui';
+import { FeedbackTable } from '@/components/feedback/FeedbackTable';
+import { FeedbackCards } from '@/components/feedback/FeedbackCards';
+import { FeedbackBulkBar } from '@/components/feedback/FeedbackBulkBar';
+import { Pagination } from '@/components/feedback/Pagination';
 import { useToast } from '@/components/Toast';
 import { SearchIcon } from '@/components/icons';
-import { formatRelativeTime } from '@/utils/formatRelativeTime';
 import { useAuth } from '@/hooks/useAuth';
 import { useSavedViews } from '@/hooks/useSavedViews';
 import { useFirstProject } from '@/hooks/useOnboarding';
+import { categoryLabel, priorityLabel } from '@/utils/labels';
 
+type SortBy = 'newest' | 'oldest' | 'most_voted';
 
-const SOURCE_LABELS: Record<string, { label: string; className: string }> = {
-  widget: { label: 'Widget', className: 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-300' },
-  'submit-page': { label: '提交页', className: 'bg-teal-50 text-teal-600 dark:bg-teal-900/30 dark:text-teal-300' },
-  api: { label: 'API', className: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' },
-  board: { label: '看板', className: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300' },
-};
+const SORT_OPTIONS: Array<{ value: SortBy; label: string }> = [
+  { value: 'newest', label: '最新优先' },
+  { value: 'oldest', label: '最早优先' },
+  { value: 'most_voted', label: '最多投票' },
+];
 
-const PRIORITY_CONFIG: Record<FeedbackPriority, { label: string; className: string }> = {
-  low: { label: '低', className: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' },
-  medium: { label: '中', className: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300' },
-  high: { label: '高', className: 'bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-300' },
-  critical: { label: '紧急', className: 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300' },
-};
+const selectClass =
+  'h-9 rounded-lg border border-surface-3 bg-surface-0 px-2.5 text-[13px] font-medium text-gray-600 transition-colors hover:border-gray-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-gray-600';
 
 export function FeedbackList() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { show: toast } = useToast();
   const { member: currentMember, organization } = useAuth();
+  const lang = i18n.language;
+
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [keyword, setKeyword] = useState('');
   const [debouncedKeyword, setDebouncedKeyword] = useState('');
-  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'most_voted'>('newest');
+  const [sortBy, setSortBy] = useState<SortBy>('newest');
   const [assigneeFilter, setAssigneeFilter] = useState('');
   const [tagFilter, setTagFilter] = useState('');
   const [projectFilter, setProjectFilter] = useState('');
@@ -49,25 +58,23 @@ export function FeedbackList() {
   const [showViewSaver, setShowViewSaver] = useState(false);
   const [viewName, setViewName] = useState('');
   const [activeSavedView, setActiveSavedView] = useState('');
+  const [exporting, setExporting] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const savedViews = useSavedViews(organization?.id);
   const firstProject = useFirstProject();
+  const canExport = currentMember?.role === 'owner' || currentMember?.role === 'admin';
 
-  const { data: members } = useQuery({
-    queryKey: ['org-members'],
-    queryFn: fetchOrgMembers,
-  });
-
-  const { data: tags } = useQuery({
-    queryKey: ['org-tags'],
-    queryFn: fetchOrgTags,
-  });
-
+  const { data: members } = useQuery({ queryKey: ['org-members'], queryFn: fetchOrgMembers });
+  const { data: tags } = useQuery({ queryKey: ['org-tags'], queryFn: fetchOrgTags });
   const { data: projects } = useQuery({
     queryKey: ['projects'],
     queryFn: () => apiRequest<ProjectAccessInfo[]>('/org/projects'),
   });
+
+  const memberList = Array.isArray(members) ? members : [];
+  const tagList = Array.isArray(tags) ? tags : [];
+  const projectList = projects ?? [];
 
   const handleKeywordChange = useCallback((value: string) => {
     setKeyword(value);
@@ -75,11 +82,11 @@ export function FeedbackList() {
     timerRef.current = setTimeout(() => {
       setDebouncedKeyword(value);
       setPage(1);
-    }, 300);
+    }, 280);
   }, []);
 
-  useEffect(() => {
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
   }, []);
 
   const queryParams = new URLSearchParams({
@@ -95,9 +102,18 @@ export function FeedbackList() {
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ['feedback', page, filters, debouncedKeyword, sortBy, assigneeFilter, tagFilter, view, projectFilter],
-    queryFn: () =>
-      apiRequest<PaginatedResponse<FeedbackItem>>(`/admin/feedback?${queryParams}`),
+    queryKey: [
+      'feedback',
+      page,
+      filters,
+      debouncedKeyword,
+      sortBy,
+      assigneeFilter,
+      tagFilter,
+      view,
+      projectFilter,
+    ],
+    queryFn: () => apiRequest<PaginatedResponse<FeedbackItem>>(`/admin/feedback?${queryParams}`),
   });
 
   const batchMutation = useMutation({
@@ -111,9 +127,7 @@ export function FeedbackList() {
       setSelected(new Set());
       queryClient.invalidateQueries({ queryKey: ['feedback'] });
     },
-    onError: (err: Error) => {
-      toast(err.message || '操作失败', 'error');
-    },
+    onError: (err: Error) => toast(err.message || '操作失败', 'error'),
   });
 
   const assignMutation = useMutation({
@@ -124,9 +138,7 @@ export function FeedbackList() {
       setSelected(new Set());
       queryClient.invalidateQueries({ queryKey: ['feedback'] });
     },
-    onError: (err: Error) => {
-      toast(err.message || '操作失败', 'error');
-    },
+    onError: (err: Error) => toast(err.message || '操作失败', 'error'),
   });
 
   const restoreMutation = useMutation({
@@ -135,9 +147,7 @@ export function FeedbackList() {
       toast('已恢复', 'success');
       queryClient.invalidateQueries({ queryKey: ['feedback'] });
     },
-    onError: (err: Error) => {
-      toast(err.message || '恢复失败', 'error');
-    },
+    onError: (err: Error) => toast(err.message || '恢复失败', 'error'),
   });
 
   const totalPages = data ? Math.ceil(data.total / data.page_size) : 0;
@@ -145,223 +155,399 @@ export function FeedbackList() {
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
 
   const toggleAll = () => {
     if (!data?.items.length) return;
-    if (selected.size === data.items.length) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(data.items.map((i) => i.id)));
+    if (selected.size === data.items.length) setSelected(new Set());
+    else setSelected(new Set(data.items.map((i) => i.id)));
+  };
+
+  const activeChips: Array<{ key: string; label: string; clear: () => void }> = [];
+  if (projectFilter) {
+    const project = projectList.find((p) => p.id === projectFilter);
+    activeChips.push({
+      key: 'project',
+      label: project?.name ?? '项目',
+      clear: () => setProjectFilter(''),
+    });
+  }
+  if (assigneeFilter) {
+    const assignee =
+      assigneeFilter === '__unassigned__'
+        ? null
+        : memberList.find((m) => m.id === assigneeFilter);
+    activeChips.push({
+      key: 'assignee',
+      label: assigneeFilter === '__unassigned__' ? '未分配' : `负责人：${assignee?.display_name ?? ''}`,
+      clear: () => setAssigneeFilter(''),
+    });
+  }
+  if (tagFilter) {
+    const tag = tagList.find((tg) => tg.id === tagFilter);
+    activeChips.push({ key: 'tag', label: `标签：${tag?.name ?? ''}`, clear: () => setTagFilter('') });
+  }
+  if (filters.status) {
+    activeChips.push({
+      key: 'status',
+      label: t(`feedback.status_${filters.status}`),
+      clear: () => {
+        const next = { ...filters };
+        delete next.status;
+        setFilters(next);
+      },
+    });
+  }
+  if (filters.category) {
+    activeChips.push({
+      key: 'category',
+      label: categoryLabel(filters.category, lang),
+      clear: () => {
+        const next = { ...filters };
+        delete next.category;
+        setFilters(next);
+      },
+    });
+  }
+  if (filters.priority) {
+    activeChips.push({
+      key: 'priority',
+      label: `优先级：${priorityLabel(filters.priority as never, lang)}`,
+      clear: () => {
+        const next = { ...filters };
+        delete next.priority;
+        setFilters(next);
+      },
+    });
+  }
+  const hasActiveFilters =
+    activeChips.length > 0 || Boolean(debouncedKeyword) || Boolean(projectFilter);
+
+  const resetAll = () => {
+    setFilters({});
+    setProjectFilter('');
+    setAssigneeFilter('');
+    setTagFilter('');
+    setKeyword('');
+    setDebouncedKeyword('');
+    setPage(1);
+  };
+
+  const applySavedView = (filtersValue: Record<string, string>) => {
+    setFilters({ ...filtersValue });
+    setProjectFilter(filtersValue.project_id ?? '');
+    setAssigneeFilter(filtersValue.assignee_id ?? '');
+    setTagFilter(filtersValue.tag_id ?? '');
+    setPage(1);
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      await downloadFeedbackCsv({
+        ...filters,
+        ...(debouncedKeyword ? { keyword: debouncedKeyword } : {}),
+      });
+      toast('CSV 已开始下载', 'success');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : '导出失败', 'error');
+    } finally {
+      setExporting(false);
     }
   };
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('feedback.list_title')}</h1>
-        <span className="text-sm text-gray-500 dark:text-gray-400">
-          {data ? t('feedback.total_count', { count: data.total }) : ''}
-        </span>
-      </div>
+    <div className="animate-fade-in space-y-4">
+      <PageHeader
+        title={t('feedback.list_title')}
+        description={
+          data
+            ? `${t('feedback.total_count', { count: data.total })}${view === 'trash' ? ' · 回收站' : ''}`
+            : t('common.loading')
+        }
+        actions={
+          canExport ? (
+            <Button variant="secondary" onClick={handleExport} disabled={exporting || isLoading}>
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+                <path
+                  d="M10 3v8m0 0 3-3m-3 3L7 8M4 14.5h12"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              {exporting ? '导出中...' : t('feedback.export_csv')}
+            </Button>
+          ) : null
+        }
+      />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1 max-w-xs">
-          <input
-            value={keyword}
-            onChange={(e) => handleKeywordChange(e.target.value)}
-            placeholder={t('feedback.search_placeholder')}
-            data-shortcut-search
-            className="w-full rounded-lg border border-surface-3 bg-surface-0 py-2 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-brand-500 transition-shadow"
-          />
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2" />
-        </div>
-        <select
-          value={sortBy}
-          onChange={(e) => { setSortBy(e.target.value as typeof sortBy); setPage(1); }}
-          className="rounded-lg border border-surface-3 bg-surface-0 px-3 py-2 text-sm text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
-        >
-          <option value="newest">最新优先</option>
-          <option value="oldest">最早优先</option>
-          <option value="most_voted">最多投票</option>
-        </select>
-        <select
-          value={projectFilter}
-          onChange={(e) => { setProjectFilter(e.target.value); setPage(1); }}
-          className="rounded-lg border border-surface-3 bg-surface-0 px-3 py-2 text-sm text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
-        >
-          <option value="">全部项目</option>
-          {(projects ?? []).map((p) => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
-        <select
-          value={assigneeFilter}
-          onChange={(e) => { setAssigneeFilter(e.target.value); setPage(1); }}
-          className="rounded-lg border border-surface-3 bg-surface-0 px-3 py-2 text-sm text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
-        >
-          <option value="">全部负责人</option>
-          <option value="__unassigned__">未分配</option>
-          {currentMember && (
-            <option value={currentMember.id}>分配给我</option>
-          )}
-          {(Array.isArray(members) ? members : []).filter(m => m.id !== currentMember?.id).map(m => (
-            <option key={m.id} value={m.id}>{m.display_name}</option>
-          ))}
-        </select>
-        <select
-          value={tagFilter}
-          onChange={(e) => { setTagFilter(e.target.value); setPage(1); }}
-          className="rounded-lg border border-surface-3 bg-surface-0 px-3 py-2 text-sm text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
-        >
-          <option value="">全部标签</option>
-          {(Array.isArray(tags) ? tags : []).map((tag) => (
-            <option key={tag.id} value={tag.id}>{tag.name}</option>
-          ))}
-        </select>
-        <FilterBar filters={filters} onChange={(f) => { setFilters(f); setPage(1); }} />
-      </div>
+      {/* Toolbar */}
+      <div className="rounded-xl border border-surface-3 bg-surface-0 p-3 shadow-card dark:border-gray-700/80 dark:bg-gray-800">
+        <div className="flex flex-col gap-2.5 lg:flex-row lg:flex-wrap lg:items-center">
+          <div className="relative w-full min-w-0 flex-1 lg:max-w-md lg:min-w-[260px]">
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              value={keyword}
+              onChange={(e) => handleKeywordChange(e.target.value)}
+              placeholder={t('feedback.search_placeholder')}
+              data-shortcut-search
+              className="h-9 w-full rounded-lg border border-surface-3 bg-surface-1/60 pl-9 pr-12 text-[13px] text-gray-900 placeholder:text-gray-400 transition-colors focus:border-brand-400 focus:bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:border-brand-500"
+            />
+            <kbd className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded border border-surface-3 bg-surface-0 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-500 sm:block">
+              /
+            </kbd>
+          </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="inline-flex rounded-lg border border-surface-3 bg-surface-0 p-0.5 dark:border-gray-600 dark:bg-gray-700">
-          {([['active', '全部反馈'], ['trash', '回收站']] as const).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => { setView(key); setPage(1); setSelected(new Set()); }}
-              className={clsx(
-                'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-                view === key
-                  ? 'bg-brand-600 text-white shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200',
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="relative flex items-center gap-2">
-          <select
-            value={activeSavedView}
-            onChange={(e) => {
-              const name = e.target.value;
-              setActiveSavedView(name);
-              const v = savedViews.views.find((sv) => sv.name === name);
-              if (v) {
-                setFilters({ ...v.filters });
-                setProjectFilter(v.filters.project_id ?? '');
-                setAssigneeFilter(v.filters.assignee_id ?? '');
-                setTagFilter(v.filters.tag_id ?? '');
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={sortBy}
+              onChange={(e) => {
+                setSortBy(e.target.value as SortBy);
                 setPage(1);
-              }
-            }}
-            className="rounded-lg border border-surface-3 bg-surface-0 px-3 py-2 text-sm text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
-          >
-            <option value="">视图</option>
-            {savedViews.views.map((v) => (
-              <option key={v.name} value={v.name}>{v.name}</option>
-            ))}
-          </select>
-          {activeSavedView && (
-            <button
-              onClick={() => {
-                savedViews.remove(activeSavedView);
-                setActiveSavedView('');
-                toast('已删除视图', 'success');
               }}
-              title="删除当前视图"
-              className="text-xs text-gray-400 transition-colors hover:text-red-500 focus:outline-none"
+              className={selectClass}
+              aria-label="排序"
             >
-              ✕
-            </button>
-          )}
-          <button
-            onClick={() => { setShowViewSaver(!showViewSaver); setViewName(''); }}
-            title="保存当前筛选为视图"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-surface-3 bg-surface-0 text-gray-500 transition-colors hover:bg-surface-2 hover:text-brand-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600 dark:hover:text-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 2h8.5L13 4.5V14H3V2z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/><path d="M5 2v4h5V2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/><path d="M5 10h6v3H5z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg>
-          </button>
-          {showViewSaver && (
-            <div className="absolute right-0 top-full z-10 mt-1 w-56 rounded-lg border border-surface-3 bg-surface-0 p-3 shadow-lg dark:border-gray-600 dark:bg-gray-800">
-              <input
-                value={viewName}
-                onChange={(e) => setViewName(e.target.value)}
-                placeholder="视图名称"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') setShowViewSaver(false);
-                  if (e.key === 'Enter' && viewName.trim()) {
-                    const result = savedViews.save(viewName, {
-                      ...filters,
-                      ...(projectFilter ? { project_id: projectFilter } : {}),
-                      ...(assigneeFilter ? { assignee_id: assigneeFilter } : {}),
-                      ...(tagFilter ? { tag_id: tagFilter } : {}),
-                    });
-                    setShowViewSaver(false);
-                    toast(result === 'updated' ? '已更新视图' : result === 'saved' ? '已保存视图' : '保存失败（已达上限 10 个）', 'success');
-                  }
-                }}
-                className="w-full rounded-md border border-surface-3 bg-surface-0 px-2 py-1.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-300 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              />
-              <button
-                onClick={() => {
-                  if (!viewName.trim()) return;
-                  const result = savedViews.save(viewName, {
-                    ...filters,
-                    ...(projectFilter ? { project_id: projectFilter } : {}),
-                    ...(assigneeFilter ? { assignee_id: assigneeFilter } : {}),
-                    ...(tagFilter ? { tag_id: tagFilter } : {}),
-                  });
-                  setShowViewSaver(false);
-                  toast(result === 'updated' ? '已更新视图' : result === 'saved' ? '已保存视图' : '保存失败（已达上限 10 个）', 'success');
-                }}
-                disabled={!viewName.trim()}
-                className="mt-2 w-full rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50 focus:outline-none"
-              >
-                保存
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={projectFilter}
+              onChange={(e) => {
+                setProjectFilter(e.target.value);
+                setPage(1);
+              }}
+              className={selectClass}
+              aria-label="项目"
+            >
+              <option value="">全部项目</option>
+              {projectList.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={assigneeFilter}
+              onChange={(e) => {
+                setAssigneeFilter(e.target.value);
+                setPage(1);
+              }}
+              className={selectClass}
+              aria-label="负责人"
+            >
+              <option value="">全部负责人</option>
+              <option value="__unassigned__">未分配</option>
+              {currentMember && <option value={currentMember.id}>分配给我</option>}
+              {memberList
+                .filter((m) => m.id !== currentMember?.id)
+                .map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.display_name}
+                  </option>
+                ))}
+            </select>
+            <select
+              value={tagFilter}
+              onChange={(e) => {
+                setTagFilter(e.target.value);
+                setPage(1);
+              }}
+              className={selectClass}
+              aria-label="标签"
+            >
+              <option value="">全部标签</option>
+              {tagList.map((tag) => (
+                <option key={tag.id} value={tag.id}>
+                  {tag.name}
+                </option>
+              ))}
+            </select>
+            <FilterBar
+              filters={filters}
+              onChange={(f) => {
+                setFilters(f);
+                setPage(1);
+              }}
+            />
 
+            <div className="ml-auto flex items-center gap-2">
+              <div className="inline-flex rounded-lg border border-surface-3 bg-surface-1/70 p-0.5 dark:border-gray-700 dark:bg-gray-900/40">
+                {(
+                  [
+                    ['active', '全部反馈'],
+                    ['trash', '回收站'],
+                  ] as const
+                ).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => {
+                      setView(key);
+                      setPage(1);
+                      setSelected(new Set());
+                    }}
+                    className={clsx(
+                      'h-7 rounded-md px-2.5 text-xs font-medium transition-all',
+                      view === key
+                        ? 'bg-surface-0 text-gray-900 shadow-sm dark:bg-gray-700 dark:text-gray-100'
+                        : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200',
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="relative flex items-center gap-1">
+                <select
+                  value={activeSavedView}
+                  onChange={(e) => {
+                    const name = e.target.value;
+                    setActiveSavedView(name);
+                    const saved = savedViews.views.find((sv) => sv.name === name);
+                    if (saved) applySavedView(saved.filters);
+                  }}
+                  className={selectClass}
+                  aria-label="已保存视图"
+                >
+                  <option value="">视图</option>
+                  {savedViews.views.map((v) => (
+                    <option key={v.name} value={v.name}>
+                      {v.name}
+                    </option>
+                  ))}
+                </select>
+                {activeSavedView && (
+                  <button
+                    onClick={() => {
+                      savedViews.remove(activeSavedView);
+                      setActiveSavedView('');
+                      toast('已删除视图', 'success');
+                    }}
+                    title="删除当前视图"
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-gray-400 transition-colors hover:text-rose-500"
+                  >
+                    ✕
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setShowViewSaver((v) => !v);
+                    setViewName('');
+                  }}
+                  title="保存当前筛选为视图"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-surface-3 bg-surface-0 text-gray-500 transition-colors hover:bg-surface-1 hover:text-brand-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-brand-400"
+                >
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                    <path d="M3 2h8.5L13 4.5V14H3V2z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+                    <path d="M5 10h6v3H5z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                {showViewSaver && (
+                  <div className="absolute right-0 top-full z-20 mt-1.5 w-56 animate-scale-in rounded-xl border border-surface-3 bg-surface-0 p-3 shadow-pop dark:border-gray-700 dark:bg-gray-800">
+                    <input
+                      value={viewName}
+                      onChange={(e) => setViewName(e.target.value)}
+                      placeholder="视图名称"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') setShowViewSaver(false);
+                        if (e.key === 'Enter' && viewName.trim()) {
+                          const result = savedViews.save(viewName, {
+                            ...filters,
+                            ...(projectFilter ? { project_id: projectFilter } : {}),
+                            ...(assigneeFilter ? { assignee_id: assigneeFilter } : {}),
+                            ...(tagFilter ? { tag_id: tagFilter } : {}),
+                          });
+                          setShowViewSaver(false);
+                          toast(
+                            result === 'updated'
+                              ? '已更新视图'
+                              : result === 'saved'
+                                ? '已保存视图'
+                                : '保存失败（已达上限 10 个）',
+                            result === 'limit' ? 'error' : 'success',
+                          );
+                        }
+                      }}
+                      className="h-9 w-full rounded-lg border border-surface-3 bg-surface-1/60 px-2.5 text-[13px] text-gray-900 placeholder:text-gray-400 focus:border-brand-400 focus:bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-600 dark:bg-gray-900/40 dark:text-gray-100"
+                    />
+                    <Button
+                      size="sm"
+                      className="mt-2 w-full"
+                      disabled={!viewName.trim()}
+                      onClick={() => {
+                        if (!viewName.trim()) return;
+                        const result = savedViews.save(viewName, {
+                          ...filters,
+                          ...(projectFilter ? { project_id: projectFilter } : {}),
+                          ...(assigneeFilter ? { assignee_id: assigneeFilter } : {}),
+                          ...(tagFilter ? { tag_id: tagFilter } : {}),
+                        });
+                        setShowViewSaver(false);
+                        toast(
+                          result === 'updated'
+                            ? '已更新视图'
+                            : result === 'saved'
+                              ? '已保存视图'
+                              : '保存失败（已达上限 10 个）',
+                          result === 'limit' ? 'error' : 'success',
+                        );
+                      }}
+                    >
+                      保存视图
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {hasActiveFilters && (
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-surface-2 pt-2.5 dark:border-gray-700/60">
+            <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500">筛选</span>
+            {activeChips.map((chip) => (
+              <button
+                key={chip.key}
+                onClick={chip.clear}
+                className="group inline-flex items-center gap-1 rounded-md bg-surface-2 px-2 py-1 text-[11px] font-medium text-gray-600 transition-colors hover:bg-surface-3 dark:bg-gray-700/60 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                {chip.label}
+                <span className="text-gray-400 group-hover:text-gray-600 dark:text-gray-500">✕</span>
+              </button>
+            ))}
+            <button
+              onClick={resetAll}
+              className="ml-1 text-[11px] font-medium text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400"
+            >
+              重置筛选
+            </button>
+          </div>
+        )}
+      </div>
 
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 rounded-lg border border-brand-200 bg-brand-50 px-4 py-2.5 dark:border-brand-800 dark:bg-brand-900/20">
-          <span className="text-sm font-medium text-brand-700 dark:text-brand-300">{t('feedback.selected_count', { count: selected.size })}</span>
-          <button
-            onClick={() => batchMutation.mutate(Array.from(selected))}
-            disabled={batchMutation.isPending}
-            className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-700 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-brand-200"
-          >
-            {batchMutation.isPending ? t('common.loading') : t('feedback.batch_close')}
-          </button>
-          <select
-            value=""
-            onChange={(e) => {
-              if (!e.target.value) return;
-              assignMutation.mutate({ ids: Array.from(selected), assigneeId: e.target.value === '__unassigned__' ? null : e.target.value });
-              e.target.value = '';
-            }}
-            disabled={assignMutation.isPending}
-            className="rounded-md border border-brand-300 bg-surface-0 px-2 py-1.5 text-xs font-medium text-brand-700 focus:outline-none dark:border-brand-700 dark:bg-gray-700 dark:text-brand-300"
-          >
-            <option value="" disabled>{assignMutation.isPending ? '分配中...' : '分配给'}</option>
-            <option value="__unassigned__">未分配</option>
-            {(Array.isArray(members) ? members : []).map((m) => (
-              <option key={m.id} value={m.id}>{m.display_name}</option>
-            ))}
-          </select>
-          <button
-            onClick={() => setSelected(new Set())}
-            className="text-xs text-brand-600 hover:text-brand-800 dark:text-brand-400 dark:hover:text-brand-200 focus:outline-none"
-          >
-            {t('feedback.cancel_select')}
-          </button>
-        </div>
+        <FeedbackBulkBar
+          count={selected.size}
+          batchPending={batchMutation.isPending}
+          assignPending={assignMutation.isPending}
+          members={memberList}
+          onClose={() => setSelected(new Set())}
+          onBatchClose={() => batchMutation.mutate(Array.from(selected))}
+          onAssign={(assigneeId) =>
+            assignMutation.mutate({ ids: Array.from(selected), assigneeId })
+          }
+        />
       )}
 
       {isLoading ? (
@@ -371,14 +557,22 @@ export function FeedbackList() {
           <EmptyState
             icon={<SearchIcon className="text-gray-400" />}
             title="回收站为空"
+            description="被删除的反馈会先进入回收站，可随时恢复"
+          />
+        ) : hasActiveFilters ? (
+          <EmptyState
+            icon={<SearchIcon className="text-gray-400" />}
+            title="没有找到匹配的反馈"
+            description="试试调整搜索关键词或清除部分筛选条件"
+            action={{ label: '重置筛选', onClick: resetAll }}
           />
         ) : (
           <EmptyState
             icon={<SearchIcon className="text-gray-400" />}
-            title="暂无反馈"
-            description="当有新的反馈提交时，将会显示在这里"
+            title={t('feedback.empty_title')}
+            description={t('feedback.empty_desc')}
             action={
-              !debouncedKeyword && Object.keys(filters).length === 0 && !assigneeFilter && !tagFilter && firstProject
+              firstProject
                 ? {
                     label: '获取嵌入代码',
                     onClick: () => navigate(`/projects/${firstProject.projectId}/widget`),
@@ -389,202 +583,35 @@ export function FeedbackList() {
         )
       ) : (
         <>
-          {/* Desktop table */}
-          <div className="hidden overflow-hidden rounded-xl border border-surface-3 bg-surface-0 shadow-sm dark:border-gray-700 dark:bg-gray-800 lg:block">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-surface-3 bg-surface-1 dark:border-gray-700 dark:bg-gray-800">
-                <tr>
-                  <th className="w-10 px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={data.items.length > 0 && selected.size === data.items.length}
-                      onChange={toggleAll}
-                      className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-200 dark:border-gray-600 dark:bg-gray-700"
-                    />
-                  </th>
-                  <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('feedback.col_title')}</th>
-                  <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('feedback.col_source')}</th>
-                  <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('feedback.col_category')}</th>
-                  <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">负责人</th>
-                  <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('feedback.col_tags')}</th>
-                  <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('feedback.col_priority')}</th>
-                  <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('feedback.col_status')}</th>
-                  <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('feedback.col_time')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-surface-2 dark:divide-gray-700">
-                {data.items.map((item) => (
-                  <tr
-                    key={item.id}
-                    data-shortcut-item
-                    className={clsx(
-                      'transition-colors hover:bg-brand-50/40 dark:hover:bg-brand-900/20 cursor-pointer',
-                      selected.has(item.id) && 'bg-brand-50/20 dark:bg-brand-900/10',
-                      view === 'trash' && 'opacity-60',
-                    )}
-                  >
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={selected.has(item.id)}
-                        onChange={() => toggleSelect(item.id)}
-                        className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-200 dark:border-gray-600 dark:bg-gray-700"
-                      />
-                    </td>
-                    <td className="px-4 py-3" onClick={() => navigate(`/feedback/${item.id}`)}>
-                      <span className="font-medium text-gray-900 dark:text-gray-100">{item.title}</span>
-                      {view === 'trash' && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (window.confirm('确定恢复该反馈？')) {
-                              restoreMutation.mutate(item.id);
-                            }
-                          }}
-                          disabled={restoreMutation.isPending}
-                          className="ml-2 rounded-md border border-surface-3 px-1.5 py-0.5 text-[11px] font-medium text-gray-500 transition-colors hover:border-brand-300 hover:text-brand-600 focus:outline-none dark:border-gray-600 dark:text-gray-400"
-                        >
-                          恢复
-                        </button>
-                      )}
-                      {item.reply_count > 0 && (
-                        <span className="ml-2 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand-100 px-1 text-[10px] font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
-                          {item.reply_count}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3" onClick={() => navigate(`/feedback/${item.id}`)}>
-                      <SourceBadge source={item.source} />
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400" onClick={() => navigate(`/feedback/${item.id}`)}>
-                      {item.category}
-                    </td>
-                    <td className="px-4 py-3" onClick={() => navigate(`/feedback/${item.id}`)}>
-                      <AssigneeCell assignee={item.assignee} />
-                    </td>
-                    <td className="px-4 py-3" onClick={() => navigate(`/feedback/${item.id}`)}>
-                      <TagChips tags={item.tags} />
-                    </td>
-                    <td className="px-4 py-3" onClick={() => navigate(`/feedback/${item.id}`)}>
-                      <PriorityBadge priority={item.priority} />
-                    </td>
-                    <td className="px-4 py-3" onClick={() => navigate(`/feedback/${item.id}`)}><StatusBadge status={item.status} /></td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400" onClick={() => navigate(`/feedback/${item.id}`)}>
-                      {formatRelativeTime(item.created_at)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile card list */}
-          <div className="space-y-3 lg:hidden">
-            {data.items.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => navigate(`/feedback/${item.id}`)}
-                className="rounded-xl border border-surface-3 bg-surface-0 p-4 shadow-sm transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800 cursor-pointer"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">{item.title}</p>
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{formatRelativeTime(item.created_at)}</p>
-                  </div>
-                  <StatusBadge status={item.status} />
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <SourceBadge source={item.source} />
-                  <PriorityBadge priority={item.priority} />
-                  <AssigneeCell assignee={item.assignee} />
-                  <span className="inline-flex items-center rounded-md bg-surface-2 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">
-                    {item.category}
-                  </span>
-                  <TagChips tags={item.tags} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 pt-2">
-          <button
-            disabled={page <= 1}
-            onClick={() => setPage(page - 1)}
-            className="rounded-lg border border-surface-3 bg-surface-0 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-surface-2 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-          >
-            {t('feedback.prev_page')}
-          </button>
-          <span className="px-2 text-sm text-gray-600 dark:text-gray-400 tabular-nums">{page} / {totalPages}</span>
-          <button
-            disabled={page >= totalPages}
-            onClick={() => setPage(page + 1)}
-            className="rounded-lg border border-surface-3 bg-surface-0 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-surface-2 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-          >
-            {t('feedback.next_page')}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PriorityBadge({ priority }: { priority: FeedbackPriority }) {
-  const config = PRIORITY_CONFIG[priority];
-  return (
-    <span className={clsx('inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium', config.className)}>
-      {config.label}
-    </span>
-  );
-}
-
-function SourceBadge({ source }: { source?: FeedbackSource }) {
-  const config = SOURCE_LABELS[source ?? 'api'] ?? { label: source ?? 'API', className: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' };
-  return (
-    <span className={clsx('inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium', config.className)}>
-      {config.label}
-    </span>
-  );
-}
-
-function AssigneeCell({ assignee }: { assignee?: { id: string; display_name: string } | null }) {
-  if (!assignee) {
-    return <span className="text-gray-300 dark:text-gray-600">—</span>;
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-100 text-[10px] font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
-        {assignee.display_name.charAt(0)}
-      </span>
-      <span className="text-xs text-gray-600 dark:text-gray-300">{assignee.display_name}</span>
-    </span>
-  );
-}
-
-function TagChips({ tags }: { tags?: { id: string; name: string; color: string | null }[] }) {
-  if (!tags?.length) {
-    return <span className="text-gray-300 dark:text-gray-600">—</span>;
-  }
-  const shown = tags.slice(0, 3);
-  const rest = tags.length - shown.length;
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {shown.map((tag) => (
-        <span
-          key={tag.id}
-          className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-1.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300"
-        >
-          <span
-            className="h-1.5 w-1.5 rounded-full"
-            style={{ backgroundColor: tag.color ?? '#6b7280' }}
+          <FeedbackTable
+            items={data.items}
+            selected={selected}
+            view={view}
+            restoring={restoreMutation.isPending}
+            onToggleSelect={toggleSelect}
+            onToggleAll={toggleAll}
+            onOpen={(id) => navigate(`/feedback/${id}`)}
+            onRestore={(id) => restoreMutation.mutate(id)}
           />
-          {tag.name}
-        </span>
-      ))}
-      {rest > 0 && (
-        <span className="text-xs text-gray-400 dark:text-gray-500">+{rest}</span>
+          <FeedbackCards
+            items={data.items}
+            selected={selected}
+            view={view}
+            restoring={restoreMutation.isPending}
+            onToggleSelect={toggleSelect}
+            onOpen={(id) => navigate(`/feedback/${id}`)}
+            onRestore={(id) => restoreMutation.mutate(id)}
+          />
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            onChange={(next) => {
+              setPage(next);
+              setSelected(new Set());
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+        </>
       )}
     </div>
   );

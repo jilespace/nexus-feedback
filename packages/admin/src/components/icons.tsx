@@ -154,52 +154,77 @@ export function AuditLogsIcon({ active, className }: IconProps) {
 
 export function ResponseTimeIcon({ active, className }: IconProps) {
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" className={clsx(active ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400 group-hover:text-gray-600', 'opacity-40', className)}>
-      <circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" strokeWidth="2" />
-      <path d="M10 6v4l2.5 2.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" className={clsx('shrink-0', active ? 'text-brand-600 dark:text-brand-400' : undefined, className)}>
+      <path d="M10 4.2a5.8 5.8 0 1 1-5.6 7.3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M3.4 7.6 4.6 11l3.2-1.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M10 7v3.2l2 1.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
 export function TotalIcon({ className }: IconProps) {
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" className={clsx('opacity-40', className)}>
-      <path d="M4 4h5v5H4V4zm7 0h5v5h-5V4zm-7 7h5v5H4v-5zm7 0h5v5h-5v-5z" />
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" className={clsx('shrink-0', className)}>
+      <path d="M3.5 6.6 10 3.2l6.5 3.4L10 10 3.5 6.6Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      <path d="m3.5 10.4 6.5 3.4 6.5-3.4M3.5 14.1l6.5 3.4 6.5-3.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
 export function OpenIcon({ className }: IconProps) {
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" className={clsx('opacity-40', className)}>
-      <circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" strokeWidth="2" />
-      <circle cx="10" cy="10" r="3" />
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" className={clsx('shrink-0', className)}>
+      <path d="M3.2 11.5V7.2A2.2 2.2 0 0 1 5.4 5h9.2a2.2 2.2 0 0 1 2.2 2.2v4.3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="m3.2 11.5 1.9 3.6h9.8l1.9-3.6M8 11.5h4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
 export function ProgressIcon({ className }: IconProps) {
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" className={clsx('opacity-40', className)}>
-      <path d="M10 3a7 7 0 100 14 7 7 0 000-14zm0 2v5l3.5 2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" className={clsx('shrink-0', className)}>
+      <circle cx="10" cy="10" r="6.8" stroke="currentColor" strokeWidth="1.6" opacity="0.35" />
+      <path d="M10 3.2a6.8 6.8 0 0 1 6.8 6.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M10 6.6V10l2.4 1.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
 export function ResolvedIcon({ className }: IconProps) {
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" className={clsx('opacity-40', className)}>
-      <path d="M10 3a7 7 0 100 14 7 7 0 000-14z" fill="none" stroke="currentColor" strokeWidth="2" />
-      <path d="M7 10l2 2 4-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" className={clsx('shrink-0', className)}>
+      <circle cx="10" cy="10" r="6.8" stroke="currentColor" strokeWidth="1.6" />
+      <path d="m7 10.2 2 2 4-4.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
 export function ClosedIcon({ className }: IconProps) {
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" className={clsx('opacity-40', className)}>
-      <path d="M10 3a7 7 0 100 14 7 7 0 000-14z" fill="none" stroke="currentColor" strokeWidth="2" />
-      <path d="M13 7L7 13M7 7l6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" className={clsx('shrink-0', className)}>
+      <circle cx="10" cy="10" r="6.8" stroke="currentColor" strokeWidth="1.6" />
+      <path d="m7.6 7.6 4.8 4.8M12.4 7.6l-4.8 4.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function HelpIcon({ className }: IconProps) {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 20 20"
+      fill="none"
+      className={clsx('shrink-0 text-gray-400 dark:text-gray-500', className)}
+    >
+      <circle cx="10" cy="10" r="7.25" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M8.1 7.9a1.95 1.95 0 013.8.7c0 1.35-1.9 1.65-1.9 3.05"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <circle cx="10" cy="14.2" r="0.95" fill="currentColor" />
     </svg>
   );
 }
