@@ -583,6 +583,8 @@ ALLOWED_FILE_TYPES=image/png,image/jpeg,image/gif,image/webp
 
 `scripts/smoke.mjs` 是一个零新增依赖的端到端冒烟脚本：用 Node 24 内置 `WebSocket`
 直连 Chrome DevTools Protocol，覆盖公开端、管理后台与 API 的关键路径，作为迭代回归门禁。
+实现按职责拆分在 `scripts/smoke/`（`config` / `util` / `report` / `cli` / `chrome` /
+`lifecycle` + `checks/*`）；`scripts/smoke.mjs` 仅保留入口编排（CLI、阶段顺序、退出码）。
 
 ### 前置条件
 
@@ -652,3 +654,58 @@ node scripts/smoke.mjs \
 终端输出中文汇总表（`PASS` / `FAIL` / `SKIP` + 耗时 + 说明），存在任意 `FAIL` 时退出码为 `1`，
 可直接接入 CI 或提交前检查。Chrome 9222 已有实例时脚本不会关闭它；由脚本自行启动的
 headless Chrome 会在结束时优雅关闭并清理临时 profile。
+
+## 12. 前端性能采集（`pnpm perf`）
+
+零依赖性能采样脚本（Node 24 内置 WebSocket + Chrome CDP，不引入 Lighthouse），用于观察公开端与
+后台首屏的 FCP / LCP / CLS 及资源体积，做页面间横向比较和迭代回归。
+
+### 前置条件
+
+- 本地 dev server 已启动：admin `8080`、submit `8081`、board `8082`、API `3000`；
+- Chrome 已在 `9222` 运行，或允许脚本自动启动 headless Chrome（脚本结束时自动关闭并清理临时 profile）；
+- 无 Chrome 路径时可用 `CHROME_PATH` 指定可执行文件；
+- 需要 `demo-project` 演示数据与组织账号 `admin@nexus.dev / admin123`（脚本自动登录注入登录态）。
+
+### 使用
+
+```bash
+# 默认：6 个页面 × 2 个视口 × 每组合 3 次采样
+pnpm perf
+
+# 增加采样次数 / 覆盖服务地址
+node scripts/perf.mjs --runs=5 --settle=2000
+node scripts/perf.mjs --base-admin=http://localhost:8080 --base-board=http://localhost:8082 --chrome-port=9222
+```
+
+| 参数 | 默认值 | 说明 |
+|---|---|---|
+| `--base-admin` | `http://localhost:8080` | 管理后台地址（Landing / 登录 / 仪表盘） |
+| `--base-board` | `http://localhost:8082` | 公开看板地址（首页 / 详情） |
+| `--base-submit` | `http://localhost:8081` | 公开提交页地址（自动带 demo API Key） |
+| `--base-api` | `http://localhost:3000` | API 地址（取反馈 ID、登录接口） |
+| `--chrome-port` | `9222` | Chrome CDP 端口；不可用时自动启动 headless Chrome |
+| `--runs` | `3` | 每页每视口采样次数（取中位数） |
+| `--settle` | `1500` | `load` 事件后额外等待毫秒数，用于收敛 LCP/CLS |
+| `--help` | — | 显示帮助 |
+
+### 采集范围
+
+- 页面：看板首页 `/demo-project`、看板详情（由公开 API 取首条反馈 ID）、提交页
+  `/?key=…`、Landing `/`、登录页（未登录访问 `/dashboard`）、登录后 `/dashboard`
+  （通过 `localStorage` 注入 demo token）。
+- 视口：桌面 `1440×900`、移动 `390×844`（移动端 `deviceScaleFactor=2`）。
+- 指标：FCP、LCP、CLS、DOMContentLoaded、Load、TTFB，`performance.getEntriesByType('resource')`
+  的资源数与总传输大小；同时记录最大资源与 LCP 元素作为问题线索。
+- 采样隔离：每个「页面 × 视口」使用独立浏览器上下文（存储互不污染），每次采样禁用缓存
+  （`Network.setCacheDisabled`），`load` 后等待 `--settle` 毫秒再取值，多次取中位数。
+
+### 阈值与输出
+
+- 阈值：FCP ≤ `1.8s`、LCP ≤ `2.5s`、CLS ≤ `0.1`，超出标记 `FAIL` 并写入「问题线索」
+  （含最大资源与 LCP 元素），阈值 FAIL 只做提示、不改变退出码。
+- 结果写入 `.tools/perf/report-{timestamp}.json`（含每次原始采样）与 `.md`（中文表格 + 资源明细），
+  `.tools/` 已 gitignore；终端同时打印汇总表与报告路径。
+- 注意：测量对象是 Vite dev server（未压缩模块、按需编译），绝对值高于生产构建属预期，
+  更适合做页面间比较与改动前后回归，而不是生产性能基线。
+- 退出码：`0` = 报告生成成功（即使存在阈值 FAIL）；`1` = 环境错误（服务不可达、Chrome 启动失败等）。
