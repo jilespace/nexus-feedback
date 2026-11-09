@@ -1,25 +1,33 @@
 import { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 
 type ToolbarAction = {
+  key: string;
   label: string;
   wrap?: [string, string];
   prefix?: string;
 };
 
-const ACTIONS: ToolbarAction[] = [
-  { label: '标题', prefix: '\n## 标题\n' },
-  { label: '粗体', wrap: ['**', '**'] },
-  { label: '链接', prefix: '[文本](url)' },
-  { label: '代码', wrap: ['\n```\n', '\n```\n'] },
-];
+export function MarkdownToolbar({
+  onInsert,
+}: {
+  onInsert: (text: string, cursorOffset: number) => void;
+}) {
+  const { t } = useTranslation();
+  const actions: ToolbarAction[] = [
+    { key: 'heading', label: t('common.markdown.heading'), prefix: t('common.markdown.headingTemplate') },
+    { key: 'bold', label: t('common.markdown.bold'), wrap: ['**', '**'] },
+    { key: 'link', label: t('common.markdown.link'), prefix: t('common.markdown.linkTemplate') },
+    { key: 'code', label: t('common.markdown.code'), wrap: ['\n```\n', '\n```\n'] },
+  ];
+  const actionsRef = useRef(actions);
+  actionsRef.current = actions;
 
-export function MarkdownToolbar({ onInsert }: { onInsert: (text: string, cursorOffset: number) => void }) {
-  const actionsRef = useRef(ACTIONS);
   return (
     <div className="flex flex-wrap items-center gap-1">
       {actionsRef.current.map((action) => (
         <button
-          key={action.label}
+          key={action.key}
           type="button"
           onClick={() => {
             if (action.wrap) {
@@ -34,9 +42,7 @@ export function MarkdownToolbar({ onInsert }: { onInsert: (text: string, cursorO
           {action.label}
         </button>
       ))}
-      <span className="ml-auto text-xs text-gray-400">
-        支持 Markdown：## 标题、**粗体**、[链接](url)、代码块
-      </span>
+      <span className="ml-auto text-xs text-gray-400">{t('common.markdown.hint')}</span>
     </div>
   );
 }

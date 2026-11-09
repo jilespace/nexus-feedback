@@ -35,6 +35,7 @@ type Copy = {
   errPasswordMismatch: string;
   acceptFailed: string;
   existingAccount: string;
+  homeAria: string;
   pageNote: string;
   backHome: string;
 };
@@ -66,6 +67,7 @@ const ZH_COPY: Copy = {
   errPasswordMismatch: '两次输入的密码不一致',
   acceptFailed: '接受邀请失败',
   existingAccount: '已有账号？',
+  homeAria: 'Nexus Feedback 首页',
   pageNote: '© 2026 Nexus Feedback · 开源的用户反馈管理平台',
   backHome: '返回官网',
 };
@@ -97,6 +99,7 @@ const EN_COPY: Copy = {
   errPasswordMismatch: 'Passwords do not match',
   acceptFailed: 'Failed to accept the invitation',
   existingAccount: 'Already have an account?',
+  homeAria: 'Nexus Feedback home',
   pageNote: '© 2026 Nexus Feedback · Open-source feedback platform',
   backHome: 'Back to site',
 };
@@ -291,7 +294,7 @@ export function AcceptInvite() {
         </div>
 
         <div className="auth-center-inner">
-          <a className="auth-center-brand" href="/" aria-label="Nexus Feedback 首页">
+          <a className="auth-center-brand" href="/" aria-label={copy.homeAria}>
             <span className="auth-logo"><LogoMark /></span>
             <span>
               <span className="auth-wordmark">Nexus Feedback</span>

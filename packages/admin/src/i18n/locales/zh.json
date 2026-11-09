@@ -27,7 +27,27 @@
     "loading": "加载中...",
     "logout": "退出登录",
     "darkMode": "切换到暗色模式",
-    "lightMode": "切换到亮色模式"
+    "lightMode": "切换到亮色模式",
+    "close": "关闭",
+    "back": "返回",
+    "retry": "重试",
+    "more": "更多",
+    "show": "显示",
+    "hide": "隐藏",
+    "on": "已开启",
+    "off": "已关闭",
+    "secret": "密钥",
+    "showSecret": "显示{{label}}",
+    "hideSecret": "隐藏{{label}}",
+    "markdown": {
+      "heading": "标题",
+      "headingTemplate": "\n## 标题\n",
+      "bold": "粗体",
+      "link": "链接",
+      "linkTemplate": "[文本](url)",
+      "code": "代码",
+      "hint": "支持 Markdown：## 标题、**粗体**、[链接](url)、代码块"
+    }
   },
   "login": {
     "title": "Nexus Feedback",

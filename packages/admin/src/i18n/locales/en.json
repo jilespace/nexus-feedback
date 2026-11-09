@@ -27,7 +27,27 @@
     "loading": "Loading...",
     "logout": "Logout",
     "darkMode": "Switch to dark mode",
-    "lightMode": "Switch to light mode"
+    "lightMode": "Switch to light mode",
+    "close": "Close",
+    "back": "Back",
+    "retry": "Retry",
+    "more": "More",
+    "show": "Show",
+    "hide": "Hide",
+    "on": "On",
+    "off": "Off",
+    "secret": "secret",
+    "showSecret": "Show {{label}}",
+    "hideSecret": "Hide {{label}}",
+    "markdown": {
+      "heading": "Heading",
+      "headingTemplate": "\n## Heading\n",
+      "bold": "Bold",
+      "link": "Link",
+      "linkTemplate": "[text](url)",
+      "code": "Code",
+      "hint": "Markdown supported: ## Heading, **bold**, [link](url), code blocks"
+    }
   },
   "login": {
     "title": "Nexus Feedback",

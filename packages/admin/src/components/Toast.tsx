@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, createContext, useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
 import type { ReactNode } from 'react';
 
@@ -75,6 +76,7 @@ const TONES: Record<
 };
 
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number) => void }) {
+  const { t } = useTranslation();
   useEffect(() => {
     const timer = setTimeout(() => onDismiss(toast.id), 3200);
     return () => clearTimeout(timer);
@@ -103,7 +105,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number)
       </p>
       <button
         onClick={() => onDismiss(toast.id)}
-        aria-label="关闭提示"
+        aria-label={t('common.close')}
         className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-gray-300 transition-colors hover:bg-surface-2 hover:text-gray-500 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
       >
         <svg width="10" height="10" viewBox="0 0 16 16" fill="none">

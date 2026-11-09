@@ -40,6 +40,8 @@ type Copy = {
   titleForgot: string;
   subForgot: string;
   forgotSentTitle: string;
+  expiredError: string;
+  homeAria: string;
   tabsLabel: string;
   showPassword: string;
   hidePassword: string;
@@ -87,6 +89,8 @@ const ZH_COPY: Copy = {
   titleForgot: '重置密码',
   subForgot: '填写组织标识与邮箱，我们会发送重置链接。',
   forgotSentTitle: '请查收邮件',
+  expiredError: '登录已过期，请重新登录',
+  homeAria: 'Nexus Feedback 首页',
   tabsLabel: '登录或注册',
   showPassword: '显示密码',
   hidePassword: '隐藏密码',
@@ -134,6 +138,8 @@ const EN_COPY: Copy = {
   titleForgot: 'Reset your password',
   subForgot: 'Enter your organization slug and email, and we will send a reset link.',
   forgotSentTitle: 'Check your inbox',
+  expiredError: 'Your session expired. Please sign in again.',
+  homeAria: 'Nexus Feedback home',
   tabsLabel: 'Sign in or register',
   showPassword: 'Show password',
   hidePassword: 'Hide password',
@@ -347,7 +353,7 @@ export function Login() {
   const [tab, setTab] = useState<Tab>('login');
   const [error, setError] = useState(() =>
     typeof sessionStorage !== 'undefined' && sessionStorage.getItem('auth_expired') === '1'
-      ? '登录已过期，请重新登录'
+      ? copy.expiredError
       : '',
   );
   // Consume the flag after mount so React StrictMode's double render still shows the banner.
@@ -486,7 +492,7 @@ export function Login() {
           <div className="auth-brand-ring" aria-hidden="true" />
 
           <div className="auth-brand-top">
-            <a className="auth-brand-link" href="/" aria-label="Nexus Feedback 首页">
+            <a className="auth-brand-link" href="/" aria-label={copy.homeAria}>
               <span className="auth-logo"><LogoMark /></span>
               <span>
                 <span className="auth-wordmark">Nexus Feedback</span>

@@ -254,6 +254,35 @@
   font-size: 13px;
 }
 
+.lp-lang-toggle {
+  display: inline-flex;
+  height: 40px;
+  min-width: 40px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 9px;
+  border: 1px solid var(--lp-border);
+  border-radius: 9px;
+  background: var(--lp-surface);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  color: var(--lp-ink-2);
+  cursor: pointer;
+  transition:
+    background-color 150ms var(--lp-ease),
+    border-color 150ms var(--lp-ease),
+    color 150ms var(--lp-ease);
+}
+
+.lp-lang-toggle:hover {
+  border-color: var(--lp-border-strong);
+  background: var(--lp-subtle);
+  color: var(--lp-ink);
+}
+
 .lp-btn-light {
   background: #fff;
   color: #0f172a;

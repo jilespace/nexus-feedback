@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { clsx } from 'clsx';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface CardProps {
   children: ReactNode;
@@ -413,11 +414,12 @@ export function Switch({
   label,
   disabled,
   showState,
-  stateLabels = ['已开启', '已关闭'],
+  stateLabels,
   className,
   id,
 }: SwitchProps) {
-  const [onLabel, offLabel] = stateLabels;
+  const { t } = useTranslation();
+  const [onLabel, offLabel] = stateLabels ?? [t('common.on'), t('common.off')];
   return (
     <span className={clsx('inline-flex items-center gap-2', className)}>
       <button
@@ -487,8 +489,10 @@ export function SecretInput({
   invalid,
   className,
   inputClassName,
-  label = '密钥',
+  label,
 }: SecretInputProps) {
+  const { t } = useTranslation();
+  const resolvedLabel = label ?? t('common.secret');
   const [visible, setVisible] = useState(false);
   return (
     <div className={clsx('relative', className)}>
@@ -505,11 +509,15 @@ export function SecretInput({
       <button
         type="button"
         onClick={() => setVisible((prev) => !prev)}
-        aria-label={visible ? `隐藏${label}` : `显示${label}`}
+        aria-label={
+          visible
+            ? t('common.hideSecret', { label: resolvedLabel })
+            : t('common.showSecret', { label: resolvedLabel })
+        }
         aria-pressed={visible}
         className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-[11px] font-medium text-gray-400 transition-colors hover:bg-surface-2 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 dark:text-gray-500 dark:hover:bg-gray-700/60 dark:hover:text-gray-300"
       >
-        {visible ? '隐藏' : '显示'}
+        {visible ? t('common.hide') : t('common.show')}
       </button>
     </div>
   );

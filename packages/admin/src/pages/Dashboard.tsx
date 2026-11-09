@@ -399,7 +399,7 @@ export function Dashboard() {
                       <span className="min-w-0 flex-1 truncate text-[13px] text-gray-600 dark:text-gray-300">
                         {auditTargetLabel(activity.target_type)}
                         {typeof activity.metadata?.title === 'string'
-                          ? `「${activity.metadata.title}」`
+                          ? `${i18n.language.startsWith('en') ? '“' : '「'}${activity.metadata.title}${i18n.language.startsWith('en') ? '”' : '」'}`
                           : activity.target_id
                             ? ` #${activity.target_id.slice(0, 8)}`
                             : ''}

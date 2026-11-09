@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
 import type { ReactNode } from 'react';
 
@@ -18,6 +19,7 @@ const SIZES = {
 };
 
 export function Modal({ title, description, onClose, children, footer, size = 'md' }: ModalProps) {
+  const { t } = useTranslation();
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
@@ -58,7 +60,7 @@ export function Modal({ title, description, onClose, children, footer, size = 'm
           </div>
           <button
             onClick={onClose}
-            aria-label="关闭"
+            aria-label={t('common.close')}
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-surface-2 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
           >
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
