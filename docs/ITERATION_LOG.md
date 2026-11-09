@@ -5,6 +5,47 @@
 
 ## 轮次记录
 
+### Round 13 — 2026-11-10（无障碍审计与修复 / 看板详情 CLS）
+
+**本轮完成（Lead + 3 个 teammate 并行）**
+- **a11y 审计工具（teammate）**：新增 `pnpm a11y`（零依赖 CDP）：可访问名称/表单 label/ARIA 合法性/
+  图片 alt/html lang/标题层级/真实 Tab 顺序与焦点可见性/颜色对比度（AA 近似）/重复 id，覆盖 7 个页面，
+  输出中文表格 + JSON/MD 报告。发现的问题不影响退出码，便于持续观察。
+- **提交页无障碍（teammate）**：文件输入补 label、`ink-3` 次要文字加深（4.5:1）、半透明提示/选中分类/
+  必填星号对比度修正 → **严重 4/中等 31 → 0/0**，布局与文案零变化。
+- **后台无障碍（Lead）**：新增 skip-to-content 链接 + main 地标；反馈列表搜索框/保存视图控件补
+  aria-label；浅色模式 `text-gray-400/300` 全局提升至 AA（暗色变体保持），侧栏分组标题修正 →
+  审计严重问题 **dashboard/feedback/notifications 40/40/19 → 0/0/0**（中等 14/40/2）。
+- **看板无障碍 + 详情 CLS（teammate）**：品牌链接/主题开关/投票按钮（aria-pressed/busy）、状态筛选 group、
+  结果计数 aria-live、侧栏 aside 地标、卡片 article↔标题关联、评论表单 aria-describedby+自动聚焦、
+  详情 h1/article/time、弹窗 describedby；live region 常驻 42→3。详情骨架改为与最终内容同构 →
+  详情 CLS **0.0245 → 0.001**（首页保持 0.000）。
+- **smoke 43 项**：新增后台/公开端无障碍基础断言（lang、唯一 h1、可访问名称、img alt）。
+
+**验证**
+- `pnpm typecheck` ✅、`pnpm test` **257/257** ✅、`pnpm build` 5 包 ✅、`pnpm lint` 0 error ✅、
+  `pnpm smoke` **43/43 PASS**（33.8s）✅
+- `pnpm a11y` 全量：**严重 0**（7 页全部）；中等 112（board 首页 40/详情 12、admin 登录 4、
+  dashboard 14/feedback 40/notifications 2，均为对比度 3.0–4.4:1 的边缘项或彩色 badge）
+- `pnpm perf`：12/12 PASS；看板详情 0.001、首页 0.000。
+
+**提交**：`f5970f3`（a11y 工具 + 提交页修复）、`2102882`（smoke a11y 断言）、
+`cedbf3e`（后台 a11y + 对比度）、`b0d578b`（看板 a11y + 详情 CLS）
+
+**遗留 / 技术债**
+- 中等对比度问题 112 处：board 的 `text-ink-tertiary`（3.42–3.66:1）与彩色 badge（3.07:1）、
+  admin 的 `text-gray-500` 于浅底（4.44:1 边缘）——可做 token 级统一调整。
+- a11y 审计为 DOM 级近似（渐变背景跳过对比度、键盘顺序为启发式），不等同 WCAG 认证。
+- 服务端通知/邮件内容仍中文；DND 服务器时区；关联更新日志 100 条上限。
+- 主 locale 存在历史冗余 key（parity 测试仅保证 zh/en 对齐）。
+
+**下一轮计划（Round 14）**
+1. board 对比度 token 统一（`ink-tertiary` 加深到 AA）+ 彩色 badge 文字色适配；admin gray-500 边缘项微调。
+2. 看板首页/详情中等对比度问题清零并纳入 a11y 回归基线。
+3. 功能候选：通知多时段免打扰、公开端邮件订阅、合并建议已合并来源展示。
+4. 主 locale 冗余 key 清理（配合 parity 测试）。
+
+
 ### Round 12 — 2026-11-10（复制为 Markdown / 性能双口径 / CLS 清零 / smoke 41）
 
 **本轮完成（Lead + 3 个 teammate 并行）**
