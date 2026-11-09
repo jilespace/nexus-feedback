@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
 import { apiRequest } from '@/api/client';
 import { useToast } from '@/components/Toast';
@@ -26,6 +27,7 @@ const dangerActionClass =
 const COLUMNS = 'sm:grid-cols-[minmax(0,1fr)_150px_136px_60px]';
 
 export function Notifications() {
+  const { t } = useTranslation('config');
   const { projectId = '' } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -55,9 +57,10 @@ export function Notifications() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notification-preferences', projectId] });
-      toast('偏好已更新');
+      toast(t('notifications.updateToast'));
     },
-    onError: (err) => toast(err instanceof Error ? err.message : '更新失败', 'error'),
+    onError: (err) =>
+      toast(err instanceof Error ? err.message : t('notifications.updateFailed'), 'error'),
   });
 
   const deleteMutation = useMutation({
@@ -68,11 +71,11 @@ export function Notifications() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notification-preferences', projectId] });
       setConfirmDelete(null);
-      toast('已移除该通知偏好');
+      toast(t('notifications.removedToast'));
     },
     onError: (err) => {
       setConfirmDelete(null);
-      toast(err instanceof Error ? err.message : '删除失败', 'error');
+      toast(err instanceof Error ? err.message : t('common.deleteFailed'), 'error');
     },
   });
 
@@ -88,16 +91,30 @@ export function Notifications() {
   }
 
   const backToSettings = () => navigate(`/projects/${projectId}/settings`);
+  const stateLabels: [string, string] = [
+    t('notifications.switch.enabled'),
+    t('notifications.switch.disabled'),
+  ];
+  const columns = [
+    { key: 'email', label: t('notifications.columns.email'), className: undefined },
+    {
+      key: 'statusUpdates',
+      label: t('notifications.columns.statusUpdates'),
+      className: undefined,
+    },
+    { key: 'weeklyDigest', label: t('notifications.columns.weeklyDigest'), className: undefined },
+    { key: 'actions', label: t('notifications.columns.actions'), className: 'text-right' },
+  ];
 
   return (
     <div className="animate-fade-in space-y-5">
       <PageHeader
-        title="通知偏好"
-        description="管理订阅此项目通知的用户邮箱及其偏好；用户投票或提交反馈时会自动创建记录。"
+        title={t('notifications.title')}
+        description={t('notifications.description')}
         actions={
           projectId ? (
             <Button variant="secondary" onClick={backToSettings}>
-              返回项目设置
+              {t('notifications.backButton')}
             </Button>
           ) : undefined
         }
@@ -106,8 +123,8 @@ export function Notifications() {
       {!projectId ? (
         <Card>
           <EmptyState
-            title="请先选择一个项目"
-            description="从项目列表进入项目后，即可在这里管理通知订阅。"
+            title={t('common.selectProjectTitle')}
+            description={t('common.selectProjectNotifications')}
           />
         </Card>
       ) : (
@@ -115,25 +132,27 @@ export function Notifications() {
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-surface-2 px-4 py-3.5 dark:border-gray-700/60 sm:px-5">
             <div className="min-w-0">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                订阅者
+                {t('notifications.listTitle')}
                 <span className="ml-1.5 font-normal tabular-nums text-gray-400">
                   ({data?.total ?? preferences.length})
                 </span>
               </h2>
               <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
-                状态更新：反馈状态变化时发送邮件；周报：每周汇总此项目的反馈动态。
+                {t('notifications.listDescription')}
               </p>
             </div>
           </div>
 
           {isError ? (
             <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-200">通知偏好加载失败</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                {t('notifications.loadErrorTitle')}
+              </p>
               <p className="max-w-sm text-xs leading-relaxed text-gray-400 dark:text-gray-500">
-                {error instanceof Error ? error.message : '请检查网络后重试'}
+                {error instanceof Error ? error.message : t('common.networkRetry')}
               </p>
               <Button variant="secondary" size="sm" onClick={() => refetch()}>
-                重试
+                {t('common.retry')}
               </Button>
             </div>
           ) : isLoading ? (
@@ -144,9 +163,9 @@ export function Notifications() {
             </div>
           ) : preferences.length === 0 ? (
             <EmptyState
-              title="暂无通知偏好记录"
-              description="当用户投票或提交反馈后，其通知偏好会自动创建，并可以在这里管理。"
-              action={{ label: '返回项目设置', onClick: backToSettings }}
+              title={t('notifications.emptyTitle')}
+              description={t('notifications.emptyDescription')}
+              action={{ label: t('notifications.backButton'), onClick: backToSettings }}
             />
           ) : (
             <>
@@ -156,15 +175,15 @@ export function Notifications() {
                   COLUMNS,
                 )}
               >
-                {['邮箱', '状态更新', '周报', '操作'].map((label) => (
+                {columns.map((column) => (
                   <span
-                    key={label}
+                    key={column.key}
                     className={clsx(
                       'text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500',
-                      label === '操作' && 'text-right',
+                      column.className,
                     )}
                   >
-                    {label}
+                    {column.label}
                   </span>
                 ))}
               </div>
@@ -189,37 +208,43 @@ export function Notifications() {
                             onClick={() => setConfirmDelete(pref)}
                             className={clsx(dangerActionClass, 'sm:hidden')}
                           >
-                            移除
+                            {t('notifications.remove')}
                           </button>
                         </div>
                         <p className="mt-0.5 font-mono text-[11px] tabular-nums text-gray-400 dark:text-gray-500">
-                          加入于 {formatDateTime(pref.created_at)}
+                          {t('notifications.joinedAt', { time: formatDateTime(pref.created_at) })}
                         </p>
                       </div>
 
                       <div className="flex items-center gap-5 sm:contents">
                         <div className="flex min-w-0 items-center gap-2">
                           <span className="w-14 shrink-0 text-[11px] text-gray-400 dark:text-gray-500 sm:hidden">
-                            状态更新
+                            {t('notifications.columns.statusUpdates')}
                           </span>
                           <Switch
                             checked={pref.status_updates}
                             disabled={rowPending}
-                            label={`状态更新通知：${pref.email}`}
+                            label={t('notifications.switch.statusUpdatesLabel', {
+                              email: pref.email,
+                            })}
                             onChange={() => togglePreference(pref, 'status_updates')}
                             showState
+                            stateLabels={stateLabels}
                           />
                         </div>
                         <div className="flex min-w-0 items-center gap-2">
                           <span className="w-14 shrink-0 text-[11px] text-gray-400 dark:text-gray-500 sm:hidden">
-                            周报
+                            {t('notifications.columns.weeklyDigest')}
                           </span>
                           <Switch
                             checked={pref.weekly_digest}
                             disabled={rowPending}
-                            label={`每周汇总邮件：${pref.email}`}
+                            label={t('notifications.switch.weeklyDigestLabel', {
+                              email: pref.email,
+                            })}
                             onChange={() => togglePreference(pref, 'weekly_digest')}
                             showState
+                            stateLabels={stateLabels}
                           />
                         </div>
                       </div>
@@ -230,7 +255,7 @@ export function Notifications() {
                           onClick={() => setConfirmDelete(pref)}
                           className={dangerActionClass}
                         >
-                          移除
+                          {t('notifications.remove')}
                         </button>
                       </div>
                     </li>
@@ -244,14 +269,14 @@ export function Notifications() {
 
       {confirmDelete && (
         <Modal
-          title="移除通知偏好"
+          title={t('notifications.deleteModalTitle')}
           description={confirmDelete.email}
           onClose={() => setConfirmDelete(null)}
           size="sm"
           footer={
             <>
               <Button variant="secondary" size="sm" onClick={() => setConfirmDelete(null)}>
-                取消
+                {t('common.cancel')}
               </Button>
               <Button
                 variant="danger"
@@ -259,13 +284,15 @@ export function Notifications() {
                 disabled={deleteMutation.isPending}
                 onClick={() => deleteMutation.mutate(confirmDelete.email)}
               >
-                {deleteMutation.isPending ? '移除中…' : '确认移除'}
+                {deleteMutation.isPending
+                  ? t('notifications.removing')
+                  : t('notifications.confirmRemove')}
               </Button>
             </>
           }
         >
           <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-            移除后该邮箱将不再收到此项目的通知；若用户再次投票或提交反馈，偏好记录会重新创建。
+            {t('notifications.deleteModalBody')}
           </p>
         </Modal>
       )}

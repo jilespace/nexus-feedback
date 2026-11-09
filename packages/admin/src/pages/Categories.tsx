@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
 import { apiRequest } from '@/api/client';
 import { useToast } from '@/components/Toast';
@@ -14,6 +15,7 @@ const rowActionClass =
   'inline-flex h-8 items-center rounded-md px-2 text-[11px] font-medium text-gray-500 transition-colors hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-rose-500/10 dark:hover:text-rose-400';
 
 export function Categories() {
+  const { t } = useTranslation('config');
   const { projectId = '' } = useParams<{ projectId: string }>();
   const queryClient = useQueryClient();
   const { show: toast } = useToast();
@@ -41,9 +43,10 @@ export function Categories() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories', projectId] });
       setFormOpen(false);
-      toast('分类已添加');
+      toast(t('categories.createToast'));
     },
-    onError: (err) => toast(err instanceof Error ? err.message : '添加失败', 'error'),
+    onError: (err) =>
+      toast(err instanceof Error ? err.message : t('categories.createFailed'), 'error'),
   });
 
   const deleteMutation = useMutation({
@@ -52,11 +55,11 @@ export function Categories() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories', projectId] });
       setConfirmDelete(null);
-      toast('分类已删除');
+      toast(t('categories.deleteToast'));
     },
     onError: (err) => {
       setConfirmDelete(null);
-      toast(err instanceof Error ? err.message : '删除失败', 'error');
+      toast(err instanceof Error ? err.message : t('common.deleteFailed'), 'error');
     },
   });
 
@@ -65,15 +68,15 @@ export function Categories() {
   return (
     <div className="animate-fade-in space-y-5">
       <PageHeader
-        title="自定义分类"
-        description="定义此项目的反馈分类；未配置时使用默认分类（Bug 修复、功能建议、性能优化、界面体验、其他）。"
+        title={t('categories.title')}
+        description={t('categories.description')}
         actions={
           projectId ? (
             <Button onClick={() => setFormOpen(true)}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                 <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
               </svg>
-              新建分类
+              {t('categories.newButton')}
             </Button>
           ) : undefined
         }
@@ -82,8 +85,8 @@ export function Categories() {
       {!projectId ? (
         <Card>
           <EmptyState
-            title="请先选择一个项目"
-            description="从项目列表进入项目后，即可在这里配置反馈分类。"
+            title={t('common.selectProjectTitle')}
+            description={t('common.selectProjectCategories')}
           />
         </Card>
       ) : (
@@ -91,23 +94,25 @@ export function Categories() {
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-surface-2 px-4 py-3.5 dark:border-gray-700/60 sm:px-5">
             <div className="min-w-0">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                分类列表
+                {t('categories.listTitle')}
                 <span className="ml-1.5 font-normal tabular-nums text-gray-400">({list.length})</span>
               </h2>
               <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
-                按创建顺序显示，用于反馈提交页、公开看板与列表筛选。
+                {t('categories.listDescription')}
               </p>
             </div>
           </div>
 
           {isError ? (
             <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-200">分类加载失败</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                {t('categories.loadErrorTitle')}
+              </p>
               <p className="max-w-sm text-xs leading-relaxed text-gray-400 dark:text-gray-500">
-                {error instanceof Error ? error.message : '请检查网络后重试'}
+                {error instanceof Error ? error.message : t('common.networkRetry')}
               </p>
               <Button variant="secondary" size="sm" onClick={() => refetch()}>
-                重试
+                {t('common.retry')}
               </Button>
             </div>
           ) : isLoading ? (
@@ -118,9 +123,9 @@ export function Categories() {
             </div>
           ) : list.length === 0 ? (
             <EmptyState
-              title="暂无自定义分类"
-              description="当前使用默认分类。添加自定义分类后，默认分类将被替换。"
-              action={{ label: '新建分类', onClick: () => setFormOpen(true) }}
+              title={t('categories.emptyTitle')}
+              description={t('categories.emptyDescription')}
+              action={{ label: t('categories.newButton'), onClick: () => setFormOpen(true) }}
             />
           ) : (
             <ul className="divide-y divide-surface-2 dark:divide-gray-700/60">
@@ -147,7 +152,7 @@ export function Categories() {
                     onClick={() => setConfirmDelete(category)}
                     className={rowActionClass}
                   >
-                    删除
+                    {t('common.delete')}
                   </button>
                 </li>
               ))}
@@ -167,14 +172,14 @@ export function Categories() {
 
       {confirmDelete && (
         <Modal
-          title="删除分类"
-          description={`确定要删除分类「${confirmDelete.name}」吗？`}
+          title={t('categories.deleteModalTitle')}
+          description={t('categories.deleteModalDescription', { name: confirmDelete.name })}
           onClose={() => setConfirmDelete(null)}
           size="sm"
           footer={
             <>
               <Button variant="secondary" size="sm" onClick={() => setConfirmDelete(null)}>
-                取消
+                {t('common.cancel')}
               </Button>
               <Button
                 variant="danger"
@@ -182,13 +187,13 @@ export function Categories() {
                 disabled={deleteMutation.isPending}
                 onClick={() => deleteMutation.mutate(confirmDelete.id)}
               >
-                {deleteMutation.isPending ? '删除中…' : '确认删除'}
+                {deleteMutation.isPending ? t('common.deleting') : t('common.confirmDelete')}
               </Button>
             </>
           }
         >
           <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-            删除后不可恢复，该分类将不再出现在提交页、看板与筛选选项中；已有反馈会保留其分类字段。
+            {t('categories.deleteModalBody')}
           </p>
         </Modal>
       )}
@@ -207,6 +212,7 @@ function CategoryFormModal({
   onClose: () => void;
   onSubmit: (data: { name: string; color: string }) => void;
 }) {
+  const { t } = useTranslation('config');
   const [name, setName] = useState('');
   const [color, setColor] = useState<string>(CATEGORY_PALETTE[0] ?? '#6366f1');
   const [nameError, setNameError] = useState<string | null>(null);
@@ -214,11 +220,11 @@ function CategoryFormModal({
   function submit() {
     const trimmed = name.trim();
     if (!trimmed) {
-      setNameError('请输入分类名称');
+      setNameError(t('categories.errors.nameRequired'));
       return;
     }
     if (existing.some((item) => item.name.toLowerCase() === trimmed.toLowerCase())) {
-      setNameError('已存在同名分类');
+      setNameError(t('categories.errors.duplicateName'));
       return;
     }
     setNameError(null);
@@ -227,17 +233,17 @@ function CategoryFormModal({
 
   return (
     <Modal
-      title="新建分类"
-      description="分类会同步出现在反馈提交页、公开看板与后台筛选中。"
+      title={t('categories.form.title')}
+      description={t('categories.form.description')}
       onClose={onClose}
       size="md"
       footer={
         <>
           <Button variant="secondary" size="sm" onClick={onClose}>
-            取消
+            {t('common.cancel')}
           </Button>
           <Button type="submit" form="category-form" size="sm" disabled={isPending}>
-            {isPending ? '创建中…' : '创建分类'}
+            {isPending ? t('categories.form.creating') : t('categories.form.createButton')}
           </Button>
         </>
       }
@@ -251,10 +257,10 @@ function CategoryFormModal({
         className="space-y-4"
       >
         <Field
-          label="分类名称"
+          label={t('categories.form.nameLabel')}
           htmlFor="category-name"
           error={nameError ?? undefined}
-          hint="也可使用英文标识，如 billing、mobile，便于 API 提交时复用。"
+          hint={t('categories.form.nameHint')}
         >
           <input
             id="category-name"
@@ -265,19 +271,19 @@ function CategoryFormModal({
               setName(event.target.value);
               if (nameError) setNameError(null);
             }}
-            placeholder="例如：客户端问题"
+            placeholder={t('categories.form.namePlaceholder')}
             required
             className={settingsInputClass(!!nameError)}
           />
         </Field>
 
-        <Field label="颜色">
+        <Field label={t('categories.form.colorLabel')}>
           <div className="flex flex-wrap items-center gap-2">
             {CATEGORY_PALETTE.map((preset) => (
               <button
                 key={preset}
                 type="button"
-                aria-label={`选择颜色 ${preset}`}
+                aria-label={t('common.selectColor', { color: preset })}
                 aria-pressed={color.toLowerCase() === preset}
                 onClick={() => setColor(preset)}
                 className={clsx(
@@ -294,7 +300,7 @@ function CategoryFormModal({
                 type="color"
                 value={color}
                 onChange={(event) => setColor(event.target.value)}
-                aria-label="自定义颜色"
+                aria-label={t('common.customColor')}
                 className="h-8 w-10 cursor-pointer rounded-md border border-surface-3 bg-surface-0 p-1 dark:border-gray-700 dark:bg-gray-900"
               />
               <span className="font-mono text-[11px] uppercase tabular-nums text-gray-400 dark:text-gray-500">
@@ -305,7 +311,7 @@ function CategoryFormModal({
         </Field>
 
         <div className="rounded-lg border border-surface-3 bg-surface-1/60 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-900/40">
-          <p className="text-[11px] text-gray-400 dark:text-gray-500">预览</p>
+          <p className="text-[11px] text-gray-400 dark:text-gray-500">{t('categories.form.preview')}</p>
           <div className="mt-1.5 flex items-center gap-2">
             <span
               className="h-2.5 w-2.5 rounded-full"
@@ -313,7 +319,7 @@ function CategoryFormModal({
               aria-hidden="true"
             />
             <span className="text-[13px] font-medium text-gray-800 dark:text-gray-200">
-              {name.trim() || '分类名称'}
+              {name.trim() || t('categories.form.previewFallback')}
             </span>
           </div>
         </div>

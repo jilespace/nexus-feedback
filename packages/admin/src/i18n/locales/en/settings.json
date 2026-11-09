@@ -1,0 +1,338 @@
+{
+  "common": {
+    "unsaved": "Unsaved",
+    "dirty": "Unsaved changes",
+    "saved": "All changes saved",
+    "reset": "Reset",
+    "saving": "Saving...",
+    "retry": "Retry",
+    "checkNetwork": "Check your connection and try again.",
+    "cancel": "Cancel",
+    "copy": "Copy",
+    "copied": "Copied",
+    "saveFailed": "Could not save changes",
+    "deleteFailed": "Could not delete",
+    "colorInvalid": "Enter a color in #RRGGBB format",
+    "showSecret": "Show {{name}}",
+    "hideSecret": "Hide {{name}}",
+    "show": "Show",
+    "hide": "Hide"
+  },
+  "org": {
+    "title": "Organization settings",
+    "description": "Manage your organization name, branding and public board URL, and maintain the account password.",
+    "loadErrorTitle": "Could not load organization settings",
+    "saveAction": "Save changes",
+    "savedToast": "Organization settings saved",
+    "profile": {
+      "title": "Organization profile",
+      "description": "Shown across the public board, email notifications and the sign-in page.",
+      "footerHint": "Apply changes with Save changes in the top-right corner",
+      "name": {
+        "label": "Organization name",
+        "placeholder": "e.g. Nexus",
+        "required": "Enter an organization name"
+      },
+      "slug": {
+        "label": "Organization slug",
+        "hint": "Used for sign-in and public links; it cannot be changed after creation."
+      },
+      "logo": {
+        "label": "Logo URL",
+        "hint": "Leave empty to use the first letter of the name in your brand color."
+      },
+      "brandColor": {
+        "label": "Brand color",
+        "hint": "Used as the primary color and brand mark on the public board.",
+        "aria": "Choose brand color"
+      },
+      "boardUrl": {
+        "label": "Public board URL",
+        "hint": "Leave empty to use the current domain: https://your-domain/{project slug}",
+        "invalid": "Enter a full URL starting with http:// or https://"
+      },
+      "preview": {
+        "label": "Brand preview",
+        "unnamed": "Untitled organization",
+        "caption": "Brand shown on the public board and in emails"
+      }
+    },
+    "password": {
+      "title": "Change password",
+      "description": "Sign in with your new password afterwards; sessions on other devices stay active.",
+      "current": {
+        "label": "Current password",
+        "required": "Enter your current password"
+      },
+      "next": {
+        "label": "New password",
+        "hint": "At least 8 characters with upper & lower case letters and a number.",
+        "required": "Enter a new password",
+        "tooShort": "New password must be at least 8 characters",
+        "weak": "Use upper & lower case letters and a number"
+      },
+      "confirm": {
+        "label": "Confirm new password",
+        "required": "Enter the new password again",
+        "mismatch": "Passwords do not match"
+      },
+      "hint": "Changing your password requires your current password.",
+      "submit": "Change password",
+      "submitting": "Changing...",
+      "rules": {
+        "length": "8+ characters",
+        "case": "Upper & lower case",
+        "number": "Contains a number"
+      },
+      "changedToast": "Password changed",
+      "failedToast": "Could not change password"
+    }
+  },
+  "system": {
+    "title": "System configuration",
+    "description": "Configure organization-wide email delivery and attachment storage. Only the owner can make changes.",
+    "loadErrorTitle": "Could not load system configuration",
+    "saveAction": "Save changes",
+    "savedToast": "Configuration saved",
+    "email": {
+      "title": "Email service",
+      "description": "Sends member invites, status updates and weekly digest emails. Without it, invites become shareable links instead.",
+      "configured": "Configured",
+      "unconfigured": "Not configured",
+      "apiKey": {
+        "label": "API Key",
+        "placeholder": "Enter your Resend API Key",
+        "hintMasked": "Saved keys appear masked ({{mask}}). Keep it unchanged to retain the current key; enter a new value to replace it.",
+        "hintUnset": "API key for your email provider; stored server-side only."
+      },
+      "from": {
+        "label": "Sender email",
+        "invalid": "Enter a valid sender email address"
+      }
+    },
+    "storage": {
+      "title": "File storage",
+      "description": "Controls where feedback attachments (screenshots, logs) are stored and how they are served publicly.",
+      "typeLabel": "Storage type",
+      "local": {
+        "label": "Local storage",
+        "hint": "Attachments are stored on the server's local disk; no extra setup required."
+      },
+      "s3": {
+        "label": "S3 compatible",
+        "hint": "Works with AWS S3, MinIO, Cloudflare R2 and other object stores."
+      },
+      "qiniu": {
+        "label": "Qiniu Cloud",
+        "hint": "Stores attachments in Qiniu Cloud and serves them through a CDN domain."
+      },
+      "localPanel": {
+        "title": "Attachments are stored locally",
+        "body": "Best for self-hosted deployments. Switch to another type to configure a bucket and credentials."
+      },
+      "bucket": {
+        "label": "Bucket",
+        "placeholder": "nexus-attachments"
+      },
+      "region": {
+        "label": "Region",
+        "placeholder": "ap-northeast-1"
+      },
+      "endpoint": {
+        "label": "Endpoint",
+        "hint": "Leave empty when using AWS S3 directly.",
+        "placeholder": "https://s3.example.com"
+      },
+      "cdnDomain": {
+        "label": "CDN domain",
+        "hint": "Attachments are served publicly from this domain, e.g. cdn.example.com.",
+        "placeholder": "cdn.example.com"
+      },
+      "accessKey": {
+        "label": "Access Key",
+        "hintMasked": "Saved keys appear masked ({{mask}}). Keep it unchanged to retain the current key.",
+        "hintUnset": "Object storage access key."
+      },
+      "secretKey": {
+        "label": "Secret Key",
+        "hintMasked": "Saved keys appear masked ({{mask}}). Keep it unchanged to retain the current key.",
+        "hintUnset": "Object storage secret key; stored server-side only."
+      }
+    }
+  },
+  "project": {
+    "title": "Project settings",
+    "description": "Manage project details, notification policies and single sign-on (SSO).",
+    "backTo": "Back to integrations",
+    "info": {
+      "title": "Project details",
+      "description": "Basic identifiers and the public access URL.",
+      "name": "Project name",
+      "createdAt": "Created",
+      "slug": "Project slug",
+      "boardUrl": "Public board URL",
+      "copy": "Copy",
+      "open": "Open ↗",
+      "slugCopied": "Project slug copied",
+      "boardUrlCopied": "Board URL copied",
+      "copyFailed": "Copy failed — select the text and copy it manually"
+    },
+    "notifications": {
+      "title": "Notification policies",
+      "description": "Emails the system sends automatically. Subscribers and opt-outs are managed per project under Notification preferences.",
+      "manage": "Manage notification preferences",
+      "badgeAuto": "Automatic",
+      "badgeOptOut": "Opt-out available",
+      "adminNew": {
+        "title": "New feedback notifies admins",
+        "description": "Project admins get an email when feedback arrives from a public channel."
+      },
+      "voters": {
+        "title": "Status changes notify voters",
+        "description": "Voters are emailed when the feedback status changes."
+      },
+      "digest": {
+        "title": "Weekly digest",
+        "description": "A weekly summary of feedback stats and highlights for subscribers."
+      }
+    },
+    "sso": {
+      "title": "SSO configuration",
+      "description": "Configure JWT single sign-on. Your host app signs a token and passes it in the X-SSO-Token header.",
+      "configured": "Configured",
+      "unconfigured": "Not configured",
+      "enabledTitle": "Single sign-on is on",
+      "disabledTitle": "Single sign-on is off",
+      "enabledBody": "When enabled, users with a valid X-SSO-Token are signed in automatically and can submit feedback.",
+      "toggleLabel": "Enable SSO",
+      "jwtSecret": {
+        "label": "JWT Secret",
+        "secretName": "JWT secret",
+        "placeholder": "Enter the JWT signing secret",
+        "required": "Enter the JWT Secret",
+        "hintExisting": "For security, saved secrets are never echoed back — re-enter the secret to save any change.",
+        "hintNew": "Shared secret your host app uses to sign JWTs."
+      },
+      "claims": {
+        "userId": {
+          "label": "User ID Claim",
+          "hint": "Defaults to sub"
+        },
+        "email": {
+          "label": "Email Claim",
+          "hint": "Defaults to email"
+        },
+        "name": {
+          "label": "Name Claim",
+          "hint": "Defaults to name"
+        }
+      },
+      "howItWorks": {
+        "title": "How it works",
+        "before": "Your host app signs JWTs with this secret; requests pass the token in the",
+        "after": "header. The system verifies the signature and identifies users automatically, with no separate signup."
+      },
+      "saveAction": "Save SSO configuration",
+      "deleteAction": "Delete configuration",
+      "savedToast": "SSO configuration saved",
+      "deletedToast": "SSO configuration deleted",
+      "loadErrorTitle": "Could not load SSO configuration",
+      "deleteModal": {
+        "title": "Delete SSO configuration",
+        "description": "This cannot be undone. Confirm to continue.",
+        "body": "Once deleted, single sign-on via X-SSO-Token stops working immediately and the claim mapping is cleared. Users will need to sign in with a password instead.",
+        "confirm": "Delete configuration",
+        "confirming": "Deleting..."
+      }
+    }
+  },
+  "widget": {
+    "title": "Widget configuration",
+    "description": "Configure the theme, copy and available fields of the embedded feedback widget. Changes apply after the host page refreshes.",
+    "loadErrorTitle": "Could not load widget configuration",
+    "saveAction": "Save configuration",
+    "savedToast": "Widget configuration saved",
+    "defaults": {
+      "buttonLabel": "Feedback",
+      "successTitle": "Feedback submitted",
+      "successMessage": "Thanks for your feedback. We'll get back to you soon."
+    },
+    "appearance": {
+      "title": "Appearance",
+      "description": "Control the widget's brand color, launcher position and label on your site.",
+      "livePreview": "Live preview",
+      "color": {
+        "label": "Primary color",
+        "hint": "Used for the launcher, submit button and success icon.",
+        "aria": "Choose primary color"
+      },
+      "position": {
+        "label": "Launcher position",
+        "bottomRight": "Bottom right",
+        "bottomLeft": "Bottom left"
+      },
+      "buttonLabel": {
+        "label": "Button label",
+        "hint": "Shown on the floating launcher; 20 characters max.",
+        "required": "Enter a button label"
+      }
+    },
+    "content": {
+      "title": "Copy & fields",
+      "description": "Customize the success copy and choose which form fields the widget shows.",
+      "fieldsBadge": "{{enabled}}/{{total}} fields",
+      "successTitle": {
+        "label": "Success title",
+        "hint": "Leave empty to use the default title \"Feedback submitted\".",
+        "placeholder": "Feedback submitted"
+      },
+      "successMessage": {
+        "label": "Success message",
+        "hint": "Leave empty to use the default message \"Thanks for your feedback. We'll get back to you soon.\"",
+        "placeholder": "Thanks for your feedback. We'll get back to you soon."
+      },
+      "fieldsLabel": "Form fields",
+      "category": {
+        "label": "Category selector",
+        "description": "Let users choose a category for their feedback"
+      },
+      "priority": {
+        "label": "Priority selector",
+        "description": "Let users pick a priority when submitting"
+      },
+      "contact": {
+        "label": "Contact field",
+        "description": "Collect an email or phone number for follow-ups"
+      }
+    },
+    "preview": {
+      "title": "Live preview",
+      "description": "Matches how the widget looks on your site",
+      "tabsAria": "Preview state",
+      "formTab": "Form",
+      "successTab": "Success",
+      "panelTitle": "Submit feedback",
+      "panelPlaceholder": "Describe what happened...",
+      "categoryBug": "Bug",
+      "categoryFeature": "Feature idea",
+      "categoryOther": "Other",
+      "priorityLow": "Low",
+      "priorityMedium": "Medium",
+      "priorityHigh": "High",
+      "contactPlaceholder": "Contact (optional)",
+      "submit": "Submit feedback",
+      "close": "Close",
+      "summary": "{{position}} · {{enabled}}/{{total}} fields"
+    },
+    "embed": {
+      "title": "Embed code",
+      "description": "Paste the snippet before the </body> tag on your site; refresh the host page after saving to apply it. The widget fetches the latest configuration automatically.",
+      "scriptTab": "<script> tag",
+      "esmTab": "React / ESM",
+      "apiKeyHintBefore": "Copy the API Key from the",
+      "apiKeyHintApplications": "Integrations",
+      "apiKeyHintBetween": "page, then replace",
+      "apiKeyHintAfter": "in the snippet."
+    }
+  }
+}

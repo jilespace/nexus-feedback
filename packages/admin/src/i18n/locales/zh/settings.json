@@ -1,0 +1,338 @@
+{
+  "common": {
+    "unsaved": "未保存",
+    "dirty": "有未保存的更改",
+    "saved": "所有更改已保存",
+    "reset": "重置",
+    "saving": "保存中...",
+    "retry": "重试",
+    "checkNetwork": "请检查网络后重试。",
+    "cancel": "取消",
+    "copy": "复制",
+    "copied": "已复制",
+    "saveFailed": "保存失败",
+    "deleteFailed": "删除失败",
+    "colorInvalid": "请输入 #RRGGBB 格式的颜色值",
+    "showSecret": "显示{{name}}",
+    "hideSecret": "隐藏{{name}}",
+    "show": "显示",
+    "hide": "隐藏"
+  },
+  "org": {
+    "title": "组织设置",
+    "description": "管理组织名称、品牌展示与公开看板地址，并维护当前账号的登录密码。",
+    "loadErrorTitle": "加载组织设置失败",
+    "saveAction": "保存更改",
+    "savedToast": "组织设置已保存",
+    "profile": {
+      "title": "组织资料",
+      "description": "这些信息会展示在公开看板、邮件通知与登录页。",
+      "footerHint": "修改后点击右上角「保存更改」生效",
+      "name": {
+        "label": "组织名称",
+        "placeholder": "例如：Nexus",
+        "required": "请输入组织名称"
+      },
+      "slug": {
+        "label": "组织标识",
+        "hint": "用于登录与公开链接，创建后不可修改。"
+      },
+      "logo": {
+        "label": "Logo 地址",
+        "hint": "留空则使用品牌色首字母作为头像。"
+      },
+      "brandColor": {
+        "label": "品牌颜色",
+        "hint": "用于公开看板的主色与品牌标识。",
+        "aria": "选择品牌颜色"
+      },
+      "boardUrl": {
+        "label": "公开看板地址",
+        "hint": "留空则自动使用当前域名：https://你的域名/{项目 slug}",
+        "invalid": "请输入以 http:// 或 https:// 开头的完整地址"
+      },
+      "preview": {
+        "label": "品牌预览",
+        "unnamed": "未命名组织",
+        "caption": "公开看板与邮件中的品牌展示"
+      }
+    },
+    "password": {
+      "title": "修改密码",
+      "description": "修改后请使用新密码登录，其它设备上的会话不会自动登出。",
+      "current": {
+        "label": "当前密码",
+        "required": "请输入当前密码"
+      },
+      "next": {
+        "label": "新密码",
+        "hint": "至少 8 位，需包含大小写字母和数字。",
+        "required": "请输入新密码",
+        "tooShort": "新密码至少 8 位",
+        "weak": "需包含大小写字母和数字"
+      },
+      "confirm": {
+        "label": "确认新密码",
+        "required": "请再次输入新密码",
+        "mismatch": "两次输入的密码不一致"
+      },
+      "hint": "修改密码需要验证当前密码。",
+      "submit": "修改密码",
+      "submitting": "修改中...",
+      "rules": {
+        "length": "至少 8 位",
+        "case": "包含大小写字母",
+        "number": "包含数字"
+      },
+      "changedToast": "密码已修改",
+      "failedToast": "修改失败"
+    }
+  },
+  "system": {
+    "title": "系统配置",
+    "description": "配置组织级邮件发送与附件存储服务，仅组织所有者可修改。",
+    "loadErrorTitle": "加载系统配置失败",
+    "saveAction": "保存更改",
+    "savedToast": "配置已保存",
+    "email": {
+      "title": "邮件服务",
+      "description": "用于发送成员邀请、状态变更通知与周报邮件。未配置时，邀请会改为生成链接手动分享。",
+      "configured": "已配置",
+      "unconfigured": "未配置",
+      "apiKey": {
+        "label": "API Key",
+        "placeholder": "输入 Resend API Key",
+        "hintMasked": "已保存的密钥仅显示掩码（{{mask}}），保持不变即可保留原值；填写新值将覆盖。",
+        "hintUnset": "调用邮件服务商的 API Key，仅保存在服务端。"
+      },
+      "from": {
+        "label": "发件人邮箱",
+        "invalid": "请输入有效的发件人邮箱地址"
+      }
+    },
+    "storage": {
+      "title": "文件存储",
+      "description": "决定反馈附件（截图、日志）的上传位置与公开访问方式。",
+      "typeLabel": "存储类型",
+      "local": {
+        "label": "本地存储",
+        "hint": "附件保存在服务器本地磁盘，无需额外配置。"
+      },
+      "s3": {
+        "label": "S3 兼容",
+        "hint": "兼容 AWS S3、MinIO、Cloudflare R2 等对象存储。"
+      },
+      "qiniu": {
+        "label": "七牛云",
+        "hint": "使用七牛云对象存储，并通过 CDN 域名访问附件。"
+      },
+      "localPanel": {
+        "title": "附件保存在服务器本地",
+        "body": "适合自托管部署。切换其它类型后可填写 Bucket 与访问密钥。"
+      },
+      "bucket": {
+        "label": "Bucket",
+        "placeholder": "nexus-attachments"
+      },
+      "region": {
+        "label": "Region",
+        "placeholder": "ap-northeast-1"
+      },
+      "endpoint": {
+        "label": "Endpoint",
+        "hint": "使用 AWS 官方服务时可留空。",
+        "placeholder": "https://s3.example.com"
+      },
+      "cdnDomain": {
+        "label": "CDN 域名",
+        "hint": "附件通过该域名公开访问，例如 cdn.example.com。",
+        "placeholder": "cdn.example.com"
+      },
+      "accessKey": {
+        "label": "Access Key",
+        "hintMasked": "已保存的密钥仅显示掩码（{{mask}}），保持不变即可保留。",
+        "hintUnset": "对象存储访问密钥。"
+      },
+      "secretKey": {
+        "label": "Secret Key",
+        "hintMasked": "已保存的密钥仅显示掩码（{{mask}}），保持不变即可保留。",
+        "hintUnset": "对象存储密钥，仅保存在服务端。"
+      }
+    }
+  },
+  "project": {
+    "title": "项目设置",
+    "description": "管理项目基本信息、通知策略与单点登录（SSO）配置。",
+    "backTo": "返回项目接入",
+    "info": {
+      "title": "项目信息",
+      "description": "项目的基本标识与公开访问地址。",
+      "name": "项目名称",
+      "createdAt": "创建时间",
+      "slug": "项目标识（Slug）",
+      "boardUrl": "公开看板地址",
+      "copy": "复制",
+      "open": "打开 ↗",
+      "slugCopied": "项目标识已复制",
+      "boardUrlCopied": "看板地址已复制",
+      "copyFailed": "复制失败，请手动选择文本复制"
+    },
+    "notifications": {
+      "title": "通知策略",
+      "description": "系统自动发送的邮件类型。订阅用户与退订状态在「通知偏好」中按项目维护。",
+      "manage": "管理通知偏好",
+      "badgeAuto": "自动发送",
+      "badgeOptOut": "可退订",
+      "adminNew": {
+        "title": "新反馈通知管理员",
+        "description": "公开渠道收到新反馈时，向项目管理员发送邮件提醒。"
+      },
+      "voters": {
+        "title": "状态变更通知投票者",
+        "description": "反馈状态变化时，通知参与投票的用户。"
+      },
+      "digest": {
+        "title": "每周摘要",
+        "description": "每周汇总上周的反馈数据与重点动态，发送给订阅用户。"
+      }
+    },
+    "sso": {
+      "title": "SSO 配置",
+      "description": "配置 JWT 单点登录，宿主应用签发 Token 后通过 X-SSO-Token 请求头传递。",
+      "configured": "已配置",
+      "unconfigured": "未配置",
+      "enabledTitle": "单点登录已开启",
+      "disabledTitle": "单点登录未开启",
+      "enabledBody": "开启后，携带有效 X-SSO-Token 的用户将自动登录并创建反馈。",
+      "toggleLabel": "启用 SSO",
+      "jwtSecret": {
+        "label": "JWT Secret",
+        "secretName": "JWT 密钥",
+        "placeholder": "输入 JWT 签名密钥",
+        "required": "请输入 JWT Secret",
+        "hintExisting": "出于安全考虑，已保存的密钥不会回显；保存任何改动都需要重新填写。",
+        "hintNew": "宿主应用用于签发 JWT 的共享密钥。"
+      },
+      "claims": {
+        "userId": {
+          "label": "User ID Claim",
+          "hint": "默认 sub"
+        },
+        "email": {
+          "label": "Email Claim",
+          "hint": "默认 email"
+        },
+        "name": {
+          "label": "Name Claim",
+          "hint": "默认 name"
+        }
+      },
+      "howItWorks": {
+        "title": "工作原理",
+        "before": "宿主应用使用此 Secret 签发 JWT，用户请求时通过",
+        "after": "请求头传递。系统验证签名后自动识别用户身份，无需单独注册。"
+      },
+      "saveAction": "保存 SSO 配置",
+      "deleteAction": "删除配置",
+      "savedToast": "SSO 配置已保存",
+      "deletedToast": "SSO 配置已删除",
+      "loadErrorTitle": "加载 SSO 配置失败",
+      "deleteModal": {
+        "title": "删除 SSO 配置",
+        "description": "此操作不可撤销，请确认后继续。",
+        "body": "删除后，通过 X-SSO-Token 的单点登录将立即失效，已配置的 Claim 映射也会一并清除，用户需改用账号密码登录。",
+        "confirm": "确认删除",
+        "confirming": "删除中..."
+      }
+    }
+  },
+  "widget": {
+    "title": "Widget 配置",
+    "description": "配置内嵌反馈组件的主题、文案与可用字段，保存后宿主页面刷新即生效。",
+    "loadErrorTitle": "加载 Widget 配置失败",
+    "saveAction": "保存配置",
+    "savedToast": "Widget 配置已保存",
+    "defaults": {
+      "buttonLabel": "反馈",
+      "successTitle": "提交成功",
+      "successMessage": "感谢您的反馈，我们会尽快处理。"
+    },
+    "appearance": {
+      "title": "外观",
+      "description": "控制组件在主站上的品牌色、位置与入口文案。",
+      "livePreview": "实时预览",
+      "color": {
+        "label": "主题色",
+        "hint": "用于入口按钮、提交按钮与成功图标。",
+        "aria": "选择主题色"
+      },
+      "position": {
+        "label": "入口位置",
+        "bottomRight": "右下角",
+        "bottomLeft": "左下角"
+      },
+      "buttonLabel": {
+        "label": "按钮文字",
+        "hint": "显示在悬浮入口按钮上，最多 20 个字符。",
+        "required": "请输入按钮文字"
+      }
+    },
+    "content": {
+      "title": "文案与字段",
+      "description": "自定义提交成功后的提示语，并选择组件中展示的表单字段。",
+      "fieldsBadge": "{{enabled}}/{{total}} 字段",
+      "successTitle": {
+        "label": "成功标题",
+        "hint": "留空时使用默认标题「提交成功」。",
+        "placeholder": "提交成功"
+      },
+      "successMessage": {
+        "label": "成功提示语",
+        "hint": "留空时使用默认提示语「感谢您的反馈，我们会尽快处理。」",
+        "placeholder": "感谢您的反馈，我们会尽快处理。"
+      },
+      "fieldsLabel": "表单字段",
+      "category": {
+        "label": "分类选择",
+        "description": "允许用户为反馈选择分类"
+      },
+      "priority": {
+        "label": "优先级选择",
+        "description": "让用户提交时选择优先级"
+      },
+      "contact": {
+        "label": "联系方式输入",
+        "description": "收集邮箱或电话，便于跟进"
+      }
+    },
+    "preview": {
+      "title": "实时预览",
+      "description": "与嵌入站点一致的组件外观",
+      "tabsAria": "预览状态",
+      "formTab": "表单态",
+      "successTab": "成功态",
+      "panelTitle": "提交反馈",
+      "panelPlaceholder": "请描述你遇到的问题…",
+      "categoryBug": "Bug 修复",
+      "categoryFeature": "功能建议",
+      "categoryOther": "其他",
+      "priorityLow": "低",
+      "priorityMedium": "中",
+      "priorityHigh": "高",
+      "contactPlaceholder": "联系方式（选填）",
+      "submit": "提交反馈",
+      "close": "关闭",
+      "summary": "{{position}} · {{enabled}}/{{total}} 字段"
+    },
+    "embed": {
+      "title": "嵌入代码",
+      "description": "将代码粘贴到网站 HTML 的 </body> 前；保存配置后刷新宿主页面即可生效，Widget 会自动拉取最新配置。",
+      "scriptTab": "<script> 标签接入",
+      "esmTab": "React / ESM 接入",
+      "apiKeyHintBefore": "API Key 请先在",
+      "apiKeyHintApplications": "项目接入",
+      "apiKeyHintBetween": "页复制，再替换代码中的",
+      "apiKeyHintAfter": "。"
+    }
+  }
+}

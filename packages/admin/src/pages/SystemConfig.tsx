@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import { apiRequest } from '@/api/client';
@@ -11,7 +12,6 @@ import {
   EmptyState,
   Field,
   SectionCard,
-  SecretInput,
   Skeleton,
   settingsInputClass,
 } from '@/components/ui';
@@ -30,11 +30,7 @@ type ConfigForm = {
   storageDomain: string;
 };
 
-const STORAGE_OPTIONS: Array<{ value: StorageType; label: string; hint: string }> = [
-  { value: 'local', label: '本地存储', hint: '附件保存在服务器本地磁盘，无需额外配置。' },
-  { value: 's3', label: 'S3 兼容', hint: '兼容 AWS S3、MinIO、Cloudflare R2 等对象存储。' },
-  { value: 'qiniu', label: '七牛云', hint: '使用七牛云对象存储，并通过 CDN 域名访问附件。' },
-];
+const STORAGE_TYPES: StorageType[] = ['local', 's3', 'qiniu'];
 
 const EMPTY_FORM: ConfigForm = {
   emailApiKey: '',
@@ -69,13 +65,58 @@ function isMasked(value: string): boolean {
 }
 
 function SaveStatus({ dirty }: { dirty: boolean }) {
+  const { t } = useTranslation('settings');
   return (
     <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-gray-400 dark:text-gray-500">
       <span
         className={clsx('h-1.5 w-1.5 rounded-full', dirty ? 'bg-accent-500' : 'bg-emerald-500')}
       />
-      {dirty ? '有未保存的更改' : '所有更改已保存'}
+      {dirty ? t('common.dirty') : t('common.saved')}
     </span>
+  );
+}
+
+function SecretInput({
+  id,
+  value,
+  onChange,
+  placeholder,
+  invalid,
+  label,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  invalid?: boolean;
+  label: string;
+}) {
+  const { t } = useTranslation('settings');
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="relative">
+      <input
+        id={id}
+        type={visible ? 'text' : 'password'}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        autoComplete="off"
+        spellCheck={false}
+        className={clsx(settingsInputClass(invalid), 'pr-16 font-mono text-xs')}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((prev) => !prev)}
+        aria-label={
+          visible ? t('common.hideSecret', { name: label }) : t('common.showSecret', { name: label })
+        }
+        aria-pressed={visible}
+        className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-[11px] font-medium text-gray-400 transition-colors hover:bg-surface-2 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 dark:text-gray-500 dark:hover:bg-gray-700/60 dark:hover:text-gray-300"
+      >
+        {visible ? t('common.hide') : t('common.show')}
+      </button>
+    </div>
   );
 }
 
@@ -108,10 +149,17 @@ function WarningIcon() {
 }
 
 export function SystemConfig() {
+  const { t } = useTranslation('settings');
   const toast = useToast();
   const [form, setForm] = useState<ConfigForm>(EMPTY_FORM);
   const [saved, setSaved] = useState<ConfigForm>(EMPTY_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const storageOptions = STORAGE_TYPES.map((value) => ({
+    value,
+    label: t(`system.storage.${value}.label`),
+    hint: t(`system.storage.${value}.hint`),
+  }));
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['system-config'],
@@ -187,9 +235,10 @@ export function SystemConfig() {
         setForm(next);
         setSaved(next);
       }
-      toast.show('配置已保存');
+      toast.show(t('system.savedToast'));
     },
-    onError: (err) => toast.show(err instanceof Error ? err.message : '保存失败', 'error'),
+    onError: (err) =>
+      toast.show(err instanceof Error ? err.message : t('common.saveFailed'), 'error'),
   });
 
   const updateField = <K extends keyof ConfigForm>(key: K, value: ConfigForm[K]) => {
@@ -211,7 +260,7 @@ export function SystemConfig() {
   const handleSave = () => {
     const nextErrors: Record<string, string> = {};
     if (emailDirty && form.emailFrom.trim() && !EMAIL_RE.test(form.emailFrom.trim())) {
-      nextErrors.emailFrom = '请输入有效的发件人邮箱地址';
+      nextErrors.emailFrom = t('system.email.from.invalid');
     }
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
@@ -220,12 +269,12 @@ export function SystemConfig() {
 
   const headerActions = (
     <>
-      {dirty && <Badge tone="amber">未保存</Badge>}
+      {dirty && <Badge tone="amber">{t('common.unsaved')}</Badge>}
       <Button variant="secondary" onClick={handleReset} disabled={!dirty || saveMutation.isPending}>
-        重置
+        {t('common.reset')}
       </Button>
       <Button onClick={handleSave} disabled={!dirty || saveMutation.isPending}>
-        {saveMutation.isPending ? '保存中...' : '保存更改'}
+        {saveMutation.isPending ? t('common.saving') : t('system.saveAction')}
       </Button>
     </>
   );
@@ -233,8 +282,8 @@ export function SystemConfig() {
   return (
     <div className="animate-fade-in space-y-5">
       <PageHeader
-        title="系统配置"
-        description="配置组织级邮件发送与附件存储服务，仅组织所有者可修改。"
+        title={t('system.title')}
+        description={t('system.description')}
         actions={isLoading || isError ? undefined : headerActions}
       />
 
@@ -242,9 +291,9 @@ export function SystemConfig() {
         <Card>
           <EmptyState
             icon={<WarningIcon />}
-            title="加载系统配置失败"
-            description={error instanceof Error ? error.message : '请检查网络后重试。'}
-            action={{ label: '重试', onClick: () => void refetch() }}
+            title={t('system.loadErrorTitle')}
+            description={error instanceof Error ? error.message : t('common.checkNetwork')}
+            action={{ label: t('common.retry'), onClick: () => void refetch() }}
           />
         </Card>
       ) : isLoading ? (
@@ -255,34 +304,40 @@ export function SystemConfig() {
       ) : (
         <>
           <SectionCard
-            title="邮件服务"
-            description="用于发送成员邀请、状态变更通知与周报邮件。未配置时，邀请会改为生成链接手动分享。"
+            title={t('system.email.title')}
+            description={t('system.email.description')}
             action={
               <Badge tone={saved.emailApiKey ? 'green' : 'gray'}>
-                {saved.emailApiKey ? '已配置' : '未配置'}
+                {saved.emailApiKey
+                  ? t('system.email.configured')
+                  : t('system.email.unconfigured')}
               </Badge>
             }
             footer={<SaveStatus dirty={emailDirty} />}
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <Field
-                label="API Key"
+                label={t('system.email.apiKey.label')}
                 htmlFor="email-api-key"
                 hint={
                   isMasked(saved.emailApiKey)
-                    ? `已保存的密钥仅显示掩码（${saved.emailApiKey}），保持不变即可保留原值；填写新值将覆盖。`
-                    : '调用邮件服务商的 API Key，仅保存在服务端。'
+                    ? t('system.email.apiKey.hintMasked', { mask: saved.emailApiKey })
+                    : t('system.email.apiKey.hintUnset')
                 }
               >
                 <SecretInput
                   id="email-api-key"
                   value={form.emailApiKey}
                   onChange={(value) => updateField('emailApiKey', value)}
-                  label="API Key"
-                  placeholder="输入 Resend API Key"
+                  label={t('system.email.apiKey.label')}
+                  placeholder={t('system.email.apiKey.placeholder')}
                 />
               </Field>
-              <Field label="发件人邮箱" htmlFor="email-from" error={errors.emailFrom}>
+              <Field
+                label={t('system.email.from.label')}
+                htmlFor="email-from"
+                error={errors.emailFrom}
+              >
                 <input
                   id="email-from"
                   type="email"
@@ -297,24 +352,24 @@ export function SystemConfig() {
           </SectionCard>
 
           <SectionCard
-            title="文件存储"
-            description="决定反馈附件（截图、日志）的上传位置与公开访问方式。"
+            title={t('system.storage.title')}
+            description={t('system.storage.description')}
             action={
               <Badge tone="gray">
-                {STORAGE_OPTIONS.find((option) => option.value === form.storageType)?.label ??
-                  '本地存储'}
+                {storageOptions.find((option) => option.value === form.storageType)?.label ??
+                  t('system.storage.local.label')}
               </Badge>
             }
             footer={<SaveStatus dirty={storageDirty} />}
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <Field
-                label="存储类型"
+                label={t('system.storage.typeLabel')}
                 htmlFor="storage-type"
                 hint={
                   form.storageType === 'local'
                     ? undefined
-                    : STORAGE_OPTIONS.find((option) => option.value === form.storageType)?.hint
+                    : storageOptions.find((option) => option.value === form.storageType)?.hint
                 }
               >
                 <div className="relative">
@@ -324,7 +379,7 @@ export function SystemConfig() {
                     onChange={(e) => updateField('storageType', e.target.value as StorageType)}
                     className={clsx(settingsInputClass(), 'appearance-none pr-9')}
                   >
-                    {STORAGE_OPTIONS.map((option) => (
+                    {storageOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -340,20 +395,20 @@ export function SystemConfig() {
             {form.storageType === 'local' ? (
               <div className="mt-4 rounded-lg border border-dashed border-surface-3 bg-surface-1/60 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/30">
                 <p className="text-[13px] font-medium text-gray-700 dark:text-gray-300">
-                  附件保存在服务器本地
+                  {t('system.storage.localPanel.title')}
                 </p>
                 <p className="mt-1 text-[11px] leading-relaxed text-gray-400 dark:text-gray-500">
-                  适合自托管部署。切换其它类型后可填写 Bucket 与访问密钥。
+                  {t('system.storage.localPanel.body')}
                 </p>
               </div>
             ) : (
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <Field label="Bucket" htmlFor="storage-bucket">
+                <Field label={t('system.storage.bucket.label')} htmlFor="storage-bucket">
                   <input
                     id="storage-bucket"
                     value={form.storageBucket}
                     onChange={(e) => updateField('storageBucket', e.target.value)}
-                    placeholder="nexus-attachments"
+                    placeholder={t('system.storage.bucket.placeholder')}
                     spellCheck={false}
                     className={settingsInputClass()}
                   />
@@ -361,27 +416,27 @@ export function SystemConfig() {
 
                 {form.storageType === 's3' && (
                   <>
-                    <Field label="Region" htmlFor="storage-region">
+                    <Field label={t('system.storage.region.label')} htmlFor="storage-region">
                       <input
                         id="storage-region"
                         value={form.storageRegion}
                         onChange={(e) => updateField('storageRegion', e.target.value)}
-                        placeholder="ap-northeast-1"
+                        placeholder={t('system.storage.region.placeholder')}
                         spellCheck={false}
                         className={settingsInputClass()}
                       />
                     </Field>
                     <Field
-                      label="Endpoint"
+                      label={t('system.storage.endpoint.label')}
                       htmlFor="storage-endpoint"
-                      hint="使用 AWS 官方服务时可留空。"
+                      hint={t('system.storage.endpoint.hint')}
                       className="sm:col-span-2"
                     >
                       <input
                         id="storage-endpoint"
                         value={form.storageEndpoint}
                         onChange={(e) => updateField('storageEndpoint', e.target.value)}
-                        placeholder="https://s3.example.com"
+                        placeholder={t('system.storage.endpoint.placeholder')}
                         spellCheck={false}
                         className={settingsInputClass()}
                       />
@@ -391,15 +446,15 @@ export function SystemConfig() {
 
                 {form.storageType === 'qiniu' && (
                   <Field
-                    label="CDN 域名"
+                    label={t('system.storage.cdnDomain.label')}
                     htmlFor="storage-domain"
-                    hint="附件通过该域名公开访问，例如 cdn.example.com。"
+                    hint={t('system.storage.cdnDomain.hint')}
                   >
                     <input
                       id="storage-domain"
                       value={form.storageDomain}
                       onChange={(e) => updateField('storageDomain', e.target.value)}
-                      placeholder="cdn.example.com"
+                      placeholder={t('system.storage.cdnDomain.placeholder')}
                       spellCheck={false}
                       className={settingsInputClass()}
                     />
@@ -407,35 +462,35 @@ export function SystemConfig() {
                 )}
 
                 <Field
-                  label="Access Key"
+                  label={t('system.storage.accessKey.label')}
                   htmlFor="storage-access-key"
                   hint={
                     isMasked(saved.storageAccessKey)
-                      ? `已保存的密钥仅显示掩码（${saved.storageAccessKey}），保持不变即可保留。`
-                      : '对象存储访问密钥。'
+                      ? t('system.storage.accessKey.hintMasked', { mask: saved.storageAccessKey })
+                      : t('system.storage.accessKey.hintUnset')
                   }
                 >
                   <SecretInput
                     id="storage-access-key"
                     value={form.storageAccessKey}
                     onChange={(value) => updateField('storageAccessKey', value)}
-                    label="Access Key"
+                    label={t('system.storage.accessKey.label')}
                   />
                 </Field>
                 <Field
-                  label="Secret Key"
+                  label={t('system.storage.secretKey.label')}
                   htmlFor="storage-secret-key"
                   hint={
                     isMasked(saved.storageSecretKey)
-                      ? `已保存的密钥仅显示掩码（${saved.storageSecretKey}），保持不变即可保留。`
-                      : '对象存储密钥，仅保存在服务端。'
+                      ? t('system.storage.secretKey.hintMasked', { mask: saved.storageSecretKey })
+                      : t('system.storage.secretKey.hintUnset')
                   }
                 >
                   <SecretInput
                     id="storage-secret-key"
                     value={form.storageSecretKey}
                     onChange={(value) => updateField('storageSecretKey', value)}
-                    label="Secret Key"
+                    label={t('system.storage.secretKey.label')}
                   />
                 </Field>
               </div>

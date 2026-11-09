@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
 import { apiRequest } from '@/api/client';
 import { useToast } from '@/components/Toast';
@@ -30,6 +31,7 @@ function isKnownStatus(name: string): name is FeedbackStatus {
 }
 
 export function StatusSettings() {
+  const { t, i18n } = useTranslation('config');
   const { projectId = '' } = useParams<{ projectId: string }>();
   const queryClient = useQueryClient();
   const { show: toast } = useToast();
@@ -57,9 +59,10 @@ export function StatusSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['statuses', projectId] });
       setFormOpen(false);
-      toast('状态已创建');
+      toast(t('statuses.createToast'));
     },
-    onError: (err) => toast(err instanceof Error ? err.message : '创建失败', 'error'),
+    onError: (err) =>
+      toast(err instanceof Error ? err.message : t('statuses.createFailed'), 'error'),
   });
 
   const deleteMutation = useMutation({
@@ -68,11 +71,11 @@ export function StatusSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['statuses', projectId] });
       setConfirmDelete(null);
-      toast('状态已删除');
+      toast(t('statuses.deleteToast'));
     },
     onError: (err) => {
       setConfirmDelete(null);
-      toast(err instanceof Error ? err.message : '删除失败', 'error');
+      toast(err instanceof Error ? err.message : t('common.deleteFailed'), 'error');
     },
   });
 
@@ -83,15 +86,15 @@ export function StatusSettings() {
   return (
     <div className="animate-fade-in space-y-5">
       <PageHeader
-        title="状态配置"
-        description="自定义此项目的反馈状态流转；未配置时使用默认状态（待处理、处理中、已解决、已关闭）。"
+        title={t('statuses.title')}
+        description={t('statuses.description')}
         actions={
           projectId ? (
             <Button onClick={() => setFormOpen(true)}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                 <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
               </svg>
-              添加状态
+              {t('statuses.addButton')}
             </Button>
           ) : undefined
         }
@@ -100,8 +103,8 @@ export function StatusSettings() {
       {!projectId ? (
         <Card>
           <EmptyState
-            title="请先选择一个项目"
-            description="从项目列表进入项目后，即可在这里配置状态流转。"
+            title={t('common.selectProjectTitle')}
+            description={t('common.selectProjectStatuses')}
           />
         </Card>
       ) : (
@@ -109,24 +112,26 @@ export function StatusSettings() {
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-surface-2 px-4 py-3.5 dark:border-gray-700/60 sm:px-5">
             <div className="min-w-0">
               <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
-                工作流状态
+                {t('statuses.listTitle')}
                 <span className="font-normal tabular-nums text-gray-400">({list.length})</span>
-                {usingDefaults && <Badge tone="gray">系统默认</Badge>}
+                {usingDefaults && <Badge tone="gray">{t('statuses.defaultsBadge')}</Badge>}
               </h2>
               <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
-                按位置升序展示在公开看板与列表筛选中；关闭态表示流程终点。
+                {t('statuses.listDescription')}
               </p>
             </div>
           </div>
 
           {isError ? (
             <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-200">状态加载失败</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                {t('statuses.loadErrorTitle')}
+              </p>
               <p className="max-w-sm text-xs leading-relaxed text-gray-400 dark:text-gray-500">
-                {error instanceof Error ? error.message : '请检查网络后重试'}
+                {error instanceof Error ? error.message : t('common.networkRetry')}
               </p>
               <Button variant="secondary" size="sm" onClick={() => refetch()}>
-                重试
+                {t('common.retry')}
               </Button>
             </div>
           ) : isLoading ? (
@@ -137,9 +142,9 @@ export function StatusSettings() {
             </div>
           ) : list.length === 0 ? (
             <EmptyState
-              title="暂无状态配置"
-              description="添加自定义状态以替换系统默认状态。"
-              action={{ label: '添加状态', onClick: () => setFormOpen(true) }}
+              title={t('statuses.emptyTitle')}
+              description={t('statuses.emptyDescription')}
+              action={{ label: t('statuses.addButton'), onClick: () => setFormOpen(true) }}
             />
           ) : (
             <>
@@ -158,13 +163,15 @@ export function StatusSettings() {
                     <circle cx="8" cy="5" r="0.85" fill="currentColor" />
                   </svg>
                   <p className="text-xs leading-relaxed text-accent-600 dark:text-accent-300">
-                    当前使用系统默认状态。添加任意自定义状态后，此列表将替换为自定义配置，默认状态不再生效。
+                    {t('statuses.defaultsBanner')}
                   </p>
                 </div>
               )}
               <ul className="divide-y divide-surface-2 dark:divide-gray-700/60">
                 {list.map((status) => {
-                  const localName = isKnownStatus(status.name) ? statusLabel(status.name) : null;
+                  const localName = isKnownStatus(status.name)
+                    ? statusLabel(status.name, i18n.language)
+                    : null;
                   const isDefault = status.id.startsWith('default_');
                   return (
                     <li
@@ -190,12 +197,12 @@ export function StatusSettings() {
                       </div>
                       <div className="flex shrink-0 flex-wrap items-center gap-2">
                         <span className="rounded-md bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-gray-500 dark:bg-gray-700/60 dark:text-gray-400">
-                          位置 {status.position}
+                          {t('statuses.position', { position: status.position })}
                         </span>
-                        {status.is_closed && <Badge tone="gray">关闭态</Badge>}
+                        {status.is_closed && <Badge tone="gray">{t('statuses.closedBadge')}</Badge>}
                         {isDefault ? (
                           <span className="inline-flex h-8 items-center px-2 text-[11px] text-gray-300 dark:text-gray-600">
-                            系统内置
+                            {t('statuses.builtIn')}
                           </span>
                         ) : (
                           <button
@@ -203,7 +210,7 @@ export function StatusSettings() {
                             onClick={() => setConfirmDelete(status)}
                             className={rowActionClass}
                           >
-                            删除
+                            {t('common.delete')}
                           </button>
                         )}
                       </div>
@@ -228,14 +235,14 @@ export function StatusSettings() {
 
       {confirmDelete && (
         <Modal
-          title="删除状态"
-          description={`确定要删除状态「${confirmDelete.name}」吗？`}
+          title={t('statuses.deleteModalTitle')}
+          description={t('statuses.deleteModalDescription', { name: confirmDelete.name })}
           onClose={() => setConfirmDelete(null)}
           size="sm"
           footer={
             <>
               <Button variant="secondary" size="sm" onClick={() => setConfirmDelete(null)}>
-                取消
+                {t('common.cancel')}
               </Button>
               <Button
                 variant="danger"
@@ -243,13 +250,13 @@ export function StatusSettings() {
                 disabled={deleteMutation.isPending}
                 onClick={() => deleteMutation.mutate(confirmDelete.id)}
               >
-                {deleteMutation.isPending ? '删除中…' : '确认删除'}
+                {deleteMutation.isPending ? t('common.deleting') : t('common.confirmDelete')}
               </Button>
             </>
           }
         >
           <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-            删除后不可恢复。若已有反馈正在使用该状态，系统会阻止删除，请先为这些反馈切换状态。
+            {t('statuses.deleteModalBody')}
           </p>
         </Modal>
       )}
@@ -270,6 +277,7 @@ function StatusFormModal({
   onClose: () => void;
   onSubmit: (data: { name: string; color: string; position: number; is_closed: boolean }) => void;
 }) {
+  const { t } = useTranslation('config');
   const [name, setName] = useState('');
   const [color, setColor] = useState(PRESET_COLORS[0] ?? '#3B82F6');
   const [position, setPosition] = useState(defaultPosition);
@@ -279,11 +287,11 @@ function StatusFormModal({
   function submit() {
     const trimmed = name.trim();
     if (!trimmed) {
-      setNameError('请输入状态名称');
+      setNameError(t('statuses.errors.nameRequired'));
       return;
     }
     if (existing.some((item) => item.name.toLowerCase() === trimmed.toLowerCase())) {
-      setNameError('已存在同名状态');
+      setNameError(t('statuses.errors.duplicateName'));
       return;
     }
     setNameError(null);
@@ -297,17 +305,17 @@ function StatusFormModal({
 
   return (
     <Modal
-      title="添加状态"
-      description="自定义状态将替换系统默认状态，并用于反馈列表筛选与公开看板。"
+      title={t('statuses.form.title')}
+      description={t('statuses.form.description')}
       onClose={onClose}
       size="md"
       footer={
         <>
           <Button variant="secondary" size="sm" onClick={onClose}>
-            取消
+            {t('common.cancel')}
           </Button>
           <Button type="submit" form="status-form" size="sm" disabled={isPending}>
-            {isPending ? '创建中…' : '创建状态'}
+            {isPending ? t('statuses.form.creating') : t('statuses.form.createButton')}
           </Button>
         </>
       }
@@ -321,10 +329,10 @@ function StatusFormModal({
         className="space-y-4"
       >
         <Field
-          label="状态名称"
+          label={t('statuses.form.nameLabel')}
           htmlFor="status-name"
           error={nameError ?? undefined}
-          hint="建议使用英文标识（如 reviewing、waiting），会作为 API 中的状态值。"
+          hint={t('statuses.form.nameHint')}
         >
           <input
             id="status-name"
@@ -335,20 +343,20 @@ function StatusFormModal({
               setName(event.target.value);
               if (nameError) setNameError(null);
             }}
-            placeholder="例如：reviewing"
+            placeholder={t('statuses.form.namePlaceholder')}
             required
             className={settingsInputClass(!!nameError)}
           />
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
-          <Field label="颜色">
+          <Field label={t('statuses.form.colorLabel')}>
             <div className="flex flex-wrap items-center gap-2">
               {PRESET_COLORS.map((preset) => (
                 <button
                   key={preset}
                   type="button"
-                  aria-label={`选择颜色 ${preset}`}
+                  aria-label={t('common.selectColor', { color: preset })}
                   aria-pressed={color.toLowerCase() === preset.toLowerCase()}
                   onClick={() => setColor(preset)}
                   className={clsx(
@@ -364,12 +372,16 @@ function StatusFormModal({
                 type="color"
                 value={color}
                 onChange={(event) => setColor(event.target.value)}
-                aria-label="自定义颜色"
+                aria-label={t('common.customColor')}
                 className="ml-1 h-8 w-10 cursor-pointer rounded-md border border-surface-3 bg-surface-0 p-1 dark:border-gray-700 dark:bg-gray-900"
               />
             </div>
           </Field>
-          <Field label="位置" htmlFor="status-position" hint="数字越小越靠前">
+          <Field
+            label={t('statuses.form.positionLabel')}
+            htmlFor="status-position"
+            hint={t('statuses.form.positionHint')}
+          >
             <input
               id="status-position"
               type="number"
@@ -389,9 +401,11 @@ function StatusFormModal({
             className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600"
           />
           <span className="min-w-0">
-            <span className="block text-[13px] font-medium text-gray-700 dark:text-gray-200">关闭态</span>
+            <span className="block text-[13px] font-medium text-gray-700 dark:text-gray-200">
+              {t('statuses.form.closedLabel')}
+            </span>
             <span className="mt-0.5 block text-[11px] leading-relaxed text-gray-400 dark:text-gray-500">
-              标记为流程终点，反馈进入此状态后视为已关闭。
+              {t('statuses.form.closedHint')}
             </span>
           </span>
         </label>

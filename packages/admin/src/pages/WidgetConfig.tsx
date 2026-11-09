@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent, ReactElement } from 'react';
 import { useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import { apiRequest } from '@/api/client';
@@ -19,26 +20,29 @@ import {
 } from '@/components/ui';
 import type { WidgetConfig as WidgetConfigData } from '@/types';
 
-const defaultConfig: WidgetConfigData = {
-  primaryColor: '#4F46E5',
-  position: 'bottom-right',
-  buttonLabel: '反馈',
-  successTitle: '',
-  successMessage: '',
-  fields: { priority: true, contact: true, category: true },
-};
-
+const DEFAULT_PRIMARY_COLOR = '#4F46E5';
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
 const FIELD_OPTIONS: Array<{
   key: keyof WidgetConfigData['fields'];
-  label: string;
-  description: string;
+  labelKey: string;
+  descriptionKey: string;
 }> = [
-  { key: 'category', label: '分类选择', description: '允许用户为反馈选择分类' },
-  { key: 'priority', label: '优先级选择', description: '让用户提交时选择优先级' },
-  { key: 'contact', label: '联系方式输入', description: '收集邮箱或电话，便于跟进' },
+  { key: 'category', labelKey: 'widget.content.category.label', descriptionKey: 'widget.content.category.description' },
+  { key: 'priority', labelKey: 'widget.content.priority.label', descriptionKey: 'widget.content.priority.description' },
+  { key: 'contact', labelKey: 'widget.content.contact.label', descriptionKey: 'widget.content.contact.description' },
 ];
+
+function createDefaultConfig(t: (key: string) => string): WidgetConfigData {
+  return {
+    primaryColor: DEFAULT_PRIMARY_COLOR,
+    position: 'bottom-right',
+    buttonLabel: t('widget.defaults.buttonLabel'),
+    successTitle: '',
+    successMessage: '',
+    fields: { priority: true, contact: true, category: true },
+  };
+}
 
 function mergeConfig(base: WidgetConfigData, data: Partial<WidgetConfigData>): WidgetConfigData {
   return {
@@ -48,12 +52,12 @@ function mergeConfig(base: WidgetConfigData, data: Partial<WidgetConfigData>): W
   };
 }
 
-function validateConfig(config: WidgetConfigData): Record<string, string> {
+function validateConfig(config: WidgetConfigData, t: (key: string) => string): Record<string, string> {
   const errors: Record<string, string> = {};
   if (!HEX_COLOR_RE.test(config.primaryColor)) {
-    errors.primaryColor = '请输入 #RRGGBB 格式的颜色值';
+    errors.primaryColor = t('common.colorInvalid');
   }
-  if (!config.buttonLabel.trim()) errors.buttonLabel = '请输入按钮文字';
+  if (!config.buttonLabel.trim()) errors.buttonLabel = t('widget.appearance.buttonLabel.required');
   return errors;
 }
 
@@ -88,9 +92,11 @@ function WarningIcon() {
 export function WidgetConfig() {
   const { projectId } = useParams<{ projectId: string }>();
   const queryClient = useQueryClient();
+  const { t } = useTranslation('settings');
   const { show: toast } = useToast();
-  const [config, setConfig] = useState<WidgetConfigData>(defaultConfig);
-  const [saved, setSaved] = useState<WidgetConfigData>(defaultConfig);
+  const [defaults] = useState<WidgetConfigData>(() => createDefaultConfig(t));
+  const [config, setConfig] = useState<WidgetConfigData>(defaults);
+  const [saved, setSaved] = useState<WidgetConfigData>(defaults);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -101,11 +107,11 @@ export function WidgetConfig() {
 
   useEffect(() => {
     if (data === undefined) return;
-    const next = data ? mergeConfig(defaultConfig, data) : defaultConfig;
+    const next = data ? mergeConfig(defaults, data) : defaults;
     setConfig(next);
     setSaved(next);
     setErrors({});
-  }, [data]);
+  }, [data, defaults]);
 
   const mutation = useMutation({
     mutationFn: (cfg: WidgetConfigData) =>
@@ -116,9 +122,9 @@ export function WidgetConfig() {
     onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: ['widget-config', projectId] });
       setSaved(variables);
-      toast('Widget 配置已保存', 'success');
+      toast(t('widget.savedToast'), 'success');
     },
-    onError: (err: Error) => toast(err.message || '保存失败', 'error'),
+    onError: (err: Error) => toast(err.message || t('common.saveFailed'), 'error'),
   });
 
   const dirty = JSON.stringify(config) !== JSON.stringify(saved);
@@ -145,7 +151,7 @@ export function WidgetConfig() {
   const handleSave = (event?: FormEvent) => {
     event?.preventDefault();
     if (!projectId) return;
-    const nextErrors = validateConfig(config);
+    const nextErrors = validateConfig(config, t);
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
     mutation.mutate(config);
@@ -156,20 +162,20 @@ export function WidgetConfig() {
   return (
     <div className="animate-fade-in space-y-5">
       <PageHeader
-        title="Widget 配置"
-        description="配置内嵌反馈组件的主题、文案与可用字段，保存后宿主页面刷新即生效。"
+        title={t('widget.title')}
+        description={t('widget.description')}
         actions={
           <>
-            {dirty && <Badge tone="amber">未保存</Badge>}
+            {dirty && <Badge tone="amber">{t('common.unsaved')}</Badge>}
             <Button variant="secondary" onClick={handleReset} disabled={!dirty || mutation.isPending}>
-              重置
+              {t('common.reset')}
             </Button>
             <Button
               type="submit"
               form="widget-config-form"
               disabled={!dirty || mutation.isPending || isLoading || isError}
             >
-              {mutation.isPending ? '保存中...' : '保存配置'}
+              {mutation.isPending ? t('common.saving') : t('widget.saveAction')}
             </Button>
           </>
         }
@@ -179,9 +185,9 @@ export function WidgetConfig() {
         <Card>
           <EmptyState
             icon={<WarningIcon />}
-            title="加载 Widget 配置失败"
-            description={error instanceof Error ? error.message : '请检查网络后重试。'}
-            action={{ label: '重试', onClick: () => void refetch() }}
+            title={t('widget.loadErrorTitle')}
+            description={error instanceof Error ? error.message : t('common.checkNetwork')}
+            action={{ label: t('common.retry'), onClick: () => void refetch() }}
           />
         </Card>
       ) : isLoading ? (
@@ -197,22 +203,22 @@ export function WidgetConfig() {
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
             <form id="widget-config-form" onSubmit={handleSave} noValidate className="space-y-5">
               <SectionCard
-                title="外观"
-                description="控制组件在主站上的品牌色、位置与入口文案。"
-                action={<Badge tone="brand">实时预览</Badge>}
+                title={t('widget.appearance.title')}
+                description={t('widget.appearance.description')}
+                action={<Badge tone="brand">{t('widget.appearance.livePreview')}</Badge>}
               >
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field
-                    label="主题色"
+                    label={t('widget.appearance.color.label')}
                     htmlFor="widget-primary-color"
                     error={errors.primaryColor}
-                    hint="用于入口按钮、提交按钮与成功图标。"
+                    hint={t('widget.appearance.color.hint')}
                   >
                     <div className="flex items-center gap-2">
                       <input
                         type="color"
-                        aria-label="选择主题色"
-                        value={HEX_COLOR_RE.test(config.primaryColor) ? config.primaryColor : defaultConfig.primaryColor}
+                        aria-label={t('widget.appearance.color.aria')}
+                        value={HEX_COLOR_RE.test(config.primaryColor) ? config.primaryColor : DEFAULT_PRIMARY_COLOR}
                         onChange={(e) => updateConfig('primaryColor', e.target.value)}
                         className="h-9 w-12 shrink-0 cursor-pointer rounded-lg border border-surface-3 bg-surface-0 p-0.5 dark:border-gray-700 dark:bg-gray-800"
                       />
@@ -229,7 +235,7 @@ export function WidgetConfig() {
                     </div>
                   </Field>
 
-                  <Field label="入口位置" htmlFor="widget-position">
+                  <Field label={t('widget.appearance.position.label')} htmlFor="widget-position">
                     <div className="relative">
                       <select
                         id="widget-position"
@@ -239,8 +245,12 @@ export function WidgetConfig() {
                         }
                         className={clsx(settingsInputClass(), 'appearance-none pr-9')}
                       >
-                        <option value="bottom-right">右下角</option>
-                        <option value="bottom-left">左下角</option>
+                        <option value="bottom-right">
+                          {t('widget.appearance.position.bottomRight')}
+                        </option>
+                        <option value="bottom-left">
+                          {t('widget.appearance.position.bottomLeft')}
+                        </option>
                       </select>
                       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500">
                         <ChevronDownIcon />
@@ -249,10 +259,10 @@ export function WidgetConfig() {
                   </Field>
 
                   <Field
-                    label="按钮文字"
+                    label={t('widget.appearance.buttonLabel.label')}
                     htmlFor="widget-button-label"
                     error={errors.buttonLabel}
-                    hint="显示在悬浮入口按钮上，最多 20 个字符。"
+                    hint={t('widget.appearance.buttonLabel.hint')}
                     className="sm:col-span-2"
                   >
                     <div className="flex items-center gap-2">
@@ -261,7 +271,7 @@ export function WidgetConfig() {
                         value={config.buttonLabel}
                         onChange={(e) => updateConfig('buttonLabel', e.target.value)}
                         maxLength={20}
-                        placeholder="反馈"
+                        placeholder={t('widget.defaults.buttonLabel')}
                         className={settingsInputClass(!!errors.buttonLabel)}
                       />
                       <span className="w-12 shrink-0 text-right text-[11px] tabular-nums text-gray-400 dark:text-gray-500">
@@ -273,19 +283,22 @@ export function WidgetConfig() {
               </SectionCard>
 
               <SectionCard
-                title="文案与字段"
-                description="自定义提交成功后的提示语，并选择组件中展示的表单字段。"
+                title={t('widget.content.title')}
+                description={t('widget.content.description')}
                 action={
                   <Badge tone="gray">
-                    {enabledFieldCount}/{FIELD_OPTIONS.length} 字段
+                    {t('widget.content.fieldsBadge', {
+                      enabled: enabledFieldCount,
+                      total: FIELD_OPTIONS.length,
+                    })}
                   </Badge>
                 }
               >
                 <div className="space-y-4">
                   <Field
-                    label="成功标题"
+                    label={t('widget.content.successTitle.label')}
                     htmlFor="widget-success-title"
-                    hint="留空时使用默认标题「提交成功」。"
+                    hint={t('widget.content.successTitle.hint')}
                   >
                     <div className="flex items-center gap-2">
                       <input
@@ -293,7 +306,7 @@ export function WidgetConfig() {
                         value={config.successTitle}
                         onChange={(e) => updateConfig('successTitle', e.target.value)}
                         maxLength={50}
-                        placeholder="提交成功"
+                        placeholder={t('widget.content.successTitle.placeholder')}
                         className={settingsInputClass()}
                       />
                       <span className="w-12 shrink-0 text-right text-[11px] tabular-nums text-gray-400 dark:text-gray-500">
@@ -303,9 +316,9 @@ export function WidgetConfig() {
                   </Field>
 
                   <Field
-                    label="成功提示语"
+                    label={t('widget.content.successMessage.label')}
                     htmlFor="widget-success-message"
-                    hint="留空时使用默认提示语「感谢您的反馈，我们会尽快处理。」"
+                    hint={t('widget.content.successMessage.hint')}
                   >
                     <div>
                       <textarea
@@ -314,7 +327,7 @@ export function WidgetConfig() {
                         onChange={(e) => updateConfig('successMessage', e.target.value)}
                         rows={3}
                         maxLength={200}
-                        placeholder="感谢您的反馈，我们会尽快处理。"
+                        placeholder={t('widget.content.successMessage.placeholder')}
                         className={clsx(settingsInputClass(), 'h-auto min-h-[76px] resize-none py-2 leading-relaxed')}
                       />
                       <div className="mt-1 flex items-center justify-end">
@@ -325,7 +338,7 @@ export function WidgetConfig() {
                     </div>
                   </Field>
 
-                  <Field label="表单字段">
+                  <Field label={t('widget.content.fieldsLabel')}>
                     <div className="divide-y divide-surface-2 overflow-hidden rounded-lg border border-surface-2 dark:divide-gray-700/60 dark:border-gray-700/60">
                       {FIELD_OPTIONS.map((option) => (
                         <div
@@ -334,16 +347,16 @@ export function WidgetConfig() {
                         >
                           <div className="min-w-0">
                             <p className="text-[13px] font-medium text-gray-800 dark:text-gray-200">
-                              {option.label}
+                              {t(option.labelKey)}
                             </p>
                             <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500">
-                              {option.description}
+                              {t(option.descriptionKey)}
                             </p>
                           </div>
                           <Switch
                             checked={config.fields[option.key]}
                             onChange={(value) => updateFieldFlag(option.key, value)}
-                            label={option.label}
+                            label={t(option.labelKey)}
                           />
                         </div>
                       ))}
@@ -368,21 +381,28 @@ export function WidgetConfig() {
 type PreviewTab = 'form' | 'success';
 
 function PreviewSection({ config }: { config: WidgetConfigData }) {
+  const { t } = useTranslation('settings');
   const [tab, setTab] = useState<PreviewTab>('form');
   const enabledFieldCount = FIELD_OPTIONS.filter((option) => config.fields[option.key]).length;
+  const positionLabel =
+    config.position === 'bottom-right'
+      ? t('widget.appearance.position.bottomRight')
+      : t('widget.appearance.position.bottomLeft');
 
   return (
     <Card className="animate-fade-up overflow-hidden">
       <div className="flex items-start justify-between gap-3 border-b border-surface-2 px-5 py-4 dark:border-gray-700/60">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">实时预览</h2>
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+            {t('widget.preview.title')}
+          </h2>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            与嵌入站点一致的组件外观
+            {t('widget.preview.description')}
           </p>
         </div>
         <div
           role="tablist"
-          aria-label="预览状态"
+          aria-label={t('widget.preview.tabsAria')}
           className="flex shrink-0 gap-1 rounded-lg bg-surface-2 p-1 dark:bg-gray-900/40"
         >
           {(['form', 'success'] as PreviewTab[]).map((item) => (
@@ -399,7 +419,7 @@ function PreviewSection({ config }: { config: WidgetConfigData }) {
                   : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
               )}
             >
-              {item === 'form' ? '表单态' : '成功态'}
+              {item === 'form' ? t('widget.preview.formTab') : t('widget.preview.successTab')}
             </button>
           ))}
         </div>
@@ -439,18 +459,21 @@ function PreviewSection({ config }: { config: WidgetConfigData }) {
             style={{
               backgroundColor: HEX_COLOR_RE.test(config.primaryColor)
                 ? config.primaryColor
-                : defaultConfig.primaryColor,
+                : DEFAULT_PRIMARY_COLOR,
             }}
           />
           <span className="font-mono uppercase">
             {HEX_COLOR_RE.test(config.primaryColor)
               ? config.primaryColor
-              : defaultConfig.primaryColor}
+              : DEFAULT_PRIMARY_COLOR}
           </span>
         </span>
         <span className="text-[11px] text-gray-400 dark:text-gray-500">
-          {config.position === 'bottom-right' ? '右下角' : '左下角'} · {enabledFieldCount}/
-          {FIELD_OPTIONS.length} 字段
+          {t('widget.preview.summary', {
+            position: positionLabel,
+            enabled: enabledFieldCount,
+            total: FIELD_OPTIONS.length,
+          })}
         </span>
       </div>
     </Card>
@@ -458,28 +481,35 @@ function PreviewSection({ config }: { config: WidgetConfigData }) {
 }
 
 function FormPreview({ config }: { config: WidgetConfigData }) {
+  const { t } = useTranslation('settings');
   const positionClass = config.position === 'bottom-right' ? 'right-3' : 'left-3';
   const color = HEX_COLOR_RE.test(config.primaryColor)
     ? config.primaryColor
-    : defaultConfig.primaryColor;
+    : DEFAULT_PRIMARY_COLOR;
 
   return (
     <>
       <div className="absolute bottom-12 right-3 left-3 rounded-xl border border-surface-3 bg-surface-0 p-3 shadow-pop dark:border-gray-600 dark:bg-gray-900">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-[12px] font-semibold text-gray-900 dark:text-gray-100">提交反馈</p>
+          <p className="text-[12px] font-semibold text-gray-900 dark:text-gray-100">
+            {t('widget.preview.panelTitle')}
+          </p>
           <span className="flex h-4 w-4 items-center justify-center rounded text-[10px] text-gray-400">
             ×
           </span>
         </div>
 
         <div className="mt-2 h-12 rounded-lg border border-surface-3 bg-surface-1/60 px-2 py-1.5 text-[10px] leading-relaxed text-gray-400 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-500">
-          请描述你遇到的问题…
+          {t('widget.preview.panelPlaceholder')}
         </div>
 
         {config.fields.category && (
           <div className="mt-2 flex flex-wrap gap-1">
-            {['Bug 修复', '功能建议', '其他'].map((label) => (
+            {[
+              t('widget.preview.categoryBug'),
+              t('widget.preview.categoryFeature'),
+              t('widget.preview.categoryOther'),
+            ].map((label) => (
               <span
                 key={label}
                 className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] text-gray-500 dark:bg-gray-700/60 dark:text-gray-400"
@@ -492,7 +522,11 @@ function FormPreview({ config }: { config: WidgetConfigData }) {
 
         {config.fields.priority && (
           <div className="mt-2 flex gap-1">
-            {['低', '中', '高'].map((label) => (
+            {[
+              t('widget.preview.priorityLow'),
+              t('widget.preview.priorityMedium'),
+              t('widget.preview.priorityHigh'),
+            ].map((label) => (
               <span
                 key={label}
                 className="flex-1 rounded-full border border-surface-3 py-0.5 text-center text-[10px] text-gray-500 dark:border-gray-700 dark:text-gray-400"
@@ -505,7 +539,7 @@ function FormPreview({ config }: { config: WidgetConfigData }) {
 
         {config.fields.contact && (
           <div className="mt-2 h-7 rounded-lg border border-dashed border-surface-3 px-2 text-[10px] leading-7 text-gray-400 dark:border-gray-700 dark:text-gray-500">
-            联系方式（选填）
+            {t('widget.preview.contactPlaceholder')}
           </div>
         )}
 
@@ -513,7 +547,7 @@ function FormPreview({ config }: { config: WidgetConfigData }) {
           className="mt-2.5 flex h-7 items-center justify-center rounded-lg text-[11px] font-medium text-white shadow-sm"
           style={{ backgroundColor: color }}
         >
-          提交反馈
+          {t('widget.preview.submit')}
         </div>
       </div>
 
@@ -522,7 +556,7 @@ function FormPreview({ config }: { config: WidgetConfigData }) {
           className="rounded-full px-3.5 py-1.5 text-[11px] font-medium text-white shadow-lg"
           style={{ backgroundColor: color }}
         >
-          {config.buttonLabel.trim() || '反馈'}
+          {config.buttonLabel.trim() || t('widget.defaults.buttonLabel')}
         </div>
       </div>
     </>
@@ -530,11 +564,12 @@ function FormPreview({ config }: { config: WidgetConfigData }) {
 }
 
 function SuccessPreview({ config }: { config: WidgetConfigData }) {
-  const title = config.successTitle.trim() || '提交成功';
-  const message = config.successMessage.trim() || '感谢您的反馈，我们会尽快处理。';
+  const { t } = useTranslation('settings');
+  const title = config.successTitle.trim() || t('widget.defaults.successTitle');
+  const message = config.successMessage.trim() || t('widget.defaults.successMessage');
   const color = HEX_COLOR_RE.test(config.primaryColor)
     ? config.primaryColor
-    : defaultConfig.primaryColor;
+    : DEFAULT_PRIMARY_COLOR;
 
   return (
     <div className="absolute inset-x-4 bottom-4 rounded-xl border border-surface-3 bg-surface-0 p-4 text-center shadow-pop dark:border-gray-600 dark:bg-gray-900">
@@ -552,13 +587,14 @@ function SuccessPreview({ config }: { config: WidgetConfigData }) {
         type="button"
         className="mt-3 h-7 w-full rounded-lg border border-surface-3 bg-surface-0 text-[10px] font-medium text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
       >
-        关闭
+        {t('widget.preview.close')}
       </button>
     </div>
   );
 }
 
 function EmbedSection() {
+  const { t } = useTranslation('settings');
   const apiUrl = `${window.location.origin}/api/v1`;
   const scriptCode = `<!-- Nexus Feedback Widget -->
 <script src="${window.location.origin}/widget/nexus-feedback-widget.iife.js"></script>
@@ -573,34 +609,31 @@ function EmbedSection() {
 <FeedbackWidget apiKey="YOUR_PROJECT_API_KEY" apiUrl="${apiUrl}" />`;
 
   return (
-    <SectionCard
-      title="嵌入代码"
-      description="将代码粘贴到网站 HTML 的 </body> 前；保存配置后刷新宿主页面即可生效，Widget 会自动拉取最新配置。"
-    >
+    <SectionCard title={t('widget.embed.title')} description={t('widget.embed.description')}>
       <CodeTabs
-          tabs={[
-            { id: 'script', label: '<script> 标签接入', code: scriptCode },
-            { id: 'esm', label: 'React / ESM 接入', code: esmCode },
-          ]}
-        />
+        tabs={[
+          { id: 'script', label: t('widget.embed.scriptTab'), code: scriptCode },
+          { id: 'esm', label: t('widget.embed.esmTab'), code: esmCode },
+        ]}
+      />
 
-        <div className="mt-3 flex flex-wrap items-start gap-x-1.5 gap-y-1 rounded-lg border border-accent-200/70 bg-accent-50/70 px-3.5 py-2.5 text-[11px] leading-relaxed text-accent-700 dark:border-accent-500/25 dark:bg-accent-500/10 dark:text-accent-300">
-          <span aria-hidden="true">⚠</span>
-          <span>
-            API Key 请先在{' '}
-            <a
-              href="/applications"
-              className="font-medium underline decoration-accent-400/60 underline-offset-2 hover:decoration-accent-500"
-            >
-              项目接入
-            </a>{' '}
-            页复制，再替换代码中的{' '}
-            <code className="rounded bg-accent-100/70 px-1 font-mono text-[10px] dark:bg-accent-500/15">
-              YOUR_PROJECT_API_KEY
-            </code>
-            。
-          </span>
-        </div>
+      <div className="mt-3 flex flex-wrap items-start gap-x-1.5 gap-y-1 rounded-lg border border-accent-200/70 bg-accent-50/70 px-3.5 py-2.5 text-[11px] leading-relaxed text-accent-700 dark:border-accent-500/25 dark:bg-accent-500/10 dark:text-accent-300">
+        <span aria-hidden="true">⚠</span>
+        <span>
+          {t('widget.embed.apiKeyHintBefore')}{' '}
+          <a
+            href="/applications"
+            className="font-medium underline decoration-accent-400/60 underline-offset-2 hover:decoration-accent-500"
+          >
+            {t('widget.embed.apiKeyHintApplications')}
+          </a>{' '}
+          {t('widget.embed.apiKeyHintBetween')}{' '}
+          <code className="rounded bg-accent-100/70 px-1 font-mono text-[10px] dark:bg-accent-500/15">
+            YOUR_PROJECT_API_KEY
+          </code>{' '}
+          {t('widget.embed.apiKeyHintAfter')}
+        </span>
+      </div>
     </SectionCard>
   );
 }
@@ -635,6 +668,7 @@ function CodeTabs({ tabs }: { tabs: { id: string; label: string; code: string }[
 }
 
 function CodeBlock({ code }: { code: string }) {
+  const { t } = useTranslation('settings');
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -643,7 +677,7 @@ function CodeBlock({ code }: { code: string }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      /* 剪贴板不可用时保持按钮原状 */
+      /* Keep the button as-is when the clipboard is unavailable. */
     }
   };
 
@@ -662,7 +696,7 @@ function CodeBlock({ code }: { code: string }) {
             : 'bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white',
         )}
       >
-        {copied ? '已复制' : '复制'}
+        {copied ? t('common.copied') : t('common.copy')}
       </button>
     </div>
   );

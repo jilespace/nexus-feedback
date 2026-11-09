@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import { ApiError, apiRequest } from '@/api/client';
@@ -49,28 +50,20 @@ function getBoardUrl(slug: string, boardUrl?: string | null): string {
   return `${window.location.origin}/${slug}`;
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, language: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  return date.toLocaleDateString(language.startsWith('en') ? 'en-US' : 'zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
 }
 
 const NOTIFICATION_POLICIES = [
-  {
-    title: '新反馈通知管理员',
-    description: '公开渠道收到新反馈时，向项目管理员发送邮件提醒。',
-    badge: '自动发送',
-  },
-  {
-    title: '状态变更通知投票者',
-    description: '反馈状态变化时，通知参与投票的用户。',
-    badge: '可退订',
-  },
-  {
-    title: '每周摘要',
-    description: '每周汇总上周的反馈数据与重点动态，发送给订阅用户。',
-    badge: '可退订',
-  },
+  { id: 'adminNew', auto: true },
+  { id: 'voters', auto: false },
+  { id: 'digest', auto: false },
 ] as const;
 
 const inputClass = (invalid = false) =>
@@ -180,13 +173,16 @@ function SecretInput({
   onChange,
   placeholder,
   invalid,
+  label,
 }: {
   id: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   invalid?: boolean;
+  label: string;
 }) {
+  const { t } = useTranslation('settings');
   const [visible, setVisible] = useState(false);
   return (
     <div className="relative">
@@ -203,7 +199,10 @@ function SecretInput({
       <button
         type="button"
         onClick={() => setVisible((prev) => !prev)}
-        aria-label={visible ? '隐藏密钥' : '显示密钥'}
+        aria-label={
+          visible ? t('common.hideSecret', { name: label }) : t('common.showSecret', { name: label })
+        }
+        aria-pressed={visible}
         className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-surface-2 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700/60 dark:hover:text-gray-300"
       >
         {visible ? <EyeOffIcon /> : <EyeIcon />}
@@ -267,6 +266,7 @@ function WarningIcon() {
 export function ProjectSettings() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation('settings');
   const { show: toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -336,25 +336,25 @@ export function ProjectSettings() {
         setSaved(next);
         setSecretError('');
       }
-      toast('SSO 配置已保存', 'success');
+      toast(t('project.sso.savedToast'), 'success');
     },
-    onError: (err: Error) => toast(err.message || '保存失败', 'error'),
+    onError: (err: Error) => toast(err.message || t('common.saveFailed'), 'error'),
   });
 
   const deleteMutation = useMutation({
     mutationFn: () => apiRequest<null>(`/org/projects/${projectId}/sso`, { method: 'DELETE' }),
     onSuccess: () => {
       // A refetch after DELETE returns 404, which would keep the previous config in
-      // the cache; write null so the card reflects the "未配置" state immediately.
+      // the cache; write null so the card reflects the unconfigured state immediately.
       queryClient.setQueryData(['sso', projectId], null);
       queryClient.invalidateQueries({ queryKey: ['sso', projectId] });
       setForm(EMPTY_SSO_FORM);
       setSaved(EMPTY_SSO_FORM);
       setSecretError('');
       setShowDeleteConfirm(false);
-      toast('SSO 配置已删除', 'success');
+      toast(t('project.sso.deletedToast'), 'success');
     },
-    onError: (err: Error) => toast(err.message || '删除失败', 'error'),
+    onError: (err: Error) => toast(err.message || t('common.deleteFailed'), 'error'),
   });
 
   const updateField = <K extends keyof SsoForm>(key: K, value: SsoForm[K]) => {
@@ -370,7 +370,7 @@ export function ProjectSettings() {
   const handleSaveSso = (event: FormEvent) => {
     event.preventDefault();
     if (!form.jwtSecret.trim()) {
-      setSecretError('请输入 JWT Secret');
+      setSecretError(t('project.sso.jwtSecret.required'));
       return;
     }
     setSecretError('');
@@ -388,34 +388,37 @@ export function ProjectSettings() {
       await navigator.clipboard.writeText(text);
       toast(message, 'success');
     } catch {
-      toast('复制失败，请手动选择文本复制', 'error');
+      toast(t('project.info.copyFailed'), 'error');
     }
   };
 
   return (
     <div className="animate-fade-in space-y-5">
       <PageHeader
-        title="项目设置"
-        description="管理项目基本信息、通知策略与单点登录（SSO）配置。"
-        backTo={{ label: '返回项目接入', onClick: () => navigate('/applications') }}
+        title={t('project.title')}
+        description={t('project.description')}
+        backTo={{ label: t('project.backTo'), onClick: () => navigate('/applications') }}
         actions={
           <>
-            {ssoDirty && <Badge tone="amber">未保存</Badge>}
+            {ssoDirty && <Badge tone="amber">{t('common.unsaved')}</Badge>}
             <Button variant="secondary" onClick={handleReset} disabled={!ssoDirty || saveMutation.isPending}>
-              重置
+              {t('common.reset')}
             </Button>
             <Button
               type="submit"
               form="sso-config-form"
               disabled={!ssoDirty || ssoBlocked || saveMutation.isPending}
             >
-              {saveMutation.isPending ? '保存中...' : '保存 SSO 配置'}
+              {saveMutation.isPending ? t('common.saving') : t('project.sso.saveAction')}
             </Button>
           </>
         }
       />
 
-      <SettingsCard title="项目信息" description="项目的基本标识与公开访问地址。">
+      <SettingsCard
+        title={t('project.info.title')}
+        description={t('project.info.description')}
+      >
         {projectLoading || !project ? (
           <div className="grid gap-4 sm:grid-cols-2">
             <Skeleton className="h-10 rounded-lg" />
@@ -426,7 +429,7 @@ export function ProjectSettings() {
           <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
             <div>
               <dt className="text-[11px] font-semibold tracking-[0.04em] text-gray-500 dark:text-gray-400">
-                项目名称
+                {t('project.info.name')}
               </dt>
               <dd className="mt-1 text-[13px] font-medium text-gray-900 dark:text-gray-100">
                 {project.name}
@@ -434,15 +437,15 @@ export function ProjectSettings() {
             </div>
             <div>
               <dt className="text-[11px] font-semibold tracking-[0.04em] text-gray-500 dark:text-gray-400">
-                创建时间
+                {t('project.info.createdAt')}
               </dt>
               <dd className="mt-1 text-[13px] tabular-nums text-gray-700 dark:text-gray-300">
-                {formatDate(project.created_at)}
+                {formatDate(project.created_at, i18n.language)}
               </dd>
             </div>
             <div className="min-w-0">
               <dt className="text-[11px] font-semibold tracking-[0.04em] text-gray-500 dark:text-gray-400">
-                项目标识（Slug）
+                {t('project.info.slug')}
               </dt>
               <dd className="mt-1 flex items-center gap-1.5">
                 <code className="truncate rounded-md bg-surface-2 px-2 py-1 font-mono text-xs text-gray-600 dark:bg-gray-700/60 dark:text-gray-300">
@@ -450,17 +453,17 @@ export function ProjectSettings() {
                 </code>
                 <button
                   type="button"
-                  onClick={() => void copyText(project.slug, '项目标识已复制')}
+                  onClick={() => void copyText(project.slug, t('project.info.slugCopied'))}
                   className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium text-gray-400 transition-colors hover:bg-surface-2 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700/60 dark:hover:text-gray-300"
                 >
                   <CopyIcon />
-                  复制
+                  {t('project.info.copy')}
                 </button>
               </dd>
             </div>
             <div className="min-w-0">
               <dt className="text-[11px] font-semibold tracking-[0.04em] text-gray-500 dark:text-gray-400">
-                公开看板地址
+                {t('project.info.boardUrl')}
               </dt>
               <dd className="mt-1 flex min-w-0 items-center gap-1.5">
                 <code className="truncate rounded-md bg-surface-2 px-2 py-1 font-mono text-xs text-gray-600 dark:bg-gray-700/60 dark:text-gray-300">
@@ -472,15 +475,15 @@ export function ProjectSettings() {
                   rel="noopener noreferrer"
                   className="inline-flex h-6 shrink-0 items-center rounded-md px-1.5 text-[11px] font-medium text-brand-600 transition-colors hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-600/15"
                 >
-                  打开 ↗
+                  {t('project.info.open')}
                 </a>
                 <button
                   type="button"
-                  onClick={() => void copyText(boardUrl, '看板地址已复制')}
+                  onClick={() => void copyText(boardUrl, t('project.info.boardUrlCopied'))}
                   className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium text-gray-400 transition-colors hover:bg-surface-2 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700/60 dark:hover:text-gray-300"
                 >
                   <CopyIcon />
-                  复制
+                  {t('project.info.copy')}
                 </button>
               </dd>
             </div>
@@ -489,32 +492,34 @@ export function ProjectSettings() {
       </SettingsCard>
 
       <SettingsCard
-        title="通知策略"
-        description="系统自动发送的邮件类型。订阅用户与退订状态在「通知偏好」中按项目维护。"
+        title={t('project.notifications.title')}
+        description={t('project.notifications.description')}
         action={
           projectId ? (
             <Link
               to={`/projects/${projectId}/notifications`}
               className="inline-flex h-8 items-center rounded-lg border border-surface-3 bg-surface-0 px-3 text-xs font-medium text-gray-600 transition-colors hover:border-gray-300 hover:bg-surface-1 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700/70"
             >
-              管理通知偏好
+              {t('project.notifications.manage')}
             </Link>
           ) : undefined
         }
       >
         <ul className="divide-y divide-surface-2 dark:divide-gray-700/60">
           {NOTIFICATION_POLICIES.map((policy) => (
-            <li key={policy.title} className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0">
+            <li key={policy.id} className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0">
               <div className="min-w-0">
                 <p className="text-[13px] font-medium text-gray-800 dark:text-gray-200">
-                  {policy.title}
+                  {t(`project.notifications.${policy.id}.title`)}
                 </p>
                 <p className="mt-0.5 text-[11px] leading-relaxed text-gray-400 dark:text-gray-500">
-                  {policy.description}
+                  {t(`project.notifications.${policy.id}.description`)}
                 </p>
               </div>
-              <Badge tone={policy.badge === '自动发送' ? 'brand' : 'gray'} className="mt-0.5 shrink-0">
-                {policy.badge}
+              <Badge tone={policy.auto ? 'brand' : 'gray'} className="mt-0.5 shrink-0">
+                {policy.auto
+                  ? t('project.notifications.badgeAuto')
+                  : t('project.notifications.badgeOptOut')}
               </Badge>
             </li>
           ))}
@@ -522,11 +527,13 @@ export function ProjectSettings() {
       </SettingsCard>
 
       <SettingsCard
-        title="SSO 配置"
-        description="配置 JWT 单点登录，宿主应用签发 Token 后通过 X-SSO-Token 请求头传递。"
+        title={t('project.sso.title')}
+        description={t('project.sso.description')}
         action={
           <Badge tone={hasExistingConfig ? 'green' : 'gray'}>
-            {hasExistingConfig ? '已配置' : '未配置'}
+            {hasExistingConfig
+              ? t('project.sso.configured')
+              : t('project.sso.unconfigured')}
           </Badge>
         }
         footer={
@@ -538,7 +545,7 @@ export function ProjectSettings() {
                   ssoDirty ? 'bg-accent-500' : 'bg-emerald-500',
                 )}
               />
-              {ssoDirty ? '有未保存的更改' : '所有更改已保存'}
+              {ssoDirty ? t('common.dirty') : t('common.saved')}
             </span>
             {hasExistingConfig && (
               <Button
@@ -547,7 +554,7 @@ export function ProjectSettings() {
                 onClick={() => setShowDeleteConfirm(true)}
                 disabled={deleteMutation.isPending}
               >
-                删除配置
+                {t('project.sso.deleteAction')}
               </Button>
             )}
           </>
@@ -556,9 +563,9 @@ export function ProjectSettings() {
         {ssoBlocked ? (
           <EmptyState
             icon={<WarningIcon />}
-            title="加载 SSO 配置失败"
-            description={ssoError instanceof Error ? ssoError.message : '请检查网络后重试。'}
-            action={{ label: '重试', onClick: () => void refetchSso() }}
+            title={t('project.sso.loadErrorTitle')}
+            description={ssoError instanceof Error ? ssoError.message : t('common.checkNetwork')}
+            action={{ label: t('common.retry'), onClick: () => void refetchSso() }}
             className="py-8"
           />
         ) : ssoLoading ? (
@@ -582,44 +589,47 @@ export function ProjectSettings() {
                 />
                 <div className="min-w-0">
                   <p className="text-[13px] font-medium text-gray-800 dark:text-gray-200">
-                    {form.enabled ? '单点登录已开启' : '单点登录未开启'}
+                    {form.enabled
+                      ? t('project.sso.enabledTitle')
+                      : t('project.sso.disabledTitle')}
                   </p>
                   <p className="mt-0.5 text-[11px] leading-relaxed text-gray-400 dark:text-gray-500">
-                    开启后，携带有效 X-SSO-Token 的用户将自动登录并创建反馈。
+                    {t('project.sso.enabledBody')}
                   </p>
                 </div>
               </div>
               <Toggle
                 checked={form.enabled}
                 onChange={(value) => updateField('enabled', value)}
-                label="启用 SSO"
+                label={t('project.sso.toggleLabel')}
               />
             </div>
 
             <Field
-              label="JWT Secret"
+              label={t('project.sso.jwtSecret.label')}
               htmlFor="sso-jwt-secret"
               error={secretError}
               hint={
                 hasExistingConfig
-                  ? '出于安全考虑，已保存的密钥不会回显；保存任何改动都需要重新填写。'
-                  : '宿主应用用于签发 JWT 的共享密钥。'
+                  ? t('project.sso.jwtSecret.hintExisting')
+                  : t('project.sso.jwtSecret.hintNew')
               }
             >
               <SecretInput
                 id="sso-jwt-secret"
                 value={form.jwtSecret}
                 onChange={(value) => updateField('jwtSecret', value)}
-                placeholder="输入 JWT 签名密钥"
+                placeholder={t('project.sso.jwtSecret.placeholder')}
                 invalid={!!secretError}
+                label={t('project.sso.jwtSecret.secretName')}
               />
             </Field>
 
             <div className="grid gap-4 sm:grid-cols-3">
               <Field
-                label="User ID Claim"
+                label={t('project.sso.claims.userId.label')}
                 htmlFor="sso-user-id-claim"
-                hint="默认 sub"
+                hint={t('project.sso.claims.userId.hint')}
               >
                 <input
                   id="sso-user-id-claim"
@@ -630,7 +640,11 @@ export function ProjectSettings() {
                   className={clsx(inputClass(), 'font-mono text-xs')}
                 />
               </Field>
-              <Field label="Email Claim" htmlFor="sso-email-claim" hint="默认 email">
+              <Field
+                label={t('project.sso.claims.email.label')}
+                htmlFor="sso-email-claim"
+                hint={t('project.sso.claims.email.hint')}
+              >
                 <input
                   id="sso-email-claim"
                   value={form.emailClaim}
@@ -640,7 +654,11 @@ export function ProjectSettings() {
                   className={clsx(inputClass(), 'font-mono text-xs')}
                 />
               </Field>
-              <Field label="Name Claim" htmlFor="sso-name-claim" hint="默认 name">
+              <Field
+                label={t('project.sso.claims.name.label')}
+                htmlFor="sso-name-claim"
+                hint={t('project.sso.claims.name.hint')}
+              >
                 <input
                   id="sso-name-claim"
                   value={form.nameClaim}
@@ -654,14 +672,14 @@ export function ProjectSettings() {
 
             <div className="rounded-lg border border-surface-2 bg-surface-1/60 p-4 dark:border-gray-700/60 dark:bg-gray-900/30">
               <p className="text-[11px] font-semibold tracking-[0.04em] text-gray-500 dark:text-gray-400">
-                工作原理
+                {t('project.sso.howItWorks.title')}
               </p>
               <p className="mt-1.5 text-[12px] leading-relaxed text-gray-500 dark:text-gray-400">
-                宿主应用使用此 Secret 签发 JWT，用户请求时通过{' '}
+                {t('project.sso.howItWorks.before')}{' '}
                 <code className="rounded bg-surface-2 px-1 py-0.5 font-mono text-[11px] text-gray-600 dark:bg-gray-700/60 dark:text-gray-300">
                   X-SSO-Token
                 </code>{' '}
-                请求头传递。系统验证签名后自动识别用户身份，无需单独注册。
+                {t('project.sso.howItWorks.after')}
               </p>
             </div>
           </form>
@@ -670,14 +688,14 @@ export function ProjectSettings() {
 
       {showDeleteConfirm && (
         <Modal
-          title="删除 SSO 配置"
-          description="此操作不可撤销，请确认后继续。"
+          title={t('project.sso.deleteModal.title')}
+          description={t('project.sso.deleteModal.description')}
           onClose={() => setShowDeleteConfirm(false)}
           size="sm"
           footer={
             <>
               <Button variant="secondary" size="sm" onClick={() => setShowDeleteConfirm(false)}>
-                取消
+                {t('common.cancel')}
               </Button>
               <Button
                 variant="danger"
@@ -685,13 +703,15 @@ export function ProjectSettings() {
                 disabled={deleteMutation.isPending}
                 onClick={() => deleteMutation.mutate()}
               >
-                {deleteMutation.isPending ? '删除中...' : '确认删除'}
+                {deleteMutation.isPending
+                  ? t('project.sso.deleteModal.confirming')
+                  : t('project.sso.deleteModal.confirm')}
               </Button>
             </>
           }
         >
           <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-            删除后，通过 X-SSO-Token 的单点登录将立即失效，已配置的 Claim 映射也会一并清除，用户需改用账号密码登录。
+            {t('project.sso.deleteModal.body')}
           </p>
         </Modal>
       )}

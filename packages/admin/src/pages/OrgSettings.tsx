@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import { apiRequest } from '@/api/client';
@@ -38,6 +39,8 @@ type PasswordForm = {
   confirm: string;
 };
 
+type Translate = (key: string) => string;
+
 const DEFAULT_BRAND_COLOR = '#3D5AFE';
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
@@ -59,37 +62,41 @@ function isHttpUrl(value: string): boolean {
   }
 }
 
-function validateOrgForm(form: OrgForm): Record<string, string> {
+function validateOrgForm(form: OrgForm, t: Translate): Record<string, string> {
   const errors: Record<string, string> = {};
-  if (!form.name.trim()) errors.name = '请输入组织名称';
-  if (!HEX_COLOR_RE.test(form.brandColor.trim())) errors.brandColor = '请输入 #RRGGBB 格式的颜色值';
+  if (!form.name.trim()) errors.name = t('org.profile.name.required');
+  if (!HEX_COLOR_RE.test(form.brandColor.trim())) {
+    errors.brandColor = t('common.colorInvalid');
+  }
   if (form.boardUrl.trim() && !isHttpUrl(form.boardUrl.trim())) {
-    errors.boardUrl = '请输入以 http:// 或 https:// 开头的完整地址';
+    errors.boardUrl = t('org.profile.boardUrl.invalid');
   }
   return errors;
 }
 
-function passwordPolicyError(value: string): string {
-  if (!value) return '请输入新密码';
-  if (value.length < 8) return '新密码至少 8 位';
+function passwordPolicyError(value: string, t: Translate): string {
+  if (!value) return t('org.password.next.required');
+  if (value.length < 8) return t('org.password.next.tooShort');
   if (!/[a-z]/.test(value) || !/[A-Z]/.test(value) || !/\d/.test(value)) {
-    return '需包含大小写字母和数字';
+    return t('org.password.next.weak');
   }
   return '';
 }
 
 function SaveStatus({ dirty }: { dirty: boolean }) {
+  const { t } = useTranslation('settings');
   return (
     <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-gray-400 dark:text-gray-500">
       <span
         className={clsx('h-1.5 w-1.5 rounded-full', dirty ? 'bg-accent-500' : 'bg-emerald-500')}
       />
-      {dirty ? '有未保存的更改' : '所有更改已保存'}
+      {dirty ? t('common.dirty') : t('common.saved')}
     </span>
   );
 }
 
 export function OrgSettings() {
+  const { t } = useTranslation('settings');
   const toast = useToast();
   const [form, setForm] = useState<OrgForm | null>(null);
   const [saved, setSaved] = useState<OrgForm | null>(null);
@@ -126,9 +133,10 @@ export function OrgSettings() {
         setForm(next);
         setSaved(next);
       }
-      toast.show('组织设置已保存');
+      toast.show(t('org.savedToast'));
     },
-    onError: (err) => toast.show(err instanceof Error ? err.message : '保存失败', 'error'),
+    onError: (err) =>
+      toast.show(err instanceof Error ? err.message : t('common.saveFailed'), 'error'),
   });
 
   const passwordMutation = useMutation({
@@ -137,9 +145,10 @@ export function OrgSettings() {
     onSuccess: () => {
       setPassword({ current: '', next: '', confirm: '' });
       setPasswordErrors({});
-      toast.show('密码已修改');
+      toast.show(t('org.password.changedToast'));
     },
-    onError: (err) => toast.show(err instanceof Error ? err.message : '修改失败', 'error'),
+    onError: (err) =>
+      toast.show(err instanceof Error ? err.message : t('org.password.failedToast'), 'error'),
   });
 
   const dirty = !!form && !!saved && JSON.stringify(form) !== JSON.stringify(saved);
@@ -157,7 +166,7 @@ export function OrgSettings() {
   const handleSave = (event?: FormEvent) => {
     event?.preventDefault();
     if (!form) return;
-    const errors = validateOrgForm(form);
+    const errors = validateOrgForm(form, t);
     setOrgErrors(errors);
     if (Object.keys(errors).length > 0) return;
     settingsMutation.mutate({
@@ -177,11 +186,13 @@ export function OrgSettings() {
   const handleChangePassword = (event: FormEvent) => {
     event.preventDefault();
     const errors: Record<string, string> = {};
-    if (!password.current) errors.current = '请输入当前密码';
-    const policyError = passwordPolicyError(password.next);
+    if (!password.current) errors.current = t('org.password.current.required');
+    const policyError = passwordPolicyError(password.next, t);
     if (policyError) errors.next = policyError;
-    if (!password.confirm) errors.confirm = '请再次输入新密码';
-    else if (password.next !== password.confirm) errors.confirm = '两次输入的密码不一致';
+    if (!password.confirm) errors.confirm = t('org.password.confirm.required');
+    else if (password.next !== password.confirm) {
+      errors.confirm = t('org.password.confirm.mismatch');
+    }
     setPasswordErrors(errors);
     if (Object.keys(errors).length > 0) return;
     passwordMutation.mutate({
@@ -202,16 +213,16 @@ export function OrgSettings() {
 
   const headerActions = form ? (
     <>
-      {dirty && <Badge tone="amber">未保存</Badge>}
+      {dirty && <Badge tone="amber">{t('common.unsaved')}</Badge>}
       <Button variant="secondary" onClick={handleReset} disabled={!dirty}>
-        重置
+        {t('common.reset')}
       </Button>
       <Button
         type="submit"
         form="org-profile-form"
         disabled={!dirty || settingsMutation.isPending}
       >
-        {settingsMutation.isPending ? '保存中...' : '保存更改'}
+        {settingsMutation.isPending ? t('common.saving') : t('org.saveAction')}
       </Button>
     </>
   ) : undefined;
@@ -219,8 +230,8 @@ export function OrgSettings() {
   return (
     <div className="animate-fade-in space-y-5">
       <PageHeader
-        title="组织设置"
-        description="管理组织名称、品牌展示与公开看板地址，并维护当前账号的登录密码。"
+        title={t('org.title')}
+        description={t('org.description')}
         actions={headerActions}
       />
 
@@ -228,9 +239,9 @@ export function OrgSettings() {
         <Card>
           <EmptyState
             icon={<WarningIcon />}
-            title="加载组织设置失败"
-            description={error instanceof Error ? error.message : '请检查网络后重试。'}
-            action={{ label: '重试', onClick: () => void refetch() }}
+            title={t('org.loadErrorTitle')}
+            description={error instanceof Error ? error.message : t('common.checkNetwork')}
+            action={{ label: t('common.retry'), onClick: () => void refetch() }}
           />
         </Card>
       ) : isLoading || !form || !data ? (
@@ -242,33 +253,37 @@ export function OrgSettings() {
         <>
           <form id="org-profile-form" onSubmit={handleSave} noValidate>
             <SectionCard
-              title="组织资料"
-              description="这些信息会展示在公开看板、邮件通知与登录页。"
+              title={t('org.profile.title')}
+              description={t('org.profile.description')}
               footer={
                 <>
                   <SaveStatus dirty={dirty} />
                   <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                    修改后点击右上角「保存更改」生效
+                    {t('org.profile.footerHint')}
                   </span>
                 </>
               }
             >
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="组织名称" htmlFor="org-name" error={orgErrors.name}>
+                <Field
+                  label={t('org.profile.name.label')}
+                  htmlFor="org-name"
+                  error={orgErrors.name}
+                >
                   <input
                     id="org-name"
                     value={form.name}
                     onChange={(e) => updateField('name', e.target.value)}
                     autoComplete="organization"
-                    placeholder="例如：Nexus"
+                    placeholder={t('org.profile.name.placeholder')}
                     className={settingsInputClass(!!orgErrors.name)}
                   />
                 </Field>
 
                 <Field
-                  label="组织标识"
+                  label={t('org.profile.slug.label')}
                   htmlFor="org-slug"
-                  hint="用于登录与公开链接，创建后不可修改。"
+                  hint={t('org.profile.slug.hint')}
                 >
                   <input
                     id="org-slug"
@@ -279,9 +294,9 @@ export function OrgSettings() {
                 </Field>
 
                 <Field
-                  label="Logo 地址"
+                  label={t('org.profile.logo.label')}
                   htmlFor="org-logo"
-                  hint="留空则使用品牌色首字母作为头像。"
+                  hint={t('org.profile.logo.hint')}
                 >
                   <input
                     id="org-logo"
@@ -293,15 +308,15 @@ export function OrgSettings() {
                 </Field>
 
                 <Field
-                  label="品牌颜色"
+                  label={t('org.profile.brandColor.label')}
                   htmlFor="org-brand-color"
                   error={orgErrors.brandColor}
-                  hint="用于公开看板的主色与品牌标识。"
+                  hint={t('org.profile.brandColor.hint')}
                 >
                   <div className="flex items-center gap-2">
                     <input
                       type="color"
-                      aria-label="选择品牌颜色"
+                      aria-label={t('org.profile.brandColor.aria')}
                       value={HEX_COLOR_RE.test(form.brandColor) ? form.brandColor : DEFAULT_BRAND_COLOR}
                       onChange={(e) => updateField('brandColor', e.target.value)}
                       className="h-9 w-12 shrink-0 cursor-pointer rounded-lg border border-surface-3 bg-surface-0 p-0.5 dark:border-gray-700 dark:bg-gray-800"
@@ -317,10 +332,10 @@ export function OrgSettings() {
                 </Field>
 
                 <Field
-                  label="公开看板地址"
+                  label={t('org.profile.boardUrl.label')}
                   htmlFor="org-board-url"
                   error={orgErrors.boardUrl}
-                  hint="留空则自动使用当前域名：https://你的域名/{项目 slug}"
+                  hint={t('org.profile.boardUrl.hint')}
                   className="sm:col-span-2"
                 >
                   <input
@@ -334,7 +349,7 @@ export function OrgSettings() {
 
                 <div className="rounded-lg border border-dashed border-surface-3 bg-surface-1/60 p-3 dark:border-gray-700 dark:bg-gray-900/30 sm:col-span-2">
                   <p className="mb-2 text-[11px] font-semibold tracking-[0.04em] text-gray-400 dark:text-gray-500">
-                    品牌预览
+                    {t('org.profile.preview.label')}
                   </p>
                   <div className="flex items-center gap-3">
                     <div
@@ -349,10 +364,10 @@ export function OrgSettings() {
                     </div>
                     <div className="min-w-0">
                       <p className="truncate text-[13px] font-medium text-gray-800 dark:text-gray-200">
-                        {form.name.trim() || '未命名组织'}
+                        {form.name.trim() || t('org.profile.preview.unnamed')}
                       </p>
                       <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500">
-                        公开看板与邮件中的品牌展示
+                        {t('org.profile.preview.caption')}
                       </p>
                     </div>
                   </div>
@@ -362,12 +377,16 @@ export function OrgSettings() {
           </form>
 
           <SectionCard
-            title="修改密码"
-            description="修改后请使用新密码登录，其它设备上的会话不会自动登出。"
+            title={t('org.password.title')}
+            description={t('org.password.description')}
           >
             <form onSubmit={handleChangePassword} noValidate>
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="当前密码" htmlFor="current-password" error={passwordErrors.current}>
+                <Field
+                  label={t('org.password.current.label')}
+                  htmlFor="current-password"
+                  error={passwordErrors.current}
+                >
                   <input
                     id="current-password"
                     type="password"
@@ -379,10 +398,10 @@ export function OrgSettings() {
                 </Field>
                 <div className="hidden sm:block" />
                 <Field
-                  label="新密码"
+                  label={t('org.password.next.label')}
                   htmlFor="new-password"
                   error={passwordErrors.next}
-                  hint={passwordErrors.next ? undefined : '至少 8 位，需包含大小写字母和数字。'}
+                  hint={passwordErrors.next ? undefined : t('org.password.next.hint')}
                 >
                   <input
                     id="new-password"
@@ -393,7 +412,11 @@ export function OrgSettings() {
                     className={settingsInputClass(!!passwordErrors.next)}
                   />
                 </Field>
-                <Field label="确认新密码" htmlFor="confirm-password" error={passwordErrors.confirm}>
+                <Field
+                  label={t('org.password.confirm.label')}
+                  htmlFor="confirm-password"
+                  error={passwordErrors.confirm}
+                >
                   <input
                     id="confirm-password"
                     type="password"
@@ -409,10 +432,12 @@ export function OrgSettings() {
 
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-surface-2 pt-4 dark:border-gray-700/60">
                 <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                  修改密码需要验证当前密码。
+                  {t('org.password.hint')}
                 </span>
                 <Button type="submit" disabled={passwordMutation.isPending}>
-                  {passwordMutation.isPending ? '修改中...' : '修改密码'}
+                  {passwordMutation.isPending
+                    ? t('org.password.submitting')
+                    : t('org.password.submit')}
                 </Button>
               </div>
             </form>
@@ -424,10 +449,14 @@ export function OrgSettings() {
 }
 
 function PasswordRules({ value }: { value: string }) {
+  const { t } = useTranslation('settings');
   const rules = [
-    { met: value.length >= 8, label: '至少 8 位' },
-    { met: /[a-z]/.test(value) && /[A-Z]/.test(value), label: '包含大小写字母' },
-    { met: /\d/.test(value), label: '包含数字' },
+    { met: value.length >= 8, label: t('org.password.rules.length') },
+    {
+      met: /[a-z]/.test(value) && /[A-Z]/.test(value),
+      label: t('org.password.rules.case'),
+    },
+    { met: /\d/.test(value), label: t('org.password.rules.number') },
   ];
   return (
     <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">

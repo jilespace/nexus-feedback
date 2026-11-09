@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { clsx } from 'clsx';
 import { apiRequest } from '@/api/client';
 import { useToast } from '@/components/Toast';
@@ -19,16 +21,18 @@ import {
 import { formatDateTime } from '@/utils/markdown';
 import type { PaginatedResponse, Webhook, WebhookLog } from '@/types';
 
-const AVAILABLE_EVENTS = [
-  { value: 'feedback.created', label: '反馈创建' },
-  { value: 'feedback.status_changed', label: '状态变更' },
-  { value: 'feedback.assigned', label: '反馈指派' },
-  { value: 'feedback.merged', label: '反馈合并' },
-  { value: 'comment.created', label: '新评论' },
+/** Event values are the server contract; labels come from `config:webhooks.events.*`. */
+const AVAILABLE_EVENTS: Array<{ value: string; key: string }> = [
+  { value: 'feedback.created', key: 'webhooks.events.feedback_created' },
+  { value: 'feedback.status_changed', key: 'webhooks.events.feedback_status_changed' },
+  { value: 'feedback.assigned', key: 'webhooks.events.feedback_assigned' },
+  { value: 'feedback.merged', key: 'webhooks.events.feedback_merged' },
+  { value: 'comment.created', key: 'webhooks.events.comment_created' },
 ];
 
-function eventLabel(value: string): string {
-  return AVAILABLE_EVENTS.find((event) => event.value === value)?.label ?? value;
+function eventLabel(value: string, t: TFunction<'config'>): string {
+  const event = AVAILABLE_EVENTS.find((item) => item.value === value);
+  return event ? t(event.key) : value;
 }
 
 const dangerActionClass =
@@ -37,6 +41,7 @@ const dangerActionClass =
 type TestResult = { ok: boolean; message?: string };
 
 export function Webhooks() {
+  const { t } = useTranslation('config');
   const { projectId = '' } = useParams<{ projectId: string }>();
   const queryClient = useQueryClient();
   const { show: toast } = useToast();
@@ -69,9 +74,10 @@ export function Webhooks() {
     onSuccess: () => {
       invalidate();
       setEditing(null);
-      toast('Webhook 已创建');
+      toast(t('webhooks.createToast'));
     },
-    onError: (err) => toast(err instanceof Error ? err.message : '创建失败', 'error'),
+    onError: (err) =>
+      toast(err instanceof Error ? err.message : t('webhooks.createFailed'), 'error'),
   });
 
   const updateMutation = useMutation({
@@ -83,9 +89,10 @@ export function Webhooks() {
     onSuccess: () => {
       invalidate();
       setEditing(null);
-      toast('Webhook 已更新');
+      toast(t('webhooks.updateToast'));
     },
-    onError: (err) => toast(err instanceof Error ? err.message : '更新失败', 'error'),
+    onError: (err) =>
+      toast(err instanceof Error ? err.message : t('webhooks.updateFailed'), 'error'),
   });
 
   const toggleMutation = useMutation({
@@ -96,9 +103,10 @@ export function Webhooks() {
       }),
     onSuccess: (_, variables) => {
       invalidate();
-      toast(variables.active ? 'Webhook 已启用' : 'Webhook 已禁用');
+      toast(variables.active ? t('webhooks.toggleEnabledToast') : t('webhooks.toggleDisabledToast'));
     },
-    onError: (err) => toast(err instanceof Error ? err.message : '操作失败', 'error'),
+    onError: (err) =>
+      toast(err instanceof Error ? err.message : t('webhooks.toggleFailed'), 'error'),
   });
 
   const deleteMutation = useMutation({
@@ -107,11 +115,11 @@ export function Webhooks() {
     onSuccess: () => {
       invalidate();
       setConfirmDelete(null);
-      toast('Webhook 已删除');
+      toast(t('webhooks.deleteToast'));
     },
     onError: (err) => {
       setConfirmDelete(null);
-      toast(err instanceof Error ? err.message : '删除失败', 'error');
+      toast(err instanceof Error ? err.message : t('common.deleteFailed'), 'error');
     },
   });
 
@@ -124,7 +132,7 @@ export function Webhooks() {
       setTestResults((prev) => ({ ...prev, [id]: { ok: data.ok } }));
     },
     onError: (err, id) => {
-      const message = err instanceof Error ? err.message : '测试失败';
+      const message = err instanceof Error ? err.message : t('webhooks.testErrorFallback');
       setTestResults((prev) => ({ ...prev, [id]: { ok: false, message } }));
       toast(message, 'error');
     },
@@ -135,15 +143,15 @@ export function Webhooks() {
   return (
     <div className="animate-fade-in space-y-5">
       <PageHeader
-        title="Webhooks"
-        description="反馈事件发生时自动推送 POST 请求到飞书、Slack 或其他系统，并记录每次投递结果。"
+        title={t('webhooks.title')}
+        description={t('webhooks.description')}
         actions={
           projectId ? (
             <Button onClick={() => setEditing('new')}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                 <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
               </svg>
-              添加 Webhook
+              {t('webhooks.addButton')}
             </Button>
           ) : undefined
         }
@@ -152,8 +160,8 @@ export function Webhooks() {
       {!projectId ? (
         <Card>
           <EmptyState
-            title="请先选择一个项目"
-            description="从项目列表进入项目后，即可在这里配置 Webhook。"
+            title={t('common.selectProjectTitle')}
+            description={t('common.selectProjectWebhooks')}
           />
         </Card>
       ) : (
@@ -161,25 +169,27 @@ export function Webhooks() {
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-surface-2 px-4 py-3.5 dark:border-gray-700/60 sm:px-5">
             <div className="min-w-0">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                Webhook 端点
+                {t('webhooks.listTitle')}
                 <span className="ml-1.5 font-normal tabular-nums text-gray-400">
                   ({webhooksPage?.total ?? list.length})
                 </span>
               </h2>
               <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
-                触发事件后发送 POST 请求；展开日志可查看每次投递的状态码与时间。
+                {t('webhooks.listDescription')}
               </p>
             </div>
           </div>
 
           {isError ? (
             <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Webhook 加载失败</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                {t('webhooks.loadErrorTitle')}
+              </p>
               <p className="max-w-sm text-xs leading-relaxed text-gray-400 dark:text-gray-500">
-                {error instanceof Error ? error.message : '请检查网络后重试'}
+                {error instanceof Error ? error.message : t('common.networkRetry')}
               </p>
               <Button variant="secondary" size="sm" onClick={() => refetch()}>
-                重试
+                {t('common.retry')}
               </Button>
             </div>
           ) : isLoading ? (
@@ -190,9 +200,9 @@ export function Webhooks() {
             </div>
           ) : list.length === 0 ? (
             <EmptyState
-              title="暂无 Webhook"
-              description="添加一个端点，在反馈创建、状态变更等事件发生时同步到你的协作工具。"
-              action={{ label: '添加 Webhook', onClick: () => setEditing('new') }}
+              title={t('webhooks.emptyTitle')}
+              description={t('webhooks.emptyDescription')}
+              action={{ label: t('webhooks.addButton'), onClick: () => setEditing('new') }}
             />
           ) : (
             <ul className="divide-y divide-surface-2 dark:divide-gray-700/60">
@@ -218,7 +228,7 @@ export function Webhooks() {
                               )}
                               aria-hidden="true"
                             />
-                            {webhook.active ? '启用' : '已禁用'}
+                            {webhook.active ? t('webhooks.active') : t('webhooks.inactive')}
                           </Badge>
                           <span
                             className="truncate font-mono text-[12.5px] font-medium text-gray-800 dark:text-gray-200"
@@ -233,11 +243,11 @@ export function Webhooks() {
                               key={event}
                               className="inline-flex h-[22px] items-center rounded-md bg-surface-2 px-2 text-[11px] font-medium text-gray-500 ring-1 ring-inset ring-surface-3 dark:bg-gray-700/50 dark:text-gray-300 dark:ring-gray-600/60"
                             >
-                              {eventLabel(event)}
+                              {eventLabel(event, t)}
                             </span>
                           ))}
                           <span className="font-mono text-[11px] tabular-nums text-gray-400 dark:text-gray-500">
-                            创建于 {formatDateTime(webhook.created_at)}
+                            {t('webhooks.createdAt', { time: formatDateTime(webhook.created_at) })}
                           </span>
                         </div>
                       </div>
@@ -247,9 +257,16 @@ export function Webhooks() {
                           <Switch
                             checked={webhook.active}
                             disabled={toggling}
-                            label={webhook.active ? '禁用此 Webhook' : '启用此 Webhook'}
+                            label={
+                              webhook.active
+                                ? t('webhooks.switch.disableLabel')
+                                : t('webhooks.switch.enableLabel')
+                            }
                             showState
-                            stateLabels={['启用中', '已禁用']}
+                            stateLabels={[
+                              t('webhooks.switch.enabled'),
+                              t('webhooks.switch.disabled'),
+                            ]}
                             onChange={(next) =>
                               toggleMutation.mutate({ id: webhook.id, active: next })
                             }
@@ -263,12 +280,12 @@ export function Webhooks() {
                             disabled={testing}
                             onClick={() => testMutation.mutate(webhook.id)}
                           >
-                            {testing ? '发送中…' : '测试发送'}
+                            {testing ? t('webhooks.testing') : t('webhooks.test')}
                           </Button>
                           {result && (
                             <>
                               <Badge tone={result.ok ? 'green' : 'red'}>
-                                {result.ok ? '发送成功' : '发送失败'}
+                                {result.ok ? t('webhooks.testSuccess') : t('webhooks.testFailed')}
                               </Badge>
                               {result.message && (
                                 <span
@@ -287,21 +304,21 @@ export function Webhooks() {
                           variant="ghost"
                           onClick={() => setEditing(webhook)}
                         >
-                          编辑
+                          {t('webhooks.edit')}
                         </Button>
                         <Button
                           size="sm"
                           variant="ghost"
                           onClick={() => setExpandedId(expanded ? null : webhook.id)}
                         >
-                          {expanded ? '收起日志' : '查看日志'}
+                          {expanded ? t('webhooks.hideLogs') : t('webhooks.viewLogs')}
                         </Button>
                         <button
                           type="button"
                           onClick={() => setConfirmDelete(webhook)}
                           className={dangerActionClass}
                         >
-                          删除
+                          {t('common.delete')}
                         </button>
                       </div>
                     </div>
@@ -336,14 +353,14 @@ export function Webhooks() {
 
       {confirmDelete && (
         <Modal
-          title="删除 Webhook"
+          title={t('webhooks.deleteModalTitle')}
           description={confirmDelete.url}
           onClose={() => setConfirmDelete(null)}
           size="sm"
           footer={
             <>
               <Button variant="secondary" size="sm" onClick={() => setConfirmDelete(null)}>
-                取消
+                {t('common.cancel')}
               </Button>
               <Button
                 variant="danger"
@@ -351,13 +368,13 @@ export function Webhooks() {
                 disabled={deleteMutation.isPending}
                 onClick={() => deleteMutation.mutate(confirmDelete.id)}
               >
-                {deleteMutation.isPending ? '删除中…' : '确认删除'}
+                {deleteMutation.isPending ? t('common.deleting') : t('common.confirmDelete')}
               </Button>
             </>
           }
         >
           <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-            删除后将停止向该地址推送事件，历史投递日志也会一并移除，且不可恢复。
+            {t('webhooks.deleteModalBody')}
           </p>
         </Modal>
       )}
@@ -376,6 +393,7 @@ function WebhookFormModal({
   onClose: () => void;
   onSubmit: (data: { url: string; events: string[]; secret?: string }) => void;
 }) {
+  const { t } = useTranslation('config');
   const isEdit = webhook !== null;
   const [url, setUrl] = useState(webhook?.url ?? '');
   const [events, setEvents] = useState<string[]>(webhook?.events ?? []);
@@ -394,16 +412,16 @@ function WebhookFormModal({
     const trimmed = url.trim();
     let invalid = false;
     if (!trimmed) {
-      setUrlError('请输入 Webhook URL');
+      setUrlError(t('webhooks.form.urlErrorRequired'));
       invalid = true;
     } else if (!/^https?:\/\/[^\s]+$/i.test(trimmed)) {
-      setUrlError('请输入以 http:// 或 https:// 开头的完整地址');
+      setUrlError(t('webhooks.form.urlErrorInvalid'));
       invalid = true;
     } else {
       setUrlError(null);
     }
     if (events.length === 0) {
-      setEventsError('请至少选择一个触发事件');
+      setEventsError(t('webhooks.form.eventsError'));
       invalid = true;
     } else {
       setEventsError(null);
@@ -414,17 +432,21 @@ function WebhookFormModal({
 
   return (
     <Modal
-      title={isEdit ? '编辑 Webhook' : '添加 Webhook'}
-      description="事件触发时会向该地址发送带签名的 JSON POST 请求。"
+      title={isEdit ? t('webhooks.form.editTitle') : t('webhooks.form.addTitle')}
+      description={t('webhooks.form.description')}
       onClose={onClose}
       size="lg"
       footer={
         <>
           <Button variant="secondary" size="sm" onClick={onClose}>
-            取消
+            {t('common.cancel')}
           </Button>
           <Button type="submit" form="webhook-form" size="sm" disabled={isPending}>
-            {isPending ? '保存中…' : isEdit ? '保存修改' : '创建 Webhook'}
+            {isPending
+              ? t('webhooks.form.saving')
+              : isEdit
+                ? t('webhooks.form.saveButton')
+                : t('webhooks.form.createButton')}
           </Button>
         </>
       }
@@ -438,10 +460,10 @@ function WebhookFormModal({
         className="space-y-4"
       >
         <Field
-          label="接收地址"
+          label={t('webhooks.form.urlLabel')}
           htmlFor="webhook-url"
           error={urlError ?? undefined}
-          hint="仅支持公网 http/https 地址，内网与 localhost 会被拒绝。"
+          hint={t('webhooks.form.urlHint')}
         >
           <input
             id="webhook-url"
@@ -458,7 +480,7 @@ function WebhookFormModal({
           />
         </Field>
 
-        <Field label="触发事件" error={eventsError ?? undefined}>
+        <Field label={t('webhooks.form.eventsLabel')} error={eventsError ?? undefined}>
           <div className="grid gap-2 sm:grid-cols-2">
             {AVAILABLE_EVENTS.map((event) => {
               const checked = events.includes(event.value);
@@ -505,7 +527,7 @@ function WebhookFormModal({
                           : 'text-gray-700 dark:text-gray-200',
                       )}
                     >
-                      {event.label}
+                      {t(event.key)}
                     </span>
                     <span className="block truncate font-mono text-[10.5px] text-gray-400 dark:text-gray-500">
                       {event.value}
@@ -519,16 +541,16 @@ function WebhookFormModal({
 
         {!isEdit && (
           <Field
-            label="Secret（可选）"
+            label={t('webhooks.form.secretLabel')}
             htmlFor="webhook-secret"
-            hint="用于生成 X-Webhook-Signature 签名，可在接收端校验请求来源。"
+            hint={t('webhooks.form.secretHint')}
           >
             <input
               id="webhook-secret"
               type="text"
               value={secret}
               onChange={(event) => setSecret(event.target.value)}
-              placeholder="留空由系统自动生成"
+              placeholder={t('webhooks.form.secretPlaceholder')}
               className={clsx(settingsInputClass(), 'font-mono text-[12.5px]')}
             />
           </Field>
@@ -539,6 +561,7 @@ function WebhookFormModal({
 }
 
 function WebhookLogList({ projectId, webhookId }: { projectId: string; webhookId: string }) {
+  const { t } = useTranslation('config');
   const [page, setPage] = useState(1);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -559,23 +582,25 @@ function WebhookLogList({ projectId, webhookId }: { projectId: string; webhookId
     <div>
       <div className="flex items-center justify-between border-b border-surface-2 px-3 py-2 dark:border-gray-700/60">
         <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500">
-          投递日志
+          {t('webhooks.logs.title')}
         </span>
         {total > 0 && (
           <span className="font-mono text-[11px] tabular-nums text-gray-400 dark:text-gray-500">
-            共 {total} 条
+            {t('webhooks.logs.total', { count: total })}
           </span>
         )}
       </div>
 
       {isError ? (
         <div className="flex flex-col items-center gap-2 px-4 py-6 text-center">
-          <p className="text-xs text-gray-500 dark:text-gray-400">日志加载失败</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {t('webhooks.logs.loadErrorTitle')}
+          </p>
           <p className="max-w-sm text-[11px] text-gray-400 dark:text-gray-500">
-            {error instanceof Error ? error.message : '请稍后重试'}
+            {error instanceof Error ? error.message : t('webhooks.logs.loadErrorFallback')}
           </p>
           <Button variant="ghost" size="sm" onClick={() => refetch()}>
-            重试
+            {t('common.retry')}
           </Button>
         </div>
       ) : isLoading ? (
@@ -586,9 +611,11 @@ function WebhookLogList({ projectId, webhookId }: { projectId: string; webhookId
         </div>
       ) : logs.length === 0 ? (
         <div className="px-4 py-6 text-center">
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">暂无投递记录</p>
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+            {t('webhooks.logs.emptyTitle')}
+          </p>
           <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">
-            点击「测试发送」或触发一次事件后，这里会显示响应状态与错误信息。
+            {t('webhooks.logs.emptyDescription')}
           </p>
         </div>
       ) : (
@@ -597,17 +624,17 @@ function WebhookLogList({ projectId, webhookId }: { projectId: string; webhookId
             {logs.map((log) => (
               <li key={log.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
                 <Badge tone={log.success ? 'green' : 'red'} className="h-[22px]">
-                  {log.success ? '成功' : '失败'}
+                  {log.success ? t('webhooks.logs.success') : t('webhooks.logs.failure')}
                 </Badge>
                 <span className="min-w-0 max-w-full flex-1 basis-40 truncate font-mono text-[11px] text-gray-700 dark:text-gray-300">
-                  {eventLabel(log.event)}
+                  {eventLabel(log.event, t)}
                 </span>
                 <span className="font-mono text-[11px] tabular-nums text-gray-500 dark:text-gray-400">
                   {log.status_code !== null ? `HTTP ${log.status_code}` : 'HTTP —'}
                 </span>
                 {log.attempts > 1 && (
                   <span className="font-mono text-[11px] tabular-nums text-gray-400 dark:text-gray-500">
-                    尝试 {log.attempts} 次
+                    {t('webhooks.logs.attempts', { count: log.attempts })}
                   </span>
                 )}
                 <span className="w-full font-mono text-[11px] tabular-nums text-gray-400 dark:text-gray-500 sm:w-auto">
@@ -629,7 +656,7 @@ function WebhookLogList({ projectId, webhookId }: { projectId: string; webhookId
                 disabled={page <= 1}
                 onClick={() => setPage((prev) => Math.max(1, prev - 1))}
               >
-                上一页
+                {t('webhooks.logs.previousPage')}
               </Button>
               <span className="font-mono text-[11px] tabular-nums text-gray-400 dark:text-gray-500">
                 {page} / {totalPages}
@@ -640,7 +667,7 @@ function WebhookLogList({ projectId, webhookId }: { projectId: string; webhookId
                 disabled={page >= totalPages}
                 onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
               >
-                下一页
+                {t('webhooks.logs.nextPage')}
               </Button>
             </div>
           )}
