@@ -5,6 +5,51 @@
 
 ## 轮次记录
 
+### Round 4 — 2026-11-10（应用内通知中心 + 表单基元收敛）
+
+**本轮完成**
+- **应用内通知中心（全栈，Lead + teammate）**
+  - 数据模型：新增 `Notification`（org/member/feedback 关联、type/title/body/link/read_at、未读索引），
+    additive migration `20261110031000_add_notification_center`。
+  - 后端：`services/notificationCenter.ts` + `/api/v1/org/notifications` 系列接口（列表含 unread_count、
+    未读数、标记已读-校验归属、全部已读）；在反馈创建 / 指派 / 状态变更 / 公开评论时写入通知
+    （created 发全体 owner/admin；assigned 发被指派人；status 发被指派人或 staff；comment 发 assignee+staff；
+    自动排除操作人，全部 fire-and-forget 不影响主流程）。新增 6 条 service 测试。
+  - 前端（teammate notifications-ui）：侧边栏铃铛 + 未读角标（9+ / aria-live / 60s 轮询）、portal fixed
+    面板（外点/Esc/焦点管理、四类型图标、乐观标记已读、全部已读、空/骨架/错误重试、390 宽适配、
+    底部「查看全部通知」）；Lead 接入 Layout（侧边栏搜索行右侧 + 移动端顶栏）。
+  - 完整通知页 `/notifications`（Lead）：全部/未读过滤、分页、全部已读、类型徽标与跳转。
+- **表单基元收敛**（teammate primitives-polish）：`ui.tsx` 新增 `Field`、`Switch`（role=switch +
+  aria-checked + 状态文字）、`SecretInput`（aria-label/pressed）、`SectionCard`、`settingsInputClass`；
+  9 个设置/配置页删除重复实现并替换；Tags 删除按钮键盘可见、Members 角色控件补 aria。
+- **命令面板**新增「查看通知」快捷操作。
+- ⚠️ 工程注意：本仓库 Prisma migration 历史与本地 DB 存在既有 drift（DB 有 invite_token/board_url/
+  system_config.org_id 等列，但 migration 记录未覆盖），`prisma migrate dev` 会要求 reset。本轮用
+  `prisma migrate diff` + `prisma db execute` 生成并应用增量迁移，未破坏数据；未来部署需先补 baseline。
+
+**验证**
+- `pnpm typecheck` ✅、`pnpm test` **173/173** ✅、`pnpm build` 5 包 ✅、`pnpm lint` 0 error ✅
+- 真实链路：公开 API 建反馈 → 通知入库 → 未读数 +1 → 铃铛角标/面板 → 点击已读并跳转 → 全部已读清零；
+  分页通知页、390 面板宽 358 无溢出、暗色 token 正常、0 console error/exception。
+
+**提交**：`c9a1a84`（通知后端）、`1a8bac1`（铃铛/面板/通知页）、`f758946`（基元收敛 + a11y）
+
+**遗留 / 技术债**
+- 通知偏好（按类型/项目静音）尚未实现；面板固定 20 条（历史走完整页）。
+- `SaveStatus`（dirty 指示）在 OrgSettings/SystemConfig 仍有副本；ProjectSettings 仍有自身 Field/
+  SecretInput/Switch 副本，下轮收敛。
+- Prisma migration baseline 需要单独整理一次（否则 production migrate 会有 drift 风险）。
+- 公开端仍无自动化冒烟；`.tools/` 的 CDP 脚本可整理为 smoke 脚本。
+
+**下一轮计划（Round 5）**
+1. 通知偏好：按类型（新反馈/指派/状态/评论）静音开关（新增 `notification_setting` 或 org/member 级
+   JSON 字段），服务端 fan-out 时过滤；设置页内加入通知开关分组。
+2. 反馈列表「分配给我」快捷筛选 chip + 通知链接直达过滤视图。
+3. `.tools/smoke.mjs`：一次跑通公开端（board/submit/widget）+ 后台关键流程的 CDP 冒烟并输出报告。
+4. 继续收敛：SaveStatus、ProjectSettings 基元；Prisma migration baseline 整理。
+5. 功能候选：CSV 导入（预览+校验）、公开看板 RSS feed、邮件模板预览。
+
+
 ### Round 3 — 2026-11-10（功能迭代：命令面板 / 内联编辑 / SEO 分享 / Widget 优先级）
 
 **本轮完成（Lead + 2 teammate）**
