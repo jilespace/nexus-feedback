@@ -1,0 +1,205 @@
+{
+  "changelog": {
+    "pageTitle": "Changelog",
+    "pageDescription": "Publish product updates for users and link resolved feedback to close the loop.",
+    "create": "Create update",
+    "emptyTitle": "No changelog entries yet",
+    "emptyDescription": "Publish your first product update and let users know you keep shipping.",
+    "createForm": {
+      "title": "Create changelog entry",
+      "titleLabel": "Title",
+      "titlePlaceholder": "e.g. v2.4.0 — faster search and an all-new mobile experience",
+      "project": "Project",
+      "projectPlaceholder": "Select a project",
+      "contentLabel": "Content (Markdown supported)",
+      "contentPlaceholder": "## New features\n- ...\n\n## Fixes\n- ...",
+      "publishLabel": "Publish time (leave empty to publish now)",
+      "submit": "Create",
+      "submitting": "Creating...",
+      "cancel": "Cancel"
+    },
+    "status": {
+      "scheduled": "Scheduled",
+      "published": "Published",
+      "draft": "Draft"
+    },
+    "entry": {
+      "noContent": "No content",
+      "scheduledPrefix": "Scheduled ",
+      "edit": "Edit",
+      "unpublish": "Unpublish",
+      "publish": "Publish",
+      "schedule": "Schedule",
+      "scheduleTitle": "Publish time (leave empty to publish now)",
+      "linkFeedback": "Link feedback",
+      "delete": "Delete",
+      "save": "Save",
+      "cancel": "Cancel",
+      "editPublishLabel": "Publish time (clear and save to publish now)",
+      "linkedFeedback": "Linked feedback",
+      "unlinkAria": "Unlink {{title}}"
+    },
+    "deleteModal": {
+      "title": "Delete changelog entry",
+      "cancel": "Cancel",
+      "deleting": "Deleting...",
+      "confirm": "Delete entry",
+      "body": "Delete this changelog entry? This cannot be undone and the published page will be updated immediately."
+    },
+    "linkModal": {
+      "title": "Link resolved feedback",
+      "description": "Connect this update to user feedback so users can see their suggestions shipped.",
+      "empty": "No resolved feedback yet"
+    },
+    "toast": {
+      "created": "Update created",
+      "createFailed": "Couldn't create the update",
+      "updated": "Update saved",
+      "updateFailed": "Couldn't update the entry",
+      "published": "Published",
+      "unpublished": "Unpublished",
+      "operationFailed": "Something went wrong",
+      "deleted": "Update deleted",
+      "deleteFailed": "Couldn't delete the update",
+      "linked": "Feedback linked",
+      "linkFailed": "Couldn't link feedback",
+      "unlinked": "Feedback unlinked",
+      "unlinkFailed": "Couldn't unlink feedback"
+    }
+  },
+  "applications": {
+    "pageTitle": "Project Access",
+    "pageDescription": "Each project uses its own Project API Key to receive feedback. The public board and widget share the same project data.",
+    "create": "New project",
+    "emptyTitle": "No projects yet",
+    "emptyDescription": "A default project is created when you register an organization, or you can create one manually.",
+    "feedbackCount": "{{count}} feedback",
+    "publicBoard": "Public board",
+    "copy": "Copy",
+    "widgetConfig": "Widget settings",
+    "projectSettings": "Project settings",
+    "webhooks": "Webhooks",
+    "resetKey": "Reset key",
+    "apiKeyNotGenerated": "Not generated",
+    "apiKeyHint": "The full key is only shown when it is created or reset",
+    "originsUnrestricted": "Unrestricted (configure in project settings)",
+    "newKeyBannerTitle": "Project created",
+    "newKeyBannerDescription": "Save this Project API Key now — it is shown only once.",
+    "regeneratedKeyBannerTitle": "Project API Key regenerated",
+    "regeneratedKeyBannerDescription": "The old key is now invalid. Update every integration that uses this project.",
+    "copyKey": "Copy key",
+    "close": "Close",
+    "createModalTitle": "New project",
+    "createModalDescription": "A Project API Key will be generated for the widget, submit page and API access.",
+    "cancel": "Cancel",
+    "creating": "Creating...",
+    "createProject": "Create project",
+    "nameLabel": "Project name",
+    "namePlaceholder": "e.g. Mobile app",
+    "slugLabel": "Project slug",
+    "slugPlaceholder": "Leave empty to generate from the name",
+    "slugHint": "Used in the public board URL: /{slug}",
+    "resetModalTitle": "Reset Project API Key",
+    "resetModalDescription": "The old key for \"{{name}}\" will be revoked immediately and every integration using it will receive 401.",
+    "resetting": "Resetting...",
+    "confirmReset": "Reset key",
+    "resetModalBody": "After resetting, configure the new key in your widget, submit page or API clients right away to avoid gaps in feedback collection.",
+    "toast": {
+      "keyRegenerated": "Project API Key regenerated",
+      "regenerateFailed": "Couldn't regenerate the key",
+      "projectCreated": "Project created",
+      "createFailed": "Couldn't create the project",
+      "copied": "{{label}} copied",
+      "copyFailed": "Copy failed"
+    }
+  },
+  "audit": {
+    "action": {
+      "feedback": {
+        "create": "Create feedback",
+        "update": "Update feedback",
+        "status": "Change status",
+        "status_change": "Change status",
+        "delete": "Delete feedback",
+        "restore": "Restore feedback",
+        "merge": "Merge feedback",
+        "assign": "Assign feedback",
+        "import": "Bulk import",
+        "batch_assign": "Bulk assign",
+        "batch_status": "Bulk status update",
+        "batch_tags": "Bulk tags"
+      },
+      "reply": {
+        "create": "Reply to feedback"
+      },
+      "comment": {
+        "create": "Add comment",
+        "delete": "Delete comment"
+      },
+      "webhook": {
+        "create": "Create webhook",
+        "update": "Update webhook",
+        "delete": "Delete webhook"
+      },
+      "member": {
+        "invite": "Invite member",
+        "resend_invite": "Resend invite",
+        "remove": "Remove member",
+        "update_role": "Change role"
+      },
+      "project": {
+        "create": "Create project",
+        "update": "Update project",
+        "delete": "Delete project",
+        "regenerate_key": "Regenerate API key"
+      }
+    },
+    "target": {
+      "feedback": "Feedback",
+      "member": "Member",
+      "project": "Project",
+      "webhook": "Webhook",
+      "comment": "Comment",
+      "changelog": "Changelog",
+      "category": "Category",
+      "status": "Status"
+    },
+    "page": {
+      "title": "Audit Logs",
+      "description": "Records key actions across the organization, including member changes and feedback handling, for traceability.",
+      "filters": {
+        "allTypes": "All types",
+        "feedback": "Feedback",
+        "reply": "Replies",
+        "comment": "Comments",
+        "member": "Members",
+        "project": "Projects",
+        "webhook": "Webhooks",
+        "actorAria": "Actor",
+        "actionAria": "Action type",
+        "startAria": "Start date",
+        "endAria": "End date",
+        "allMembers": "All members",
+        "to": "to",
+        "clear": "Clear",
+        "reset": "Reset filters"
+      },
+      "empty": {
+        "noMatchTitle": "No matching audit records",
+        "noMatchDescription": "Try adjusting the filters",
+        "title": "No audit records yet",
+        "description": "Activity will appear here",
+        "reset": "Reset filters"
+      },
+      "table": {
+        "action": "Action",
+        "target": "Target",
+        "actor": "Actor",
+        "time": "Time"
+      },
+      "titleQuote": "“{{title}}”",
+      "system": "System",
+      "systemInitial": "S"
+    }
+  }
+}

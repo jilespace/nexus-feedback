@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import { apiRequest } from '@/api/client';
@@ -29,6 +30,7 @@ function toLocalInput(iso: string | null): string {
 export function Changelog() {
   const queryClient = useQueryClient();
   const { show: toast } = useToast();
+  const { t } = useTranslation('content');
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<EditingState>(null);
   const [form, setForm] = useState<ChangelogFormData>({
@@ -74,11 +76,11 @@ export function Changelog() {
         body: JSON.stringify({ ...payload, publish_at: payload.publish_at || null }),
       }),
     onSuccess: () => {
-      toast('已创建', 'success');
+      toast(t('changelog.toast.created'), 'success');
       resetForm();
       invalidate();
     },
-    onError: (err: Error) => toast(err.message || '创建失败', 'error'),
+    onError: (err: Error) => toast(err.message || t('changelog.toast.createFailed'), 'error'),
   });
   const updateMutation = useMutation({
     mutationFn: ({
@@ -101,11 +103,11 @@ export function Changelog() {
         }),
       }),
     onSuccess: () => {
-      toast('已更新', 'success');
+      toast(t('changelog.toast.updated'), 'success');
       setEditing(null);
       invalidate();
     },
-    onError: (err: Error) => toast(err.message || '更新失败', 'error'),
+    onError: (err: Error) => toast(err.message || t('changelog.toast.updateFailed'), 'error'),
   });
   const publishMutation = useMutation({
     mutationFn: ({
@@ -122,19 +124,24 @@ export function Changelog() {
         body: JSON.stringify(publish_at ? { publish_at: new Date(publish_at).toISOString() } : {}),
       }),
     onSuccess: (_, { action }) => {
-      toast(action === 'publish' ? '已发布' : '已取消发布', 'success');
+      toast(
+        action === 'publish'
+          ? t('changelog.toast.published')
+          : t('changelog.toast.unpublished'),
+        'success',
+      );
       invalidate();
     },
-    onError: (err: Error) => toast(err.message || '操作失败', 'error'),
+    onError: (err: Error) => toast(err.message || t('changelog.toast.operationFailed'), 'error'),
   });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/org/changelog/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast('已删除', 'success');
+      toast(t('changelog.toast.deleted'), 'success');
       setConfirmDelete(null);
       invalidate();
     },
-    onError: (err: Error) => toast(err.message || '删除失败', 'error'),
+    onError: (err: Error) => toast(err.message || t('changelog.toast.deleteFailed'), 'error'),
   });
   const linkFeedbackMutation = useMutation({
     mutationFn: ({ id, feedback_id }: { id: string; feedback_id: string }) =>
@@ -143,20 +150,20 @@ export function Changelog() {
         body: JSON.stringify({ feedback_id }),
       }),
     onSuccess: () => {
-      toast('已关联反馈', 'success');
+      toast(t('changelog.toast.linked'), 'success');
       setLinkingId(null);
       invalidate();
     },
-    onError: (err: Error) => toast(err.message || '关联失败', 'error'),
+    onError: (err: Error) => toast(err.message || t('changelog.toast.linkFailed'), 'error'),
   });
   const unlinkFeedbackMutation = useMutation({
     mutationFn: ({ id, feedbackId }: { id: string; feedbackId: string }) =>
       apiRequest(`/org/changelog/${id}/feedback/${feedbackId}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast('已取消关联', 'success');
+      toast(t('changelog.toast.unlinked'), 'success');
       invalidate();
     },
-    onError: (err: Error) => toast(err.message || '取消关联失败', 'error'),
+    onError: (err: Error) => toast(err.message || t('changelog.toast.unlinkFailed'), 'error'),
   });
 
   function resetForm() {
@@ -195,14 +202,14 @@ export function Changelog() {
   return (
     <div className="animate-fade-in space-y-5">
       <PageHeader
-        title="更新日志"
-        description="向用户发布产品更新动态，并关联已解决的反馈形成闭环。"
+        title={t('changelog.pageTitle')}
+        description={t('changelog.pageDescription')}
         actions={
           <Button onClick={() => setShowForm(true)} disabled={showForm}>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
             </svg>
-            创建更新
+            {t('changelog.create')}
           </Button>
         }
       />
@@ -221,9 +228,9 @@ export function Changelog() {
       {entries.length === 0 && !showForm ? (
         <Card>
           <EmptyState
-            title="暂无更新日志"
-            description="发布第一条产品更新，让用户知道你们在持续迭代"
-            action={{ label: '创建更新', onClick: () => setShowForm(true) }}
+            title={t('changelog.emptyTitle')}
+            description={t('changelog.emptyDescription')}
+            action={{ label: t('changelog.create'), onClick: () => setShowForm(true) }}
           />
         </Card>
       ) : (
@@ -250,13 +257,13 @@ export function Changelog() {
 
       {confirmDelete && (
         <Modal
-          title="删除更新日志"
+          title={t('changelog.deleteModal.title')}
           onClose={() => setConfirmDelete(null)}
           size="sm"
           footer={
             <>
               <Button variant="secondary" size="sm" onClick={() => setConfirmDelete(null)}>
-                取消
+                {t('changelog.deleteModal.cancel')}
               </Button>
               <Button
                 variant="danger"
@@ -264,27 +271,29 @@ export function Changelog() {
                 disabled={deleteMutation.isPending}
                 onClick={() => deleteMutation.mutate(confirmDelete)}
               >
-                {deleteMutation.isPending ? '删除中...' : '确认删除'}
+                {deleteMutation.isPending
+                  ? t('changelog.deleteModal.deleting')
+                  : t('changelog.deleteModal.confirm')}
               </Button>
             </>
           }
         >
           <p className="text-sm text-gray-600 dark:text-gray-300">
-            确定要删除这条更新日志吗？删除后不可恢复，已发布页面也会同步移除。
+            {t('changelog.deleteModal.body')}
           </p>
         </Modal>
       )}
 
       {linkingId && (
         <Modal
-          title="关联已解决的反馈"
-          description="把这次更新与用户反馈关联起来，让用户看到建议被采纳。"
+          title={t('changelog.linkModal.title')}
+          description={t('changelog.linkModal.description')}
           onClose={() => setLinkingId(null)}
           size="md"
         >
           {(resolvedFeedbacks?.items ?? []).length === 0 ? (
             <p className="py-6 text-center text-xs text-gray-400 dark:text-gray-500">
-              暂无已解决的反馈
+              {t('changelog.linkModal.empty')}
             </p>
           ) : (
             <div className="max-h-64 space-y-1 overflow-y-auto">
@@ -332,6 +341,7 @@ function CreateForm({
   onCancel: () => void;
   isPending: boolean;
 }) {
+  const { t } = useTranslation('content');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   function insertMarkdown(text: string, cursorOffset: number) {
@@ -350,27 +360,29 @@ function CreateForm({
 
   return (
     <Card className="animate-fade-up p-5">
-      <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">创建更新日志</h2>
+      <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+        {t('changelog.createForm.title')}
+      </h2>
       <div className="mt-4 space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <FieldLabel>标题</FieldLabel>
+            <FieldLabel>{t('changelog.createForm.titleLabel')}</FieldLabel>
             <input
               type="text"
-              placeholder="例如：v2.4.0 — 更快的搜索与全新的移动端"
+              placeholder={t('changelog.createForm.titlePlaceholder')}
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
               className={inputClass}
             />
           </div>
           <div>
-            <FieldLabel>项目</FieldLabel>
+            <FieldLabel>{t('changelog.createForm.project')}</FieldLabel>
             <select
               value={form.project_id}
               onChange={(e) => setForm({ ...form, project_id: e.target.value })}
               className={inputClass}
             >
-              <option value="">选择项目</option>
+              <option value="">{t('changelog.createForm.projectPlaceholder')}</option>
               {projects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.name}
@@ -381,14 +393,14 @@ function CreateForm({
         </div>
 
         <div>
-          <FieldLabel>正文（支持 Markdown）</FieldLabel>
+          <FieldLabel>{t('changelog.createForm.contentLabel')}</FieldLabel>
           <div className="overflow-hidden rounded-lg border border-surface-3 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/15 dark:border-gray-700">
             <div className="border-b border-surface-3 bg-surface-1/60 px-2 py-1.5 dark:border-gray-700 dark:bg-gray-900/40">
               <MarkdownToolbar onInsert={insertMarkdown} />
             </div>
             <textarea
               ref={textareaRef}
-              placeholder={'## 新功能\n- ...\n\n## 修复\n- ...'}
+              placeholder={t('changelog.createForm.contentPlaceholder')}
               rows={6}
               value={form.content}
               onChange={(e) => setForm({ ...form, content: e.target.value })}
@@ -398,7 +410,7 @@ function CreateForm({
         </div>
 
         <div className="max-w-xs">
-          <FieldLabel>发布时间（留空立即发布）</FieldLabel>
+          <FieldLabel>{t('changelog.createForm.publishLabel')}</FieldLabel>
           <input
             type="datetime-local"
             value={form.publish_at}
@@ -413,22 +425,22 @@ function CreateForm({
           onClick={onSubmit}
           disabled={!form.title.trim() || !form.project_id || isPending}
         >
-          {isPending ? '创建中...' : '创建'}
+          {isPending ? t('changelog.createForm.submitting') : t('changelog.createForm.submit')}
         </Button>
         <Button variant="secondary" onClick={onCancel}>
-          取消
+          {t('changelog.createForm.cancel')}
         </Button>
       </div>
     </Card>
   );
 }
 
-function entryStatus(entry: ChangelogEntry): { label: string; tone: 'gray' | 'green' | 'amber' } {
+function entryStatus(entry: ChangelogEntry): { labelKey: string; tone: 'gray' | 'green' | 'amber' } {
   if (entry.published && entry.published_at && new Date(entry.published_at).getTime() > Date.now()) {
-    return { label: '定时发布', tone: 'amber' };
+    return { labelKey: 'changelog.status.scheduled', tone: 'amber' };
   }
-  if (entry.published) return { label: '已发布', tone: 'green' };
-  return { label: '草稿', tone: 'gray' };
+  if (entry.published) return { labelKey: 'changelog.status.published', tone: 'green' };
+  return { labelKey: 'changelog.status.draft', tone: 'gray' };
 }
 
 function EntryCard({
@@ -454,6 +466,7 @@ function EntryCard({
   onLinkFeedback: (id: string) => void;
   onUnlinkFeedback: (id: string, feedbackId: string) => void;
 }) {
+  const { t } = useTranslation('content');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isEditing = editing?.id === entry.id;
   const status = entryStatus(entry);
@@ -497,7 +510,7 @@ function EntryCard({
           </div>
           <div className="flex flex-wrap items-end gap-3">
             <div>
-              <FieldLabel>发布时间（清空并保存则立即发布）</FieldLabel>
+              <FieldLabel>{t('changelog.entry.editPublishLabel')}</FieldLabel>
               <input
                 type="datetime-local"
                 value={editing.publish_at}
@@ -518,10 +531,10 @@ function EntryCard({
               })
             }
           >
-            保存
+            {t('changelog.entry.save')}
           </Button>
           <Button variant="secondary" onClick={() => setEditing(null)}>
-            取消
+            {t('changelog.entry.cancel')}
           </Button>
         </div>
       </Card>
@@ -536,10 +549,10 @@ function EntryCard({
             <h3 className="truncate text-[15px] font-semibold text-gray-900 dark:text-gray-50">
               {entry.title}
             </h3>
-            <Badge tone={status.tone}>{status.label}</Badge>
+            <Badge tone={status.tone}>{t(status.labelKey)}</Badge>
           </div>
           <p className="mt-1.5 line-clamp-2 text-[13px] leading-relaxed text-gray-500 dark:text-gray-400">
-            {markdownToPlainText(entry.content) || '暂无正文'}
+            {markdownToPlainText(entry.content) || t('changelog.entry.noContent')}
           </p>
           <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-400 dark:text-gray-500">
             <span className="inline-flex items-center gap-1">
@@ -555,7 +568,7 @@ function EntryCard({
                   <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.2" />
                   <path d="M8 5v3.2l2 1.2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
                 </svg>
-                {status.tone === 'amber' ? '计划 ' : ''}
+                {status.tone === 'amber' ? t('changelog.entry.scheduledPrefix') : ''}
                 {formatDateTime(entry.published_at)}
               </span>
             )}
@@ -564,7 +577,7 @@ function EntryCard({
 
         <div className="flex shrink-0 flex-wrap items-center gap-1.5">
           <Button variant="secondary" size="sm" onClick={() => onStartEdit(entry)}>
-            编辑
+            {t('changelog.entry.edit')}
           </Button>
           {entry.published ? (
             <Button
@@ -572,18 +585,18 @@ function EntryCard({
               size="sm"
               onClick={() => onPublish(entry.id, 'unpublish')}
             >
-              取消发布
+              {t('changelog.entry.unpublish')}
             </Button>
           ) : (
             <>
               <Button variant="ghost" size="sm" onClick={() => onPublish(entry.id, 'publish')}>
-                发布
+                {t('changelog.entry.publish')}
               </Button>
               <SchedulePublishButton onPublish={(iso) => onPublish(entry.id, 'publish', iso)} />
             </>
           )}
           <Button variant="ghost" size="sm" onClick={() => onLinkFeedback(entry.id)}>
-            关联反馈
+            {t('changelog.entry.linkFeedback')}
           </Button>
           <Button
             variant="ghost"
@@ -591,14 +604,16 @@ function EntryCard({
             className="text-rose-500 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10"
             onClick={() => onDelete(entry.id)}
           >
-            删除
+            {t('changelog.entry.delete')}
           </Button>
         </div>
       </div>
 
       {entry.feedbacks && entry.feedbacks.length > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-surface-2 pt-3 dark:border-gray-700/60">
-          <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500">关联反馈</span>
+          <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500">
+            {t('changelog.entry.linkedFeedback')}
+          </span>
           {entry.feedbacks.map((fb) => (
             <span
               key={fb.id}
@@ -608,7 +623,7 @@ function EntryCard({
               <button
                 onClick={() => onUnlinkFeedback(entry.id, fb.id)}
                 className="text-brand-400 transition-colors hover:text-brand-700 dark:hover:text-brand-200"
-                aria-label={`取消关联 ${fb.title}`}
+                aria-label={t('changelog.entry.unlinkAria', { title: fb.title })}
               >
                 ×
               </button>
@@ -621,6 +636,7 @@ function EntryCard({
 }
 
 function SchedulePublishButton({ onPublish }: { onPublish: (iso: string) => void }) {
+  const { t } = useTranslation('content');
   const [scheduledAt, setScheduledAt] = useState('');
   return (
     <span className="inline-flex items-center gap-1">
@@ -628,7 +644,7 @@ function SchedulePublishButton({ onPublish }: { onPublish: (iso: string) => void
         type="datetime-local"
         value={scheduledAt}
         onChange={(e) => setScheduledAt(e.target.value)}
-        title="发布时间（留空立即发布）"
+        title={t('changelog.entry.scheduleTitle')}
         className="h-8 rounded-lg border border-surface-3 bg-surface-0 px-1.5 text-[11px] text-gray-600 focus:border-brand-400 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
       />
       <Button
@@ -643,7 +659,7 @@ function SchedulePublishButton({ onPublish }: { onPublish: (iso: string) => void
         disabled={!scheduledAt}
         className={clsx(!scheduledAt && 'opacity-40')}
       >
-        定时
+        {t('changelog.entry.schedule')}
       </Button>
     </span>
   );

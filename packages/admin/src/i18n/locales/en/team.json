@@ -1,0 +1,118 @@
+{
+  "members": {
+    "title": "Team Members",
+    "description": "Invite teammates to handle feedback together — roles decide what each person can do.",
+    "invite": "Invite member",
+    "emptyTitle": "No members yet",
+    "emptyDescription": "Invite a teammate to start handling user feedback together",
+    "selfBadge": "You",
+    "pendingBadge": "Invited",
+    "columns": {
+      "member": "Member",
+      "role": "Role",
+      "joinedAt": "Joined",
+      "actions": "Actions"
+    },
+    "roleAria": "Role: {{name}}",
+    "resend": "Resend invite",
+    "remove": "Remove",
+    "rolePermissions": "Role permissions: Owners manage the organization and members; Admins manage project configuration and members; Members can view and handle feedback.",
+    "roleHints": {
+      "owner": "Full access, can manage organization settings and members",
+      "admin": "Can manage feedback, project configuration and members",
+      "member": "Can view and handle feedback"
+    },
+    "inviteModal": {
+      "title": "Invite member",
+      "description": "Invite links are valid for 72 hours. Invitees can join after setting a password through the link.",
+      "email": "Email",
+      "displayName": "Display name",
+      "displayNamePlaceholder": "e.g. Alex from Product",
+      "role": "Role",
+      "cancel": "Cancel",
+      "submitting": "Inviting...",
+      "submit": "Send invite"
+    },
+    "inviteResultModal": {
+      "title": "Email isn't configured — share the invite link manually",
+      "description": "Email delivery isn't configured yet. Copy the link below and send it to the invitee.",
+      "linkLabel": "Invite link (valid for 72 hours)",
+      "linkHint": "The invitee joins automatically after opening the link and setting a password. You can also configure email delivery in System settings to send invitations automatically.",
+      "linkAria": "Invite link",
+      "copy": "Copy link",
+      "done": "Done"
+    },
+    "removeModal": {
+      "title": "Remove member",
+      "description": "Remove “{{name}}” from the current organization?",
+      "body": "Once removed, this member can no longer access the organization's feedback and configuration. Their activity history is kept.",
+      "cancel": "Cancel",
+      "submitting": "Removing...",
+      "confirm": "Remove member"
+    },
+    "roleChangeModal": {
+      "title": "Change member role",
+      "description": "Change the role of “{{name}}” to {{role}}.",
+      "body": "{{hint}}. Role changes take effect immediately.",
+      "cancel": "Cancel",
+      "submitting": "Saving...",
+      "confirm": "Change role"
+    },
+    "toast": {
+      "inviteEmailSent": "Invitation email sent",
+      "inviteEmailFailed": "Failed to send email: {{message}}",
+      "inviteSuccess": "Member invited",
+      "inviteFailed": "Failed to invite member",
+      "resendEmailSent": "Invitation email resent",
+      "resendFailed": "Failed to resend invitation",
+      "removed": "Member removed",
+      "removeFailed": "Failed to remove member",
+      "roleUpdated": "Role updated",
+      "roleUpdateFailed": "Failed to update role",
+      "copied": "Copied to clipboard",
+      "copyFailed": "Failed to copy"
+    }
+  },
+  "tags": {
+    "title": "Tag Management",
+    "description": "Tags label feedback and can be used to filter the feedback list, helping the team categorize and track issues.",
+    "newCard": {
+      "title": "Create tag",
+      "description": "Start from a common preset, or customize the name and color.",
+      "presets": "Presets",
+      "nameLabel": "Tag name",
+      "namePlaceholder": "e.g. Needs review",
+      "colorLabel": "Color",
+      "colorAria": "Choose color {{color}}",
+      "creating": "Creating...",
+      "create": "Create tag"
+    },
+    "allTitle": "All tags",
+    "usage": "{{count}} feedback",
+    "delete": "Delete",
+    "deleteAria": "Delete tag {{name}}",
+    "emptyTitle": "No tags yet",
+    "emptyDescription": "Start from a preset above, or create a custom tag",
+    "deleteModal": {
+      "title": "Delete tag",
+      "description": "Delete tag “{{name}}”?",
+      "bodyInUse": "This tag is used by {{count}} feedback items. Deleting it will remove the tag from those items.",
+      "bodyUnused": "This can't be undone.",
+      "cancel": "Cancel",
+      "deleting": "Deleting...",
+      "confirm": "Delete tag"
+    },
+    "presets": {
+      "bug": "Bug",
+      "urgent": "Urgent",
+      "discussion": "Needs discussion",
+      "customer": "Customer feedback"
+    },
+    "toast": {
+      "created": "Tag created",
+      "createFailed": "Failed to create tag",
+      "deleted": "Tag deleted",
+      "deleteFailed": "Failed to delete tag"
+    }
+  }
+}

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { apiRequest } from '@/api/client';
 import { PageHeader } from '@/components/PageHeader';
@@ -30,11 +31,21 @@ function getBoardUrl(slug: string, boardUrl?: string | null): string {
   return `${devBoard}/${slug}`;
 }
 
-function CopyButton({ value, onCopied, label = '复制' }: { value: string; onCopied: (v: string, label: string) => void; label?: string }) {
+function CopyButton({
+  value,
+  onCopied,
+  label,
+}: {
+  value: string;
+  onCopied: (v: string, label: string) => void;
+  label?: string;
+}) {
+  const { t } = useTranslation('content');
+  const resolvedLabel = label ?? t('applications.copy');
   return (
     <button
       type="button"
-      onClick={() => onCopied(value, label)}
+      onClick={() => onCopied(value, resolvedLabel)}
       className="inline-flex h-6 items-center gap-1 rounded-md border border-surface-3 bg-surface-0 px-1.5 text-[11px] font-medium text-gray-500 transition-colors hover:border-brand-300 hover:text-brand-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
     >
       <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
@@ -45,7 +56,7 @@ function CopyButton({ value, onCopied, label = '复制' }: { value: string; onCo
           strokeLinecap="round"
         />
       </svg>
-      {label}
+      {resolvedLabel}
     </button>
   );
 }
@@ -53,6 +64,7 @@ function CopyButton({ value, onCopied, label = '复制' }: { value: string; onCo
 export function Applications() {
   const queryClient = useQueryClient();
   const { show: toast } = useToast();
+  const { t } = useTranslation('content');
   const [regeneratedKey, setRegeneratedKey] = useState<RegeneratedKey | null>(null);
   const [confirmProject, setConfirmProject] = useState<ProjectAccessInfo | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -76,11 +88,11 @@ export function Applications() {
       setRegeneratedKey(data);
       setConfirmProject(null);
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      toast('Project API Key 已重新生成', 'success');
+      toast(t('applications.toast.keyRegenerated'), 'success');
     },
     onError: (err: Error) => {
       setConfirmProject(null);
-      toast(err.message || '重新生成失败', 'error');
+      toast(err.message || t('applications.toast.regenerateFailed'), 'error');
     },
   });
 
@@ -91,17 +103,17 @@ export function Applications() {
       setNewProjectKey(data);
       setShowCreateModal(false);
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      toast('项目创建成功', 'success');
+      toast(t('applications.toast.projectCreated'), 'success');
     },
-    onError: (err: Error) => toast(err.message || '创建失败', 'error'),
+    onError: (err: Error) => toast(err.message || t('applications.toast.createFailed'), 'error'),
   });
 
   const handleCopy = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      toast(`${label} 已复制`, 'success');
+      toast(t('applications.toast.copied', { label }), 'success');
     } catch {
-      toast('复制失败', 'error');
+      toast(t('applications.toast.copyFailed'), 'error');
     }
   };
 
@@ -110,14 +122,14 @@ export function Applications() {
   return (
     <div className="animate-fade-in space-y-5">
       <PageHeader
-        title="项目接入"
-        description="每个项目使用自己的 Project API Key 接收反馈，公开看板与 Widget 共用同一份项目数据。"
+        title={t('applications.pageTitle')}
+        description={t('applications.pageDescription')}
         actions={
           <Button onClick={() => setShowCreateModal(true)}>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
             </svg>
-            新建项目
+            {t('applications.create')}
           </Button>
         }
       />
@@ -125,8 +137,8 @@ export function Applications() {
       {newProjectKey && (
         <ApiKeyBanner
           tone="success"
-          title="项目创建成功"
-          description="请立即保存以下 Project API Key，它只会显示一次。"
+          title={t('applications.newKeyBannerTitle')}
+          description={t('applications.newKeyBannerDescription')}
           apiKey={newProjectKey.api_key}
           onCopy={() => handleCopy(newProjectKey.api_key, 'API Key')}
           onDismiss={() => setNewProjectKey(null)}
@@ -136,8 +148,8 @@ export function Applications() {
       {regeneratedKey && (
         <ApiKeyBanner
           tone="warning"
-          title="Project API Key 已重新生成"
-          description="旧 Key 已失效。请更新所有使用该项目的接入方。"
+          title={t('applications.regeneratedKeyBannerTitle')}
+          description={t('applications.regeneratedKeyBannerDescription')}
           apiKey={regeneratedKey.api_key}
           onCopy={() => handleCopy(regeneratedKey.api_key, 'API Key')}
           onDismiss={() => setRegeneratedKey(null)}
@@ -153,9 +165,12 @@ export function Applications() {
       ) : list.length === 0 ? (
         <Card>
           <EmptyState
-            title="暂无项目"
-            description="注册组织时会自动创建默认项目，也可以手动新建一个项目。"
-            action={{ label: '新建项目', onClick: () => setShowCreateModal(true) }}
+            title={t('applications.emptyTitle')}
+            description={t('applications.emptyDescription')}
+            action={{
+              label: t('applications.create'),
+              onClick: () => setShowCreateModal(true),
+            }}
           />
         </Card>
       ) : (
@@ -175,10 +190,16 @@ export function Applications() {
                           {project.name}
                         </h2>
                         <Badge tone="brand">/{project.slug}</Badge>
-                        <Badge tone="gray">{project.feedback_count ?? 0} 条反馈</Badge>
+                        <Badge tone="gray">
+                          {t('applications.feedbackCount', {
+                            count: project.feedback_count ?? 0,
+                          })}
+                        </Badge>
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                        <span className="text-gray-400 dark:text-gray-500">公开看板</span>
+                        <span className="text-gray-400 dark:text-gray-500">
+                          {t('applications.publicBoard')}
+                        </span>
                         <a
                           href={boardUrl}
                           target="_blank"
@@ -187,7 +208,7 @@ export function Applications() {
                         >
                           {boardUrl}
                         </a>
-                        <CopyButton value={boardUrl} label="复制" onCopied={handleCopy} />
+                        <CopyButton value={boardUrl} onCopied={handleCopy} />
                       </div>
                     </div>
                   </div>
@@ -197,19 +218,19 @@ export function Applications() {
                       to={`/projects/${project.id}/widget`}
                       className="inline-flex h-8 items-center rounded-lg border border-surface-3 bg-surface-0 px-2.5 text-xs font-medium text-gray-600 transition-colors hover:border-brand-300 hover:text-brand-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-brand-500/40 dark:hover:text-brand-300"
                     >
-                      Widget 配置
+                      {t('applications.widgetConfig')}
                     </Link>
                     <Link
                       to={`/projects/${project.id}/settings`}
                       className="inline-flex h-8 items-center rounded-lg border border-surface-3 bg-surface-0 px-2.5 text-xs font-medium text-gray-600 transition-colors hover:border-brand-300 hover:text-brand-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-brand-500/40 dark:hover:text-brand-300"
                     >
-                      项目设置
+                      {t('applications.projectSettings')}
                     </Link>
                     <Link
                       to={`/projects/${project.id}/webhooks`}
                       className="inline-flex h-8 items-center rounded-lg border border-surface-3 bg-surface-0 px-2.5 text-xs font-medium text-gray-600 transition-colors hover:border-brand-300 hover:text-brand-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-brand-500/40 dark:hover:text-brand-300"
                     >
-                      Webhook
+                      {t('applications.webhooks')}
                     </Link>
                     <Button
                       variant="ghost"
@@ -217,7 +238,7 @@ export function Applications() {
                       className="text-gray-500"
                       onClick={() => setConfirmProject(project)}
                     >
-                      重置 Key
+                      {t('applications.resetKey')}
                     </Button>
                   </div>
                 </div>
@@ -229,10 +250,12 @@ export function Applications() {
                     </p>
                     <div className="mt-1.5 flex items-center gap-2">
                       <code className="rounded-md bg-surface-2 px-2 py-1 font-mono text-[11px] text-gray-600 dark:bg-gray-700/60 dark:text-gray-300">
-                        {project.api_key_prefix ? `${project.api_key_prefix}…` : '未生成'}
+                        {project.api_key_prefix
+                          ? `${project.api_key_prefix}…`
+                          : t('applications.apiKeyNotGenerated')}
                       </code>
                       <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                        完整 Key 仅在创建/重置时显示
+                        {t('applications.apiKeyHint')}
                       </span>
                     </div>
                   </div>
@@ -252,7 +275,7 @@ export function Applications() {
                         ))
                       ) : (
                         <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                          未限制（建议在项目设置中配置）
+                          {t('applications.originsUnrestricted')}
                         </span>
                       )}
                     </div>
@@ -274,14 +297,16 @@ export function Applications() {
 
       {confirmProject && (
         <Modal
-          title="重置 Project API Key"
-          description={`项目「${confirmProject.name}」的旧 Key 将立即失效，所有使用旧 Key 的接入方都会收到 401。`}
+          title={t('applications.resetModalTitle')}
+          description={t('applications.resetModalDescription', {
+            name: confirmProject.name,
+          })}
           onClose={() => setConfirmProject(null)}
           size="md"
           footer={
             <>
               <Button variant="secondary" size="sm" onClick={() => setConfirmProject(null)}>
-                取消
+                {t('applications.cancel')}
               </Button>
               <Button
                 variant="danger"
@@ -289,13 +314,15 @@ export function Applications() {
                 disabled={regenerateMutation.isPending}
                 onClick={() => regenerateMutation.mutate(confirmProject.id)}
               >
-                {regenerateMutation.isPending ? '重置中...' : '确认重置'}
+                {regenerateMutation.isPending
+                  ? t('applications.resetting')
+                  : t('applications.confirmReset')}
               </Button>
             </>
           }
         >
           <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-            重置后请立即把新 Key 配置到 Widget、提交页或 API 调用方，避免反馈收集中断。
+            {t('applications.resetModalBody')}
           </p>
         </Modal>
       )}
@@ -318,6 +345,7 @@ function ApiKeyBanner({
   onCopy: () => void;
   onDismiss: () => void;
 }) {
+  const { t } = useTranslation('content');
   const styles =
     tone === 'success'
       ? 'border-emerald-200 bg-emerald-50/80 dark:border-emerald-500/25 dark:bg-emerald-500/10'
@@ -338,10 +366,10 @@ function ApiKeyBanner({
         </div>
         <div className="flex shrink-0 gap-2">
           <Button size="sm" onClick={onCopy}>
-            复制 Key
+            {t('applications.copyKey')}
           </Button>
           <Button variant="ghost" size="sm" onClick={onDismiss}>
-            关闭
+            {t('applications.close')}
           </Button>
         </div>
       </div>
@@ -358,6 +386,7 @@ function CreateProjectModal({
   onSubmit: (input: { name: string; slug?: string }) => void;
   isPending: boolean;
 }) {
+  const { t } = useTranslation('content');
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
 
@@ -369,17 +398,17 @@ function CreateProjectModal({
 
   return (
     <Modal
-      title="新建项目"
-      description="创建后将自动生成 Project API Key，用于 Widget、提交页与 API 接入。"
+      title={t('applications.createModalTitle')}
+      description={t('applications.createModalDescription')}
       onClose={onClose}
       size="md"
       footer={
         <>
           <Button variant="secondary" size="sm" onClick={onClose}>
-            取消
+            {t('applications.cancel')}
           </Button>
           <Button size="sm" type="submit" form="create-project-form" disabled={isPending || !name.trim()}>
-            {isPending ? '创建中...' : '创建项目'}
+            {isPending ? t('applications.creating') : t('applications.createProject')}
           </Button>
         </>
       }
@@ -387,13 +416,13 @@ function CreateProjectModal({
       <form id="create-project-form" onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500">
-            项目名称 <span className="text-rose-500">*</span>
+            {t('applications.nameLabel')} <span className="text-rose-500">*</span>
           </label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="例如：移动端 App"
+            placeholder={t('applications.namePlaceholder')}
             required
             autoFocus
             className="h-9 w-full rounded-lg border border-surface-3 bg-surface-1/60 px-3 text-[13px] text-gray-900 placeholder:text-gray-400 focus:border-brand-400 focus:bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-100"
@@ -401,17 +430,17 @@ function CreateProjectModal({
         </div>
         <div>
           <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500">
-            项目标识（slug）
+            {t('applications.slugLabel')}
           </label>
           <input
             type="text"
             value={slug}
             onChange={(e) => setSlug(e.target.value)}
-            placeholder="留空则根据名称自动生成"
+            placeholder={t('applications.slugPlaceholder')}
             className="h-9 w-full rounded-lg border border-surface-3 bg-surface-1/60 px-3 font-mono text-[13px] text-gray-900 placeholder:text-gray-400 focus:border-brand-400 focus:bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-100"
           />
           <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">
-            用作公开看板地址：/&#123;slug&#125;
+            {t('applications.slugHint')}
           </p>
         </div>
       </form>

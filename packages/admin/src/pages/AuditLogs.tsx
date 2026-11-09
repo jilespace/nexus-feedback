@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
 import { fetchAuditLogs, fetchOrgMembers } from '@/api/client';
 import { PageHeader } from '@/components/PageHeader';
@@ -9,20 +10,21 @@ import { formatRelativeTime } from '@/utils/formatRelativeTime';
 import { auditActionLabel, auditActionTone, auditTargetLabel } from '@/utils/auditLabels';
 import type { AuditLog, PaginatedResponse } from '@/types';
 
-const ACTION_PREFIX_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: '', label: '全部类型' },
-  { value: 'feedback.', label: '反馈类' },
-  { value: 'reply.', label: '回复类' },
-  { value: 'comment.', label: '评论类' },
-  { value: 'member.', label: '成员类' },
-  { value: 'project.', label: '项目类' },
-  { value: 'webhook.', label: 'Webhook' },
+const ACTION_PREFIX_OPTIONS: Array<{ value: string; labelKey: string }> = [
+  { value: '', labelKey: 'audit.page.filters.allTypes' },
+  { value: 'feedback.', labelKey: 'audit.page.filters.feedback' },
+  { value: 'reply.', labelKey: 'audit.page.filters.reply' },
+  { value: 'comment.', labelKey: 'audit.page.filters.comment' },
+  { value: 'member.', labelKey: 'audit.page.filters.member' },
+  { value: 'project.', labelKey: 'audit.page.filters.project' },
+  { value: 'webhook.', labelKey: 'audit.page.filters.webhook' },
 ];
 
 const inputClass =
   'h-9 rounded-lg border border-surface-3 bg-surface-0 px-2.5 text-[13px] font-medium text-gray-600 transition-colors hover:border-gray-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-gray-600';
 
 export function AuditLogs() {
+  const { t } = useTranslation('content');
   const [page, setPage] = useState(1);
   const [memberFilter, setMemberFilter] = useState('');
   const [actionPrefix, setActionPrefix] = useState('');
@@ -60,8 +62,8 @@ export function AuditLogs() {
   return (
     <div className="animate-fade-in space-y-5">
       <PageHeader
-        title="审计日志"
-        description="记录组织内所有关键操作，包括成员变更与反馈处理，便于追溯。"
+        title={t('audit.page.title')}
+        description={t('audit.page.description')}
       />
 
       <div className="rounded-xl border border-surface-3 bg-surface-0 p-3 shadow-card dark:border-gray-700/80 dark:bg-gray-800">
@@ -72,10 +74,10 @@ export function AuditLogs() {
               setMemberFilter(e.target.value);
               setPage(1);
             }}
-            aria-label="操作人"
+            aria-label={t('audit.page.filters.actorAria')}
             className={inputClass}
           >
-            <option value="">全部成员</option>
+            <option value="">{t('audit.page.filters.allMembers')}</option>
             {(Array.isArray(members) ? members : []).map((m) => (
               <option key={m.id} value={m.id}>
                 {m.display_name}
@@ -89,12 +91,12 @@ export function AuditLogs() {
               setActionPrefix(e.target.value);
               setPage(1);
             }}
-            aria-label="操作类型"
+            aria-label={t('audit.page.filters.actionAria')}
             className={inputClass}
           >
             {ACTION_PREFIX_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
-                {opt.label}
+                {t(opt.labelKey)}
               </option>
             ))}
           </select>
@@ -107,10 +109,12 @@ export function AuditLogs() {
                 setFromDate(e.target.value);
                 setPage(1);
               }}
-              aria-label="开始日期"
+              aria-label={t('audit.page.filters.startAria')}
               className={clsx(inputClass, 'dark:[color-scheme:dark]')}
             />
-            <span className="text-xs text-gray-400 dark:text-gray-500">至</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              {t('audit.page.filters.to')}
+            </span>
             <input
               type="date"
               value={toDate}
@@ -118,7 +122,7 @@ export function AuditLogs() {
                 setToDate(e.target.value);
                 setPage(1);
               }}
-              aria-label="结束日期"
+              aria-label={t('audit.page.filters.endAria')}
               className={clsx(inputClass, 'dark:[color-scheme:dark]')}
             />
             {(fromDate || toDate) && (
@@ -130,7 +134,7 @@ export function AuditLogs() {
                 }}
                 className="text-[11px] text-gray-400 transition-colors hover:text-rose-500"
               >
-                清除
+                {t('audit.page.filters.clear')}
               </button>
             )}
           </div>
@@ -140,7 +144,7 @@ export function AuditLogs() {
               onClick={resetFilters}
               className="ml-auto inline-flex h-7 items-center gap-1 rounded-md bg-brand-50 px-2 text-[11px] font-medium text-brand-700 transition-colors hover:bg-brand-100 dark:bg-brand-600/15 dark:text-brand-300"
             >
-              重置筛选
+              {t('audit.page.filters.reset')}
             </button>
           )}
         </div>
@@ -151,19 +155,31 @@ export function AuditLogs() {
       ) : !data?.items.length ? (
         <Card>
           <EmptyState
-            title={hasActiveFilter ? '没有匹配的审计记录' : '暂无审计记录'}
-            description={hasActiveFilter ? '试试调整筛选条件' : '操作日志将会显示在这里'}
-            action={hasActiveFilter ? { label: '重置筛选', onClick: resetFilters } : undefined}
+            title={
+              hasActiveFilter
+                ? t('audit.page.empty.noMatchTitle')
+                : t('audit.page.empty.title')
+            }
+            description={
+              hasActiveFilter
+                ? t('audit.page.empty.noMatchDescription')
+                : t('audit.page.empty.description')
+            }
+            action={
+              hasActiveFilter
+                ? { label: t('audit.page.empty.reset'), onClick: resetFilters }
+                : undefined
+            }
           />
         </Card>
       ) : (
         <>
           <Card className="overflow-hidden">
             <div className="hidden grid-cols-[180px_minmax(0,1fr)_140px_120px] gap-4 border-b border-surface-2 bg-surface-1/70 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:border-gray-700/60 dark:bg-gray-800/60 dark:text-gray-500 md:grid">
-              <span>操作</span>
-              <span>目标</span>
-              <span>操作人</span>
-              <span className="text-right">时间</span>
+              <span>{t('audit.page.table.action')}</span>
+              <span>{t('audit.page.table.target')}</span>
+              <span>{t('audit.page.table.actor')}</span>
+              <span className="text-right">{t('audit.page.table.time')}</span>
             </div>
             <ul className="divide-y divide-surface-2 dark:divide-gray-700/60">
               {data.items.map((log) => {
@@ -207,15 +223,15 @@ export function AuditLogs() {
                         )}
                         {typeof log.metadata?.title === 'string' && (
                           <span className="truncate text-gray-400 dark:text-gray-500">
-                            「{log.metadata.title}」
+                            {t('audit.page.titleQuote', { title: log.metadata.title })}
                           </span>
                         )}
                       </div>
                       <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-surface-2 text-[10px] font-semibold text-gray-500 dark:bg-gray-700/60 dark:text-gray-400">
-                          {(log.member?.display_name || '系').slice(0, 1)}
+                          {(log.member?.display_name || t('audit.page.systemInitial')).slice(0, 1)}
                         </span>
-                        {log.member?.display_name || '系统'}
+                        {log.member?.display_name || t('audit.page.system')}
                       </div>
                       <div
                         className="text-[11px] text-gray-400 dark:text-gray-500 md:text-right"

@@ -1,0 +1,118 @@
+{
+  "members": {
+    "title": "团队成员",
+    "description": "邀请协作成员共同处理反馈，角色决定操作权限。",
+    "invite": "邀请成员",
+    "emptyTitle": "暂无成员",
+    "emptyDescription": "邀请同事加入，一起处理用户反馈",
+    "selfBadge": "我",
+    "pendingBadge": "待激活",
+    "columns": {
+      "member": "成员",
+      "role": "角色",
+      "joinedAt": "加入时间",
+      "actions": "操作"
+    },
+    "roleAria": "角色：{{name}}",
+    "resend": "重发邀请",
+    "remove": "移除",
+    "rolePermissions": "角色权限：所有者可管理组织与成员；管理员可管理项目配置与成员；成员可查看与处理反馈。",
+    "roleHints": {
+      "owner": "全部权限，可管理组织设置与成员",
+      "admin": "可管理反馈、项目配置与成员",
+      "member": "可查看与处理反馈"
+    },
+    "inviteModal": {
+      "title": "邀请成员",
+      "description": "邀请链接有效期 72 小时，成员通过链接设置密码后即可加入。",
+      "email": "邮箱",
+      "displayName": "显示名称",
+      "displayNamePlaceholder": "例如：产品-小林",
+      "role": "角色",
+      "cancel": "取消",
+      "submitting": "邀请中...",
+      "submit": "发送邀请"
+    },
+    "inviteResultModal": {
+      "title": "邮件未配置，请手动分享邀请链接",
+      "description": "系统尚未配置邮件服务，可复制下方链接直接发送给被邀请人。",
+      "linkLabel": "邀请链接（72 小时有效）",
+      "linkHint": "被邀请人打开链接并设置密码后会自动加入组织。也可在「系统配置」中配置邮件服务以自动发送邀请。",
+      "linkAria": "邀请链接",
+      "copy": "复制链接",
+      "done": "完成"
+    },
+    "removeModal": {
+      "title": "移除成员",
+      "description": "确定将「{{name}}」移出当前组织吗？",
+      "body": "移除后该成员将无法再访问本组织的反馈与配置，其历史操作记录会保留。",
+      "cancel": "取消",
+      "submitting": "移除中...",
+      "confirm": "确认移除"
+    },
+    "roleChangeModal": {
+      "title": "变更成员角色",
+      "description": "将「{{name}}」的角色改为{{role}}。",
+      "body": "{{hint}}。角色变更会立即生效。",
+      "cancel": "取消",
+      "submitting": "保存中...",
+      "confirm": "确认变更"
+    },
+    "toast": {
+      "inviteEmailSent": "邀请邮件已发送",
+      "inviteEmailFailed": "邮件发送失败：{{message}}",
+      "inviteSuccess": "成员邀请成功",
+      "inviteFailed": "邀请失败",
+      "resendEmailSent": "邀请邮件已重发",
+      "resendFailed": "重发失败",
+      "removed": "成员已移除",
+      "removeFailed": "移除失败",
+      "roleUpdated": "角色已更新",
+      "roleUpdateFailed": "角色更新失败",
+      "copied": "已复制到剪贴板",
+      "copyFailed": "复制失败"
+    }
+  },
+  "tags": {
+    "title": "标签管理",
+    "description": "标签用于给反馈打分类标记，可在反馈列表按标签筛选，帮助团队归类与追踪问题。",
+    "newCard": {
+      "title": "新建标签",
+      "description": "从常用预设开始，或自定义名称与颜色。",
+      "presets": "预设",
+      "nameLabel": "标签名称",
+      "namePlaceholder": "例如：需要复查",
+      "colorLabel": "颜色",
+      "colorAria": "选择颜色 {{color}}",
+      "creating": "创建中...",
+      "create": "创建标签"
+    },
+    "allTitle": "全部标签",
+    "usage": "{{count}} 条反馈",
+    "delete": "删除",
+    "deleteAria": "删除标签 {{name}}",
+    "emptyTitle": "还没有标签",
+    "emptyDescription": "从上方常用预设快速创建，或自定义一个标签",
+    "deleteModal": {
+      "title": "删除标签",
+      "description": "确定删除标签「{{name}}」吗？",
+      "bodyInUse": "该标签已被 {{count}} 条反馈使用，删除后会同时解除这些反馈的标签关联。",
+      "bodyUnused": "删除后不可恢复。",
+      "cancel": "取消",
+      "deleting": "删除中...",
+      "confirm": "确认删除"
+    },
+    "presets": {
+      "bug": "Bug",
+      "urgent": "紧急",
+      "discussion": "待讨论",
+      "customer": "客户反馈"
+    },
+    "toast": {
+      "created": "标签已创建",
+      "createFailed": "创建失败",
+      "deleted": "标签已删除",
+      "deleteFailed": "删除失败"
+    }
+  }
+}
