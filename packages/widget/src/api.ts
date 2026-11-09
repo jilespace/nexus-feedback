@@ -12,6 +12,20 @@ export interface ProjectCategory {
   icon?: string;
 }
 
+/** 与服务端 priority enum 保持一致。 */
+export type FeedbackPriority = 'low' | 'medium' | 'high' | 'critical';
+
+export interface FeedbackPayload {
+  title: string;
+  content: string;
+  category: string;
+  /** 关闭 fields.priority 时不传，由服务端默认 medium。 */
+  priority?: FeedbackPriority;
+  contact?: string;
+  attachment_ids?: string[];
+  source: 'widget';
+}
+
 const DEFAULT_ICON = DEFAULT_CATEGORIES[0]!.icon;
 
 /** 从 apiUrl 中提取公开接口的项目 slug（若调用方直接使用 /public/:slug 形态）。 */

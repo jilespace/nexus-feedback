@@ -268,6 +268,44 @@ export const WIDGET_CSS = `
 .nf-chip-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.8; }
 .nf-chip-skeleton { width: 68px; height: 30px; border-radius: calc(var(--nf-radius) * 0.6); background: #eef0f4; animation: nf-shimmer 1.4s ease-in-out infinite; }
 
+/* ---------- priority segmented ---------- */
+.nf-segmented {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--nf-line);
+  border-radius: calc(var(--nf-radius) * 0.6);
+  background: var(--nf-bg-subtle);
+}
+.nf-segment {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  height: 30px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: calc(var(--nf-radius) * 0.4);
+  background: transparent;
+  color: var(--nf-text-2);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+.nf-segment:hover { border-color: var(--nf-line-strong); background: #fff; }
+.nf-segment[data-selected='true'],
+.nf-segment[data-selected='true']:hover {
+  border-color: var(--nf-primary);
+  background: rgba(var(--nf-primary-rgb), 0.08);
+  color: var(--nf-primary);
+  box-shadow: inset 0 0 0 1px var(--nf-primary);
+}
+.nf-segment .nf-chip-dot { flex-shrink: 0; }
+
 /* ---------- attachments ---------- */
 .nf-attach-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .nf-attach-btn {
@@ -499,6 +537,8 @@ export const WIDGET_CSS = `
   .nf-input { height: 44px; }
   .nf-textarea { min-height: 110px; }
   .nf-chip { height: 38px; padding: 0 14px; font-size: 12.5px; }
+  .nf-segmented { gap: 4px; padding: 4px; }
+  .nf-segment { height: 40px; font-size: 12.5px; }
   .nf-attach-btn { height: 40px; font-size: 12.5px; }
   .nf-close { width: 36px; height: 36px; }
   .nf-icon-btn { width: 32px; height: 32px; }

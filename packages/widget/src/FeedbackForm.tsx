@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { fetchProjectCategories, ProjectCategory } from './api';
+import { fetchProjectCategories, ProjectCategory, FeedbackPayload, FeedbackPriority } from './api';
 import { t, categoryLabel, Locale } from './i18n';
+import { PrioritySelector } from './PrioritySelector';
 import {
   AlertIcon,
   CheckCircleIcon,
@@ -17,6 +18,7 @@ type FeedbackFormProps = {
   locale: Locale;
   projectSlug?: string | null;
   showCategory: boolean;
+  showPriority: boolean;
   showContact: boolean;
   onSuccess: () => void;
   onError: (message: string) => void;
@@ -48,6 +50,7 @@ export function FeedbackForm({
   locale,
   projectSlug,
   showCategory,
+  showPriority,
   showContact,
   onSuccess,
   onError,
@@ -55,6 +58,7 @@ export function FeedbackForm({
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [category, setCategory] = useState('bug');
+  const [priority, setPriority] = useState<FeedbackPriority>('medium');
   const [contact, setContact] = useState('');
   const [loading, setLoading] = useState(false);
   const [touched, setTouched] = useState<{ title: boolean; content: boolean }>({
@@ -181,17 +185,19 @@ export function FeedbackForm({
 
     setLoading(true);
     try {
+      const payload: FeedbackPayload = {
+        title: title.trim(),
+        content: content.trim(),
+        category,
+        priority: showPriority ? priority : undefined,
+        contact: showContact ? contact.trim() || undefined : undefined,
+        attachment_ids: files.filter((item) => item.status === 'done').map((item) => item.id),
+        source: 'widget',
+      };
       const res = await fetch(`${apiUrl}/feedback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
-        body: JSON.stringify({
-          title: title.trim(),
-          content: content.trim(),
-          category,
-          contact: showContact ? contact.trim() || undefined : undefined,
-          attachment_ids: files.filter((item) => item.status === 'done').map((item) => item.id),
-          source: 'widget',
-        }),
+        body: JSON.stringify(payload),
       });
       const json = await res.json();
       if (!res.ok || json.code !== 0) throw new Error(json.message || t(locale, 'submitFailed'));
@@ -362,6 +368,8 @@ export function FeedbackForm({
           </div>
         </div>
       )}
+
+      {showPriority && <PrioritySelector value={priority} locale={locale} onChange={setPriority} />}
 
       {showContact && (
         <div className="nf-field">

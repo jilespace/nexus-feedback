@@ -22,6 +22,11 @@ const translations: Record<Locale, Record<string, string>> = {
     description: '详细描述',
     descriptionPlaceholder: '发生了什么？越具体越容易定位问题',
     category: '分类',
+    priority: '优先级',
+    priorityLow: '低',
+    priorityMedium: '中',
+    priorityHigh: '高',
+    priorityCritical: '紧急',
     contact: '联系方式',
     optional: '（可选）',
     contactPlaceholder: '邮箱或其他联系方式',
@@ -71,6 +76,11 @@ const translations: Record<Locale, Record<string, string>> = {
     description: 'Details',
     descriptionPlaceholder: 'What happened? The more detail, the better',
     category: 'Category',
+    priority: 'Priority',
+    priorityLow: 'Low',
+    priorityMedium: 'Medium',
+    priorityHigh: 'High',
+    priorityCritical: 'Critical',
     contact: 'Contact',
     optional: '(optional)',
     contactPlaceholder: 'Email or other contact',
@@ -109,6 +119,13 @@ const CATEGORY_LABEL_KEYS: Record<string, string> = {
   other: 'categoryOther',
 };
 
+const PRIORITY_LABEL_KEYS: Record<string, string> = {
+  low: 'priorityLow',
+  medium: 'priorityMedium',
+  high: 'priorityHigh',
+  critical: 'priorityCritical',
+};
+
 export function t(locale: Locale, key: string): string {
   return translations[locale]?.[key] ?? translations.en[key] ?? key;
 }
@@ -117,6 +134,12 @@ export function t(locale: Locale, key: string): string {
 export function categoryLabel(locale: Locale, name: string): string {
   const key = CATEGORY_LABEL_KEYS[name];
   return key ? t(locale, key) : name;
+}
+
+/** 优先级本地化，未知值原样返回。 */
+export function priorityLabel(locale: Locale, priority: string): string {
+  const key = PRIORITY_LABEL_KEYS[priority];
+  return key ? t(locale, key) : priority;
 }
 
 export type { Locale };

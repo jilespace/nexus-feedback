@@ -97,6 +97,7 @@ export function FeedbackWidget({ apiKey, apiUrl, position, theme, locale = 'zh' 
   const buttonLabel = theme?.buttonLabel ?? serverConfig?.buttonLabel ?? t(locale, 'feedback');
   const projectSlug = serverConfig?.project?.slug ?? extractProjectSlug(apiUrl);
   const showCategory = serverConfig?.fields?.category !== false;
+  const showPriority = serverConfig?.fields?.priority !== false;
   const showContact = serverConfig?.fields?.contact !== false;
   const successTitle = serverConfig?.successTitle?.trim() || t(locale, 'thankYou');
   const successMessage = serverConfig?.successMessage?.trim() || t(locale, 'thankYouDetail');
@@ -245,6 +246,7 @@ export function FeedbackWidget({ apiKey, apiUrl, position, theme, locale = 'zh' 
                   locale={locale}
                   projectSlug={projectSlug}
                   showCategory={showCategory}
+                  showPriority={showPriority}
                   showContact={showContact}
                   onSuccess={() => setView('success')}
                   onError={(message) => {
