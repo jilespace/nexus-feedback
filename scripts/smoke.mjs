@@ -18,6 +18,8 @@ import { checkAdmin } from './smoke/checks/admin.mjs';
 import { checkI18nSwitch } from './smoke/checks/i18n.mjs';
 import { checkWriteFlows } from './smoke/checks/write.mjs';
 import { checkCsvImport } from './smoke/checks/csv.mjs';
+import { checkChangelogLink } from './smoke/checks/changelog.mjs';
+import { checkDnd } from './smoke/checks/dnd.mjs';
 import { checkMobile } from './smoke/checks/mobile.mjs';
 
 async function main() {
@@ -50,6 +52,8 @@ async function main() {
     await checkWriteFlows(page, options, context);
     await checkApiContract(options, context);
     await checkCsvImport(options, context);
+    await checkChangelogLink(options, context);
+    await checkDnd(options, context);
     await checkMobile(page, options, context);
   } catch (error) {
     pushFailure('环境初始化', error);
