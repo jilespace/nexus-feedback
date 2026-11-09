@@ -1,11 +1,53 @@
 # 迭代日志（自主迭代阶段）
 
-> 用户离开、由 AI 接管后的持续迭代记录。每轮开始先读本文件末尾的「下一步」，
-> 结束前更新「本轮完成 / 未完成 / 下一步」。验证方式与本地服务见文末。
+> 用户离开、由 AI 接管后的持续迭代记录。**最新一轮记录在最上方**；
+> 每轮开始先读顶部「下一轮计划」，结束前在顶部插入本轮记录。验证方式与本地服务见文末。
 
 ## 轮次记录
 
-### Round 1 — 2026-11-10（UI 打磨第一阶段 + 并行分派）
+### Round 2 — 2026-11-10（后台剩余页面 + 全站暗色/移动审计 + 性能与健壮性）
+
+**本轮完成**
+- 后台剩余 12 个页面完成升级（Lead 4 页 + teammate 8 页）：
+  - Lead：项目接入（项目卡、API Key/看板地址/Origins、重置 Key 确认弹窗、创建项目弹窗）、
+    团队成员（头像/角色行内变更/移除与邀请弹窗/邀请链接回退/重发邀请）、标签管理（预设色板、
+    实时颜色预览、删除确认）、审计日志（筛选工具栏、动作徽标、metadata 展开、分页）。
+  - settings-polish：组织设置（资料卡 + 品牌预览 + 密码卡 + dirty 保存）、系统配置（邮件/存储卡、
+    密钥掩码提示、按存储条件字段、页头统一保存）、项目设置（信息/通知策略/SSO 卡、删除确认）、
+    Widget 配置（外观/文案字段 + 粘性实时预览 + 嵌入代码）。
+  - config-polish：自定义分类（列表 + 新建/删除 Modal）、状态配置（默认工作流提示、内置保护、
+    添加/删除 Modal）、Webhooks（**修复白屏 bug**：分页响应被当数组；启停开关、就地测试结果、
+    编辑/删除 Modal、页内投递日志）、通知偏好（响应式订阅者列表、role=switch、移除确认）。
+- 健壮性/体验：路由级 lazy 加载（初始 bundle 893KB → 340KB，Dashboard 图库按需加载）、
+  ErrorBoundary（渲染异常不再白屏，可重试/刷新）、Toast 重做为 surface 风格 + 类型图标 + 移动端底部、
+  移除无引用的 WebhookLogs 组件。
+- 服务端小修：系统配置空密钥不再被掩码成 `****`（避免“已配置”误判）；项目反馈数排除回收站数据。
+- 修复开发环境 Tailwind 扫描陈旧导致新色板类缺失的问题（重启 8080 dev server 后恢复）。
+
+**验证**
+- `pnpm typecheck` ✅、`pnpm test` 160/160 ✅、`pnpm build` 5 包 ✅、`pnpm lint` 0 error ✅
+- 全后台 16 条路由 × 移动端 390（含滚动宽度检测）与暗色 1440 双轮审计：
+  16/16 无横向溢出、0 exception、0 console error。
+- 截图：`.tools/shots/r2/`（我的 4 页明暗+移动）、`.tools/shots/final-*-1440/390/dark`（设置页）、
+  `.tools/shots/config/`（配置页含交互态）、`.tools/shots/audit2/`（全站审计）。
+
+**提交**：`91d7fc8`、`f8bf82c`、`c8f1ac1`、`ea3f084`
+
+**遗留（承接）**
+- 共享组件缺口：Switch / FieldLabel / SecretInput / SettingsCard 在多个页面各自实现，
+  建议抽到 `components/ui.tsx` 统一（Round 3 工程项）。
+- Webhooks.tsx 701 行、ProjectSettings/WidgetConfig 偏长，可在允许新增文件时拆分。
+- 公开端（board/submit/widget/landing）交互回归测试仍以截图为主，可补 Playwright 冒烟。
+- admin bundle 已拆包，但 Dashboard 依赖 recharts 393KB，可评估按需引入图表类型。
+
+**下一步（Round 3 计划：从 UI 打磨转入「有价值的功能」迭代）**
+1. 命令面板（⌘K）：页面跳转 + 反馈搜索 + 快捷操作（新建更新/复制看板链接），键盘可达。
+2. 通知中心：状态变更/指派/新反馈的未读列表，顶栏铃铛 + 未读角标 + 全部已读。
+3. 反馈详情内联编辑：标题/描述可编辑，保存走既有 update 接口（需确认后端支持）。
+4. 公开看板增强：分享卡片、路线图/更新日志 SEO meta、空状态引导。
+5. 小工程：共享 Switch/Field 组件收敛；Board/Submit/Widget 冒烟测试脚本。
+6. 若时间允许：CSV 导入、邮件模板预览、周报摘要开关。
+
 
 **本轮完成**
 - 设计契约：`docs/UI_REDESIGN.md`（Signal Desk 方向、颜色/字体/圆角/阴影/间距/动效 token、各端方向、验收标准）。
@@ -69,7 +111,7 @@
 - admin bundle 893KB（gzip 256KB）偏大，待 code-splitting（recharts 是主要占用）。
 - Landing 817 行 / Login 773 行偏大，后续可拆子组件（页面级样式已拆分）。
 
-**下一步（按优先级）**
+**下一步（按优先级）** —— *其中 1/2/4（部分）已在 Round 2 完成，Round 2 见文件顶部*
 1. 管理后台剩余页面逐页升级（统一 PageHeader / Card / Button / 表单规范）：
    - Applications（项目接入）：项目卡/表格、API Key 展示与复制、Allowed origins、操作分组
    - Members：成员行（头像/角色徽标/加入时间/操作菜单）、邀请结果弹窗展示 invite_url
@@ -82,7 +124,7 @@
    - 通知中心：状态变更/指派/新反馈未读列表
    - 反馈详情内联编辑（标题/描述）与复制引用
    - 公开看板分享卡片 / 路线图 SEO meta
-   - 数据导入（CSV）、邮件模板预览、管理后台性能（code-splitting）
+   - 数据导入（CSV）、邮件模板预览、管理后台性能（code-splitting，Round 2 已完成懒加载）
 5. 工程：为新增组件补关键单测（导航标签映射、周序列补零、markdown 摘录、权限判断）。
 
 ---
