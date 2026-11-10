@@ -23,5 +23,11 @@
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.16",
     "vite": "^6.0.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jilespace/nexus-feedback.git",
+    "directory": "packages/submit-page"
   }
 }

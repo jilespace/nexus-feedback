@@ -35,5 +35,35 @@
     "eslint": "^9.16.0",
     "typescript-eslint": "^8.18.0",
     "@eslint/js": "^9.16.0"
+  },
+  "description": "面向开发者的开源用户反馈管理平台：多渠道收集、分类投票、公开看板、更新日志、通知中心与团队协作",
+  "license": "MIT",
+  "author": "Nexus Feedback contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jilespace/nexus-feedback.git"
+  },
+  "homepage": "https://feedback.fadai.xyz",
+  "bugs": {
+    "url": "https://github.com/jilespace/nexus-feedback/issues"
+  },
+  "keywords": [
+    "feedback",
+    "customer-feedback",
+    "feature-requests",
+    "roadmap",
+    "changelog",
+    "widget",
+    "saas",
+    "self-hosted",
+    "typescript",
+    "react",
+    "express",
+    "prisma",
+    "postgresql"
+  ],
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
   }
 }
