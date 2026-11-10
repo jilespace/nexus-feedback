@@ -152,6 +152,7 @@
     "project": "Project",
     "created": "Created",
     "contentHeading": "Content",
-    "repliesHeading": "Replies"
+    "repliesHeading": "Replies",
+    "attachmentsHeading": "Attachments"
   }
 }

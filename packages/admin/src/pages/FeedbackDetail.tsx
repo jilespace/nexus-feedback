@@ -168,10 +168,17 @@ export function FeedbackDetail() {
         time: formatTime(reply.created_at),
         content: reply.content,
       })),
+      // Mirrors the file links rendered in the attachments card: the server
+      // stores a relative URL, so an absolute one is built for sharing.
+      attachments: data.attachments.map((attachment) => ({
+        name: attachment.filename,
+        url: `${window.location.origin}/api/v1/upload/files/${attachment.id}`,
+      })),
       link: window.location.href,
       headings: {
         content: t('markdown.contentHeading'),
         replies: t('markdown.repliesHeading'),
+        attachments: t('markdown.attachmentsHeading'),
       },
     });
 

@@ -152,6 +152,7 @@
     "project": "项目",
     "created": "创建时间",
     "contentHeading": "内容",
-    "repliesHeading": "回复"
+    "repliesHeading": "回复",
+    "attachmentsHeading": "附件"
   }
 }
