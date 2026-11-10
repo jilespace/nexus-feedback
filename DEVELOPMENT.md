@@ -677,6 +677,9 @@ headless Chrome 会在结束时优雅关闭并清理临时 profile。
 | `pnpm perf` | `--mode=dev`（默认） | 本地 Vite dev server（未压缩模块、按需编译） |
 | `pnpm perf:prod` | `--mode=preview` | `vite build` 产物 + Node 静态服务（文本 gzip）+ `/api` 代理 |
 
+> 生产口径性能基线记录见 [docs/PERF_BASELINE.md](docs/PERF_BASELINE.md)：环境、方法、结果表、阈值对比、
+> dev 口径差异、已知限制与复跑命令。脚本输出报告写入 `.tools/perf/`（gitignored，不入库）。
+
 两种口径的绝对值不可直接比较，各自用于页面对比与回归趋势；dev 口径偏高属预期。
 
 ### 前置条件
