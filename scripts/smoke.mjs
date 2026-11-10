@@ -24,6 +24,8 @@ import { checkPublicSubscription } from './smoke/checks/subscribe.mjs';
 import { checkProjectMute } from './smoke/checks/muted-projects.mjs';
 import { checkA11yAdmin, checkA11yPublic } from './smoke/checks/a11y.mjs';
 import { checkMobile } from './smoke/checks/mobile.mjs';
+import { checkNotificationTypeFilter } from './smoke/checks/notification-types.mjs';
+import { checkBoardSubscriptionUi } from './smoke/checks/board-subscription.mjs';
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
@@ -62,6 +64,8 @@ async function main() {
     await checkA11yAdmin(page, options, context);
     await checkA11yPublic(page, options);
     await checkMobile(page, options, context);
+    await checkNotificationTypeFilter(options, context);
+    await checkBoardSubscriptionUi(page, options);
   } catch (error) {
     pushFailure('环境初始化', error);
   } finally {
