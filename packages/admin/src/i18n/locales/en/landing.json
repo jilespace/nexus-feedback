@@ -1,0 +1,364 @@
+{
+  "langToggleLabel": "ZH",
+  "langToggleAria": "Switch to Chinese",
+  "skipLink": "Skip to main content",
+  "nav": {
+    "links": [
+      {
+        "href": "#capabilities",
+        "label": "Features"
+      },
+      {
+        "href": "#workflow",
+        "label": "How it works"
+      },
+      {
+        "href": "#start",
+        "label": "Get started"
+      }
+    ],
+    "github": "GitHub",
+    "cta": "Open dashboard",
+    "homeAria": "Nexus Feedback home",
+    "navAria": "Page navigation"
+  },
+  "hero": {
+    "badge": "Open source · Self-hostable · v2.0",
+    "titleA": "Listen to your users",
+    "titleB": "Ship what matters",
+    "lede": "Nexus Feedback brings the widget, submit page and public board into one inbox — classify, vote, assign and move status so every request is seen and answered.",
+    "ctaPrimary": "Start for free",
+    "ctaSecondary": "View source",
+    "proofStrong": "50+ teams",
+    "proofText": "collect product feedback with it",
+    "proofInitials": [
+      "L",
+      "C",
+      "Z",
+      "W"
+    ]
+  },
+  "mock": {
+    "aria": "Nexus Feedback dashboard preview: overview, trend chart and latest feedback",
+    "url": "app.nexus-feedback.dev/dashboard",
+    "sidebarName": "Nexus",
+    "sidebarNav": [
+      "Overview",
+      "Feedback",
+      "Changelog",
+      "Team",
+      "Tags"
+    ],
+    "userName": "admin",
+    "userRole": "Owner",
+    "newProject": "New project",
+    "pageTitle": "Overview",
+    "pageSub": "Last 30 days · Demo workspace",
+    "chartTitle": "Feedback trend",
+    "legendNew": "New",
+    "legendSolved": "Resolved",
+    "kpis": [
+      {
+        "label": "Total feedback",
+        "value": "2,847",
+        "tone": "brand"
+      },
+      {
+        "label": "Open",
+        "value": "128",
+        "tone": "amber"
+      },
+      {
+        "label": "Resolved",
+        "value": "2,103",
+        "tone": "success"
+      },
+      {
+        "label": "Avg. response",
+        "value": "4.2h",
+        "tone": ""
+      }
+    ],
+    "rows": [
+      {
+        "title": "Dark mode support",
+        "source": "Widget",
+        "votes": 234,
+        "status": "In progress",
+        "tone": "info",
+        "dot": "var(--lp-info)"
+      },
+      {
+        "title": "CSV export support",
+        "source": "Submit",
+        "votes": 189,
+        "status": "Open",
+        "tone": "amber",
+        "dot": "var(--lp-amber)"
+      },
+      {
+        "title": "Mobile filters cover the list",
+        "source": "Board",
+        "votes": 156,
+        "status": "Resolved",
+        "tone": "success",
+        "dot": "var(--lp-success)"
+      }
+    ],
+    "floatInbox": {
+      "label": "New feedback · Widget",
+      "title": "Dark mode support",
+      "votes": "▲ 234 votes",
+      "status": "In progress"
+    },
+    "floatStat": {
+      "label": "First response",
+      "value": "1.8h",
+      "delta": "↓ 32% vs last week"
+    }
+  },
+  "metricsAria": "Product metrics",
+  "metrics": [
+    {
+      "value": "10K+",
+      "label": "Feedback collected",
+      "note": "Across widget, submit page and public board"
+    },
+    {
+      "value": "99.9%",
+      "label": "Uptime",
+      "note": "12-month rolling average"
+    },
+    {
+      "value": "<2h",
+      "label": "First response",
+      "note": "Median after team assignment"
+    },
+    {
+      "value": "50+",
+      "label": "Teams using it",
+      "note": "From startups to enterprise teams"
+    }
+  ],
+  "trust": [
+    "MIT licensed",
+    "Fully self-hostable",
+    "Data stays on your infrastructure"
+  ],
+  "capabilities": {
+    "kicker": "Capabilities",
+    "title": "From intake to reply, one connected loop",
+    "desc": "Not just another form tool: collect, triage, rank and respond in one place, with every step on the record.",
+    "link": "See how it works",
+    "inbox": {
+      "title": "One unified inbox",
+      "desc": "Feedback from the widget, submit page, public board and API lands in one list — source, category, status and owner at a glance.",
+      "rows": [
+        {
+          "title": "Dark mode support",
+          "source": "Widget",
+          "votes": 234,
+          "status": "In progress",
+          "tone": "info",
+          "dot": "var(--lp-info)"
+        },
+        {
+          "title": "CSV export support",
+          "source": "Submit",
+          "votes": 189,
+          "status": "Open",
+          "tone": "amber",
+          "dot": "var(--lp-amber)"
+        },
+        {
+          "title": "Mobile filters cover the list",
+          "source": "Board",
+          "votes": 156,
+          "status": "Resolved",
+          "tone": "success",
+          "dot": "var(--lp-success)"
+        },
+        {
+          "title": "Custom retry policy for webhooks",
+          "source": "API",
+          "votes": 97,
+          "status": "In progress",
+          "tone": "info",
+          "dot": "var(--lp-violet)"
+        },
+        {
+          "title": "Comments on the public roadmap",
+          "source": "Board",
+          "votes": 64,
+          "status": "Open",
+          "tone": "amber",
+          "dot": "var(--lp-info)"
+        }
+      ],
+      "footTemplate": "{{count}} items in total",
+      "footCount": "2,847",
+      "footAction": "View all →"
+    },
+    "insight": {
+      "title": "Live insight",
+      "desc": "Vote trends, source mix and first response time measured with the same metric set.",
+      "label": "New this week",
+      "value": "386",
+      "delta": "↑ 18.4%",
+      "distTitle": "Source mix",
+      "dist": [
+        {
+          "label": "Widget",
+          "pct": 46,
+          "color": "var(--lp-brand)"
+        },
+        {
+          "label": "Submit page",
+          "pct": 32,
+          "color": "var(--lp-amber)"
+        },
+        {
+          "label": "Public board",
+          "pct": 22,
+          "color": "var(--lp-info)"
+        }
+      ]
+    },
+    "collab": {
+      "title": "Team collaboration",
+      "desc": "Assign owners, add internal notes and move status in bulk — every request keeps its history.",
+      "rows": [
+        {
+          "initial": "L",
+          "name": "Lin Ke",
+          "role": "Product · Owner",
+          "note": "Assigned",
+          "color": "#3d5afe"
+        },
+        {
+          "initial": "C",
+          "name": "Chen Mo",
+          "role": "Design · Note",
+          "note": "Planned Q4",
+          "color": "#f59e0b"
+        },
+        {
+          "initial": "Z",
+          "name": "Zhou Ran",
+          "role": "Eng · Status",
+          "note": "In progress",
+          "color": "#10b981"
+        }
+      ]
+    },
+    "security": {
+      "title": "Open and secure",
+      "desc": "Embed with a single script tag; signed webhooks, tenant isolation and a full audit log keep data in your hands.",
+      "comment": "<!-- One script tag embeds the widget -->",
+      "tags": [
+        "Self-hosted",
+        "Webhook HMAC",
+        "Audit log",
+        "SSO"
+      ]
+    }
+  },
+  "workflow": {
+    "kicker": "How it works",
+    "title": "Three steps from feedback to roadmap",
+    "desc": "Connect, triage, respond — teams can start right away without migrating history.",
+    "steps": [
+      {
+        "no": "01",
+        "title": "Collect",
+        "desc": "Drop one script tag into your site, or share the public submit page and board link. The widget inherits your brand color and language.",
+        "meta": "≈ 5 min to connect"
+      },
+      {
+        "no": "02",
+        "title": "Triage",
+        "desc": "Filter by votes, category and priority, merge duplicates in bulk, and turn raw user words into a decision-ready list.",
+        "meta": "Auto dedupe & classify"
+      },
+      {
+        "no": "03",
+        "title": "Close the loop",
+        "desc": "Status changes, internal notes and the changelog tell the user their request was accepted, scheduled and shipped.",
+        "meta": "Fully traceable"
+      }
+    ],
+    "foot": "One script tag to connect — no data migration needed",
+    "link": "Read the deployment docs"
+  },
+  "cta": {
+    "kicker": "Get started",
+    "title": "Let the next piece of feedback land in your inbox",
+    "desc": "Open source and free. Deploy in minutes, self-host if you like — the data and the brand stay yours.",
+    "primary": "Open dashboard",
+    "secondary": "GitHub",
+    "note": "MIT License · One-click Docker deploy · No credit card"
+  },
+  "footer": {
+    "brandDesc": "Open-source feedback management: collect, triage and respond, so user voices shape the product.",
+    "status": "Open source · Self-hostable · MIT License",
+    "columns": [
+      {
+        "title": "Product",
+        "links": [
+          {
+            "label": "Features",
+            "href": "#capabilities"
+          },
+          {
+            "label": "How it works",
+            "href": "#workflow"
+          },
+          {
+            "label": "Open dashboard",
+            "href": "/dashboard"
+          }
+        ]
+      },
+      {
+        "title": "Resources",
+        "links": [
+          {
+            "label": "GitHub repo",
+            "href": "https://github.com/nexus-feedback/nexus-feedback"
+          },
+          {
+            "label": "Deployment docs",
+            "href": "https://github.com/nexus-feedback/nexus-feedback"
+          },
+          {
+            "label": "Release notes",
+            "href": "https://github.com/nexus-feedback/nexus-feedback/releases"
+          }
+        ]
+      },
+      {
+        "title": "Project",
+        "links": [
+          {
+            "label": "License",
+            "href": "https://github.com/nexus-feedback/nexus-feedback/blob/main/LICENSE"
+          },
+          {
+            "label": "Issues",
+            "href": "https://github.com/nexus-feedback/nexus-feedback/issues"
+          },
+          {
+            "label": "Security",
+            "href": "https://github.com/nexus-feedback/nexus-feedback/blob/main/SECURITY.md"
+          }
+        ]
+      }
+    ],
+    "copyright": "© 2026 Nexus Feedback · Open-source feedback platform",
+    "tags": [
+      "v2.0.0",
+      "MIT License",
+      "Made for product teams"
+    ]
+  }
+}

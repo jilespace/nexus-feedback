@@ -18,6 +18,8 @@ import zhTeam from './locales/zh/team.json';
 import zhDetail from './locales/zh/detail.json';
 import enTeam from './locales/en/team.json';
 import enDetail from './locales/en/detail.json';
+import zhLanding from './locales/zh/landing.json';
+import enLanding from './locales/en/landing.json';
 
 i18n.use(initReactI18next).init({
   resources: {
@@ -31,6 +33,7 @@ i18n.use(initReactI18next).init({
       content: zhContent,
       team: zhTeam,
       detail: zhDetail,
+      landing: zhLanding,
     },
     en: {
       translation: en,
@@ -42,9 +45,10 @@ i18n.use(initReactI18next).init({
       content: enContent,
       team: enTeam,
       detail: enDetail,
+      landing: enLanding,
     },
   },
-  ns: ['translation'],
+  ns: ['translation', 'landing'],
   lng: localStorage.getItem('lang') || 'zh',
   fallbackLng: 'zh',
   interpolation: { escapeValue: false },

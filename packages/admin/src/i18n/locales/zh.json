@@ -50,7 +50,6 @@
     }
   },
   "login": {
-    "title": "Nexus Feedback",
     "subtitle": "组织管理后台",
     "tab_login": "登录",
     "tab_register": "注册新组织",
@@ -63,14 +62,10 @@
     "org_name": "组织名称",
     "slug_hint": "仅支持小写字母、数字和连字符",
     "display_name": "显示名称",
-    "password_hint": "至少 6 个字符",
     "register_btn": "注册并登录",
     "registering": "注册中...",
-    "register_success": "注册成功！正在为您登录...",
     "login_failed": "登录失败",
     "register_failed": "注册失败",
-    "forgot_slug": "组织标识",
-    "forgot_email": "邮箱",
     "forgot_btn": "发送重置链接",
     "forgot_sending": "发送中...",
     "forgot_sent": "如果该邮箱已注册，重置链接已发送到您的邮箱。",
@@ -153,25 +148,10 @@
     "assigned_empty_desc": "在反馈详情页指派负责人后，会出现在这里",
     "system_actor": "系统"
   },
-  "detail": {
-    "internal_notes": "内部备注",
-    "status_history": "状态历史",
-    "replies": "回复",
-    "merge_into": "合并到",
-    "comments": "评论"
-  },
   "members": {
-    "title": "团队成员",
-    "invite": "邀请成员",
     "role_owner": "所有者",
     "role_admin": "管理员",
-    "role_member": "成员",
-    "remove": "移除"
-  },
-  "tags": {
-    "title": "标签管理",
-    "create": "创建标签",
-    "delete": "删除标签"
+    "role_member": "成员"
   },
   "palette": {
     "placeholder": "搜索反馈、页面或执行操作…",

@@ -50,7 +50,6 @@
     }
   },
   "login": {
-    "title": "Nexus Feedback",
     "subtitle": "Organization Admin",
     "tab_login": "Login",
     "tab_register": "Register Org",
@@ -63,14 +62,10 @@
     "org_name": "Organization Name",
     "slug_hint": "Only lowercase letters, numbers and hyphens",
     "display_name": "Display Name",
-    "password_hint": "At least 6 characters",
     "register_btn": "Register & Login",
     "registering": "Registering...",
-    "register_success": "Registered! Logging you in...",
     "login_failed": "Login failed",
     "register_failed": "Registration failed",
-    "forgot_slug": "Org Slug",
-    "forgot_email": "Email",
     "forgot_btn": "Send Reset Link",
     "forgot_sending": "Sending...",
     "forgot_sent": "If the email is registered, a reset link has been sent.",
@@ -153,25 +148,10 @@
     "assigned_empty_desc": "Assign an owner from a feedback detail page and it will show up here",
     "system_actor": "System"
   },
-  "detail": {
-    "internal_notes": "Internal Notes",
-    "status_history": "Status History",
-    "replies": "Replies",
-    "merge_into": "Merge Into",
-    "comments": "Comments"
-  },
   "members": {
-    "title": "Team Members",
-    "invite": "Invite Member",
     "role_owner": "Owner",
     "role_admin": "Admin",
-    "role_member": "Member",
-    "remove": "Remove"
-  },
-  "tags": {
-    "title": "Tag Management",
-    "create": "Create Tag",
-    "delete": "Delete Tag"
+    "role_member": "Member"
   },
   "palette": {
     "placeholder": "Search feedback, pages or run an action…",

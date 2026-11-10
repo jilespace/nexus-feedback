@@ -1,0 +1,364 @@
+{
+  "langToggleLabel": "EN",
+  "langToggleAria": "切换到英文",
+  "skipLink": "跳到主要内容",
+  "nav": {
+    "links": [
+      {
+        "href": "#capabilities",
+        "label": "核心能力"
+      },
+      {
+        "href": "#workflow",
+        "label": "使用流程"
+      },
+      {
+        "href": "#start",
+        "label": "开始使用"
+      }
+    ],
+    "github": "GitHub",
+    "cta": "进入控制台",
+    "homeAria": "Nexus Feedback 首页",
+    "navAria": "页面导航"
+  },
+  "hero": {
+    "badge": "开源 · 可自托管 · v2.0",
+    "titleA": "倾听用户声音",
+    "titleB": "驱动产品进化",
+    "lede": "把 Widget、提交页和公开看板的反馈收进一条收件箱：分类、投票、指派与状态流转，让每一条建议都被看见、被回应。",
+    "ctaPrimary": "免费开始使用",
+    "ctaSecondary": "查看源代码",
+    "proofStrong": "50+ 团队",
+    "proofText": "正在用它收集产品反馈",
+    "proofInitials": [
+      "林",
+      "陈",
+      "周",
+      "赵"
+    ]
+  },
+  "mock": {
+    "aria": "Nexus Feedback 控制台预览：反馈概览、趋势图与最新反馈列表",
+    "url": "app.nexus-feedback.dev/dashboard",
+    "sidebarName": "Nexus",
+    "sidebarNav": [
+      "概览",
+      "反馈列表",
+      "更新日志",
+      "团队成员",
+      "标签管理"
+    ],
+    "userName": "admin",
+    "userRole": "所有者",
+    "newProject": "新建项目",
+    "pageTitle": "概览",
+    "pageSub": "近 30 天 · Demo 工作区",
+    "chartTitle": "反馈趋势",
+    "legendNew": "新增",
+    "legendSolved": "已解决",
+    "kpis": [
+      {
+        "label": "总反馈",
+        "value": "2,847",
+        "tone": "brand"
+      },
+      {
+        "label": "待处理",
+        "value": "128",
+        "tone": "amber"
+      },
+      {
+        "label": "已解决",
+        "value": "2,103",
+        "tone": "success"
+      },
+      {
+        "label": "平均响应",
+        "value": "4.2h",
+        "tone": ""
+      }
+    ],
+    "rows": [
+      {
+        "title": "希望支持深色模式",
+        "source": "Widget",
+        "votes": 234,
+        "status": "处理中",
+        "tone": "info",
+        "dot": "var(--lp-info)"
+      },
+      {
+        "title": "导出功能需要支持 CSV",
+        "source": "提交页",
+        "votes": 189,
+        "status": "待处理",
+        "tone": "amber",
+        "dot": "var(--lp-amber)"
+      },
+      {
+        "title": "移动端筛选器遮挡列表",
+        "source": "看板",
+        "votes": 156,
+        "status": "已解决",
+        "tone": "success",
+        "dot": "var(--lp-success)"
+      }
+    ],
+    "floatInbox": {
+      "label": "新反馈 · Widget",
+      "title": "希望支持深色模式",
+      "votes": "▲ 234 票",
+      "status": "处理中"
+    },
+    "floatStat": {
+      "label": "首次响应",
+      "value": "1.8h",
+      "delta": "↓ 32% 较上周"
+    }
+  },
+  "metricsAria": "产品数据",
+  "metrics": [
+    {
+      "value": "10K+",
+      "label": "已收集反馈",
+      "note": "覆盖 Widget、提交页与公开看板"
+    },
+    {
+      "value": "99.9%",
+      "label": "运行稳定性",
+      "note": "近 12 个月平均可用性"
+    },
+    {
+      "value": "<2h",
+      "label": "平均首次响应",
+      "note": "接入团队协作后的响应中位数"
+    },
+    {
+      "value": "50+",
+      "label": "团队正在使用",
+      "note": "从初创团队到企业客户"
+    }
+  ],
+  "trust": [
+    "MIT 开源许可",
+    "完全自托管部署",
+    "数据留在自有基础设施"
+  ],
+  "capabilities": {
+    "kicker": "核心能力",
+    "title": "从收到，到回应，一条完整链路",
+    "desc": "不是又一个表单收集工具：收集、整理、排序与回应发生在同一处，每条反馈的处理过程都留痕。",
+    "link": "查看工作流程",
+    "inbox": {
+      "title": "统一收件箱",
+      "desc": "Widget、提交页、公开看板与 API 的反馈汇入同一列表；来源、分类、状态与负责人一眼可见。",
+      "rows": [
+        {
+          "title": "希望支持深色模式",
+          "source": "Widget",
+          "votes": 234,
+          "status": "处理中",
+          "tone": "info",
+          "dot": "var(--lp-info)"
+        },
+        {
+          "title": "导出功能需要支持 CSV",
+          "source": "提交页",
+          "votes": 189,
+          "status": "待处理",
+          "tone": "amber",
+          "dot": "var(--lp-amber)"
+        },
+        {
+          "title": "移动端筛选器遮挡列表",
+          "source": "看板",
+          "votes": 156,
+          "status": "已解决",
+          "tone": "success",
+          "dot": "var(--lp-success)"
+        },
+        {
+          "title": "Webhook 支持自定义重试策略",
+          "source": "API",
+          "votes": 97,
+          "status": "处理中",
+          "tone": "info",
+          "dot": "var(--lp-violet)"
+        },
+        {
+          "title": "公开路线图支持评论",
+          "source": "看板",
+          "votes": 64,
+          "status": "待处理",
+          "tone": "amber",
+          "dot": "var(--lp-info)"
+        }
+      ],
+      "footTemplate": "共 {{count}} 条反馈",
+      "footCount": "2,847",
+      "footAction": "查看全部 →"
+    },
+    "insight": {
+      "title": "实时洞察",
+      "desc": "投票趋势、来源分布与首次响应时间，用同一套指标衡量团队响应的质量。",
+      "label": "本周新增反馈",
+      "value": "386",
+      "delta": "↑ 18.4%",
+      "distTitle": "来源分布",
+      "dist": [
+        {
+          "label": "Widget",
+          "pct": 46,
+          "color": "var(--lp-brand)"
+        },
+        {
+          "label": "提交页",
+          "pct": 32,
+          "color": "var(--lp-amber)"
+        },
+        {
+          "label": "公开看板",
+          "pct": 22,
+          "color": "var(--lp-info)"
+        }
+      ]
+    },
+    "collab": {
+      "title": "团队协作",
+      "desc": "指派负责人、追加内部备注、批量流转状态，每条反馈的处理过程都有记录。",
+      "rows": [
+        {
+          "initial": "林",
+          "name": "林可",
+          "role": "产品 · 负责人",
+          "note": "已分派",
+          "color": "#3d5afe"
+        },
+        {
+          "initial": "陈",
+          "name": "陈默",
+          "role": "设计 · 内部备注",
+          "note": "已排期 Q4",
+          "color": "#f59e0b"
+        },
+        {
+          "initial": "周",
+          "name": "周然",
+          "role": "工程 · 状态",
+          "note": "处理中",
+          "color": "#10b981"
+        }
+      ]
+    },
+    "security": {
+      "title": "开放与安全",
+      "desc": "一路脚本即可嵌入；Webhook HMAC 签名、多租户隔离与完整审计日志，数据始终在你手里。",
+      "comment": "<!-- 一行脚本接入 Widget -->",
+      "tags": [
+        "自托管部署",
+        "Webhook HMAC",
+        "审计日志",
+        "SSO 单点登录"
+      ]
+    }
+  },
+  "workflow": {
+    "kicker": "使用流程",
+    "title": "三步，把反馈变成路线图",
+    "desc": "接入、整理、回应：团队可以立刻开始，不需要迁移历史数据。",
+    "steps": [
+      {
+        "no": "01",
+        "title": "嵌入收集",
+        "desc": "在官网或产品内嵌入一行脚本，或直接分享公开提交页与看板链接。组件自动继承你的品牌色与语言。",
+        "meta": "≈ 5 分钟完成接入"
+      },
+      {
+        "no": "02",
+        "title": "整理排序",
+        "desc": "按投票、分类与优先级过滤，批量合并重复建议，把用户的原话沉淀为一份可决策的清单。",
+        "meta": "自动去重与分类"
+      },
+      {
+        "no": "03",
+        "title": "回应闭环",
+        "desc": "状态流转、内部备注与更新日志，让提出建议的用户知道它被采纳、被排期、被解决。",
+        "meta": "处理过程全程可追溯"
+      }
+    ],
+    "foot": "接入只需一行脚本，无需迁移历史数据",
+    "link": "阅读部署文档"
+  },
+  "cta": {
+    "kicker": "开始使用",
+    "title": "让下一条反馈，出现在你的收件箱里",
+    "desc": "开源免费，可自托管部署。几分钟内部署完成，数据与品牌都归你。",
+    "primary": "进入控制台",
+    "secondary": "GitHub",
+    "note": "MIT License · Docker 一键部署 · 无需信用卡"
+  },
+  "footer": {
+    "brandDesc": "开源的反馈管理平台：收集、整理、回应，让用户的声音真正进入产品决策。",
+    "status": "开源 · 可自托管 · MIT License",
+    "columns": [
+      {
+        "title": "产品",
+        "links": [
+          {
+            "label": "核心能力",
+            "href": "#capabilities"
+          },
+          {
+            "label": "使用流程",
+            "href": "#workflow"
+          },
+          {
+            "label": "进入控制台",
+            "href": "/dashboard"
+          }
+        ]
+      },
+      {
+        "title": "资源",
+        "links": [
+          {
+            "label": "GitHub 仓库",
+            "href": "https://github.com/nexus-feedback/nexus-feedback"
+          },
+          {
+            "label": "部署文档",
+            "href": "https://github.com/nexus-feedback/nexus-feedback"
+          },
+          {
+            "label": "发布日志",
+            "href": "https://github.com/nexus-feedback/nexus-feedback/releases"
+          }
+        ]
+      },
+      {
+        "title": "项目",
+        "links": [
+          {
+            "label": "开源许可",
+            "href": "https://github.com/nexus-feedback/nexus-feedback/blob/main/LICENSE"
+          },
+          {
+            "label": "问题反馈",
+            "href": "https://github.com/nexus-feedback/nexus-feedback/issues"
+          },
+          {
+            "label": "安全说明",
+            "href": "https://github.com/nexus-feedback/nexus-feedback/blob/main/SECURITY.md"
+          }
+        ]
+      }
+    ],
+    "copyright": "© 2026 Nexus Feedback · 开源的用户反馈管理平台",
+    "tags": [
+      "v2.0.0",
+      "MIT License",
+      "Made for product teams"
+    ]
+  }
+}

@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import '@fontsource-variable/instrument-sans/wght.css';
 import '@/styles/landing.css';
-import { BRAND_NAME, BRAND_SUB, EN_COPY, GITHUB_URL, ZH_COPY } from './landing/copy';
+import { BRAND_NAME, BRAND_SUB, GITHUB_URL, splitFootTemplate } from './landing/copy';
+import type { LandingCapabilitiesRaw, LandingCopy } from './landing/copy';
 import {
   ArrowRightIcon,
   ArrowUpRightIcon,
@@ -26,11 +27,34 @@ import {
 
 export function Landing() {
   const navigate = useNavigate();
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation('landing');
   const pageRef = useRef<HTMLDivElement>(null);
   useScrollReveal(pageRef);
 
-  const copy = i18n.language?.toLowerCase().startsWith('en') ? EN_COPY : ZH_COPY;
+  // Copy is read from the `landing` namespace on every render, so switching the
+  // language re-renders all text without a reload.
+  const capabilitiesRaw = t('capabilities', { returnObjects: true }) as unknown as LandingCapabilitiesRaw;
+  const copy: LandingCopy = {
+    langToggleLabel: t('langToggleLabel'),
+    langToggleAria: t('langToggleAria'),
+    skipLink: t('skipLink'),
+    nav: t('nav', { returnObjects: true }) as unknown as LandingCopy['nav'],
+    hero: t('hero', { returnObjects: true }) as unknown as LandingCopy['hero'],
+    mock: t('mock', { returnObjects: true }) as unknown as LandingCopy['mock'],
+    metricsAria: t('metricsAria'),
+    metrics: t('metrics', { returnObjects: true }) as unknown as LandingCopy['metrics'],
+    trust: t('trust', { returnObjects: true }) as unknown as LandingCopy['trust'],
+    capabilities: {
+      ...capabilitiesRaw,
+      inbox: {
+        ...capabilitiesRaw.inbox,
+        ...splitFootTemplate(capabilitiesRaw.inbox.footTemplate),
+      },
+    },
+    workflow: t('workflow', { returnObjects: true }) as unknown as LandingCopy['workflow'],
+    cta: t('cta', { returnObjects: true }) as unknown as LandingCopy['cta'],
+    footer: t('footer', { returnObjects: true }) as unknown as LandingCopy['footer'],
+  };
 
   const toggleLanguage = () => {
     const next = i18n.language?.toLowerCase().startsWith('en') ? 'zh' : 'en';
