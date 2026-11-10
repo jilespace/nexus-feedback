@@ -5,6 +5,56 @@
 
 ## 轮次记录
 
+### Round 20 — 2026-11-10（结构化通知 / 性能基线 / 键盘矩阵 / 质量门禁）
+
+**本轮完成（Lead + 4 个 teammate 并行）**
+- **通知内容结构化（teammate，全栈）**：`Notification.params` JSONB（第 14 个迁移，shadow 空库 deploy
+  验证无 drift）；四类通知写入结构化 params（created/assigned/status_changed/comment，title/body 保留
+  兜底）；新增客户端 helper 按 type+params 本地化渲染（面板/通知页统一，英文界面显示英文模板，
+  无 params/未知类型回退服务端文本）；3 条 service 测试。Lead 重启 API 并重新 `prisma generate`，
+  真实 API 复核 params 写入正确。
+- **生产口径性能基线（teammate）**：`pnpm build` + `pnpm perf:prod --runs=3` 运行两次；新增
+  `docs/PERF_BASELINE.md`（环境/方法/12 组合结果/阈值余量/dev 口径对比/稳定性/已知限制/复跑命令）；
+  12/12 PASS，FCP/LCP 最大 260ms、CLS 最大 0.001，传输 94–314KB；DEVELOPMENT §12 链接。
+- **a11y 键盘交互矩阵（teammate + Lead）**：`--interactions` 可配置矩阵扩展至 **11 场景**
+  （提交页 Tab 顺序、看板提交弹窗、命令面板/快捷键弹窗、反馈列表导入弹窗、详情编辑/合并弹窗、
+  通知清空弹窗、偏好 Switch）；新增共享 `useDialogFocus`（陷阱/Esc/焦点恢复/滚动锁）并接入
+  MergeDialog；Lead 修复保存视图 popover 焦点恢复 + 详情回复/指派/标签控件可访问名称 →
+  矩阵 9 PASS / 2 条件 SKIP / 0 FAIL，门禁 PASS。
+- **smoke 50 → 52（teammate）**：新增「已保存视图同步 API」（读写/非法 400/恢复原值）与
+  「退订 token 校验」（invalid/缺失 400）两项；期间发现并修复并行任务遗留的通知偏好 false 污染。
+- **质量门禁（Lead）**：根新增 `pnpm verify`（typecheck+lint+test+build）与 `pnpm verify:ui`
+  （smoke + 暗色 a11y 门禁 + 键盘交互门禁 + perf）；重写 `docs/TESTING.md`（单测/冒烟/门禁/清理约定/
+  a11y/性能/错误码验收），README 增加质量与验证章节；新增 `a11y:interactions:check`。
+- 工程：重启 API 进程、`prisma generate` 干净生成、`migrate status` 14 个迁移 up to date；清理测试
+  通知/反馈，通知偏好恢复全 true。
+
+**验证**
+- `pnpm verify` ✅（typecheck + lint + test + build 全通过）、`pnpm test` **331/331**
+  （server 293 + admin 30 + board 8）✅、`pnpm smoke` **52/52 PASS**（41.8s）✅、
+  `pnpm a11y:check` / `a11y:check:themes` 均 PASS（medium 门禁，亮/暗全 0）✅、
+  `pnpm a11y:interactions:check` PASS（11 场景 9 PASS / 2 SKIP / 0 FAIL）✅、
+  `pnpm perf` **12/12 PASS** ✅、`migrate status` up to date ✅
+- CDP：4 类通知 zh/en 本地化渲染（含旧格式回退）、390 无溢出；合并弹窗焦点陷阱与恢复；
+  Saved-view popover Esc 后焦点回到触发按钮。
+
+**提交**：`e75a8a2`（质量门禁文档）、`50a6945`（性能基线文档）、`1b9eff0`（结构化通知）、
+`f9626ba`（smoke 52）、`b747e83`（键盘矩阵 + 焦点修复）
+
+**遗留 / 技术债**
+- assigned/comment 的 `actor_name` 需调用方传 actorId（services 未在本轮范围），补传后自动生效。
+- 交互矩阵中 notifications 清空弹窗/偏好 Switch 依赖数据存在，为空时条件 SKIP。
+- 详情页旧格式通知（无 params）在英文界面回退中文内容（兼容策略，历史数据可后续迁移）。
+- 生产基线为本机 loopback，部署后建议按文档复测。
+- admin CSS 体积、Landing chunk 仍有优化空间。
+
+**下一轮计划（Round 21）**
+1. 交互矩阵条件场景改为「造数据后必测」，消除 SKIP；把 `verify:ui` 纳入发布前 checklist 文档。
+2. 通知历史数据 params 回填脚本（可选用 type+title 推断）。
+3. 功能候选：看板反馈详情分享/复制链接、提交页草稿自动保存、公开看板 SEO 结构化数据增强。
+4. 性能：admin 首屏 CSS 拆分评估与字体加载策略。
+
+
 ### Round 19 — 2026-11-10（订阅邮件 / 视图同步 / 键盘交互 / 看板测试）
 
 **本轮完成（Lead + 4 个 teammate 并行）**
