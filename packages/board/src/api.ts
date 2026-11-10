@@ -12,18 +12,37 @@ import type {
   SubscribeType,
 } from './types';
 
-function getSlug(): string {
+export function getProjectSlug(): string {
   const path = window.location.pathname;
   const parts = path.split('/').filter(Boolean);
   return parts[0] || 'default';
 }
 
 function baseUrl(): string {
-  return `/api/v1/public/${getSlug()}`;
+  return `/api/v1/public/${getProjectSlug()}`;
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${baseUrl()}${path}`, {
+    headers: { 'Content-Type': 'application/json' },
+    ...options,
+  });
+  if (!res.ok) {
+    throw new Error(`请求失败: ${res.status}`);
+  }
+  const json = (await res.json()) as ApiResponse<T>;
+  if (json.code !== 0) {
+    throw new Error(json.message || '未知错误');
+  }
+  return json.data;
+}
+
+/** Request an endpoint that is not scoped under /public/:projectSlug. */
+async function requestAbsolute<T>(
+  path: string,
+  options?: RequestInit,
+): Promise<T> {
+  const res = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },
     ...options,
   });
@@ -121,6 +140,47 @@ export function subscribeToUpdates(body: {
     method: 'POST',
     body: JSON.stringify(body),
   });
+}
+
+export function unsubscribeFromUpdates(body: {
+  email: string;
+  project_id: string;
+  type: 'all';
+}): Promise<{ unsubscribed: boolean }> {
+  return requestAbsolute<{ unsubscribed: boolean }>(
+    '/api/v1/public/unsubscribe',
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+/**
+ * Resolve the project id needed by the public unsubscribe endpoint.
+ *
+ * The public board config only exposes the project name/slug today, so this
+ * falls back to the changelog payload (which still carries `project_id`) until
+ * the config endpoint exposes `project.id`. Returns null when neither source
+ * is available, in which case the card keeps the local subscription state.
+ */
+export async function resolveProjectIdForUnsubscribe(): Promise<string | null> {
+  try {
+    const config = await fetchBoardConfig();
+    const id = config.project?.id;
+    if (typeof id === 'string' && id) return id;
+  } catch {
+    /* fall back to the changelog payload */
+  }
+  try {
+    const entries = await fetchChangelog();
+    const id = entries.find(
+      (entry) => typeof entry.project_id === 'string' && entry.project_id,
+    )?.project_id;
+    return typeof id === 'string' && id ? id : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchProjectCategories(): Promise<ProjectCategory[]> {

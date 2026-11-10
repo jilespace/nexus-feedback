@@ -76,6 +76,8 @@ export interface ChangelogEntry {
   title: string;
   content: string;
   published_at: string;
+  /** Present on the public payload; used to resolve the project for opt-outs. */
+  project_id?: string;
 }
 
 export interface ProjectCategory {
@@ -90,8 +92,15 @@ export interface SubscribeResult {
   type: SubscribeType;
 }
 
+/** Local record of a board subscription, scoped by project slug. */
+export interface StoredBoardSubscription {
+  email: string;
+  type: SubscribeType;
+  projectId?: string;
+}
+
 export interface BoardConfig {
-  project: { name: string; slug: string };
+  project: { id?: string; name: string; slug: string };
   organization?: {
     name: string;
     logo_url?: string | null;
