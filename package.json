@@ -24,7 +24,10 @@
     "db:migrate": "pnpm --filter @nexus-feedback/server prisma:migrate",
     "db:seed": "pnpm --filter @nexus-feedback/server prisma:seed",
     "a11y:check:themes": "node scripts/a11y.mjs --theme=both --fail-on=medium",
-    "a11y:interactions": "node scripts/a11y.mjs --interactions"
+    "a11y:interactions": "node scripts/a11y.mjs --interactions",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build",
+    "verify:ui": "pnpm smoke && pnpm a11y:check:themes && pnpm a11y:interactions:check && pnpm perf",
+    "a11y:interactions:check": "node scripts/a11y.mjs --interactions --fail-on=serious"
   },
   "devDependencies": {
     "typescript": "^5.7.0",
