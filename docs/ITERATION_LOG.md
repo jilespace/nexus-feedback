@@ -5,6 +5,50 @@
 
 ## 轮次记录
 
+### Round 17 — 2026-11-10（暗色 a11y / 订阅管理 / 类型过滤 / Landing 命名空间）
+
+**本轮完成（Lead + 4 个 teammate 并行）**
+- **a11y 暗色审计（teammate）**：脚本新增 `--theme=light|dark|both`（主题注入+校验+兜底、按页面×
+  主题分组、暗色专属问题表、门禁逐主题）；基线发现 admin 暗色 **48 严重 / 72 中等**（二级文字
+  `text-gray-300/400/600` 在暗底 2.34–3.67:1）。Lead 修复：`html.dark` 强制 gray 文本为 #9ca3af
+  → 暗色 **严重 48 → 0**，剩余 4 处中等为图表图例；新增 `pnpm a11y:check:themes`
+  （both + serious 门禁）PASS；亮色门禁仍 0/0/0。顺带修复通知「清空全部」按钮对比度 4.38→AA。
+- **看板订阅管理（teammate）**：订阅成功持久化 `{email,type}`（按项目 localStorage），刷新仍显示
+  已订阅态；退订按钮调公开 unsubscribe → 恢复表单 + 本地清除；失败保留状态；服务端 `/public/config`
+  补充 `project.id`（Lead）使用户无 changelog 时退订也可用；a11y/zh/en/暗色/390。
+- **通知按类型过滤（teammate）**：`GET /org/notifications?type=`（校验 400、列表与 total 同步），
+  前端类型 chips 与全部/未读叠加、切换回第 1 页、类型空态；4 条 service 测试。
+- **Landing 命名空间迁移 + 主 locale 清理（teammate）**：新增 `landing` 命名空间（每语言 222 叶子值），
+  Landing 改 `useTranslation('landing')`，`copy.ts` 474→127 行；删除主 locale 16 个可证明无引用的
+  冗余 key；innerText 逐字一致、语言切换无刷新。
+- **更新日志深链（Lead）**：详情页「关联更新日志」条目可跳转 `/changelog?highlight=<id>`，
+  更新日志页滚动定位并高亮该条目。
+
+**验证**
+- `pnpm typecheck` ✅、`pnpm test` **294/294**（server 264 + admin 30）✅、`pnpm build` 5 包 ✅、
+  `pnpm lint` 0 error ✅、`pnpm smoke` **45/45 PASS**（35.1s）✅、
+  `pnpm a11y:check` PASS（亮色 0/0/0，medium 门禁）✅、`pnpm a11y:check:themes` PASS
+  （暗色 0 严重）✅、`pnpm perf` **12/12 PASS** ✅
+- CDP：订阅→刷新已订阅→退订→偏好清理；通知类型 chips 与未读叠加计数；Landing 迁移前后 innerText
+  逐字相等；更新日志深链高亮与滚动。
+
+**提交**：`de32067`（类型过滤）、`afc8fea`（暗色 a11y + themes 门禁）、`878e407`（config project id）、
+`84b4795`（Landing 命名空间 + locale 清理）、`5b47dd4`（订阅管理）、`057a897`（更新日志深链）
+
+**遗留 / 技术债**
+- 暗色仍有 4 处中等（recharts 图表图例 SVG 文本内联色），暂未纳入门禁；可后续按图表换主题色。
+- 订阅仍不发确认邮件；退订依赖 localStorage 记录（换设备后需邮件退订）。
+- 类型过滤时 `unread_count` 为全量未读（设计如此）；通知内容仍服务端中文。
+- 主 locale 仍有少量历史 key 可继续清理；Landing 命名空间已就绪。
+
+**下一轮计划（Round 18）**
+1. 图标/图例暗色对比度收尾（recharts legend、状态点）→ `a11y:check:themes` 提升到 medium 门禁。
+2. 功能候选：通知「全部标为已读」按类型过滤后行为、公开端订阅邮件确认（可选）、
+   看板路线图筛选 URL 同步（与首页一致）。
+3. 质量：smoke 增加订阅管理/类型过滤 UI 检查；server 错误码文档化。
+4. 性能：admin index CSS 拆分（~79KB）评估。
+
+
 ### Round 16 — 2026-11-10（a11y 全清零 / 可分享筛选 / Markdown 附件）
 
 **本轮完成（Lead + 3 个 teammate 并行）**
