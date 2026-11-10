@@ -284,16 +284,17 @@ pnpm db:seed     # 填充测试数据
 
 ## 质量与验证
 
-`ash
+```bash
 pnpm verify      # typecheck + lint + 单元测试 + 构建
 pnpm verify:ui   # smoke(52) + a11y 亮暗门禁 + 键盘交互 + 性能采样
-`
+```
 
 - 单测：server / admin / board（纯函数与 i18n parity）
 - 冒烟：公开端与后台端到端、API 契约、写操作链路（全部自清理）
 - 无障碍：亮/暗对比度、可访问名称、Tab 顺序、焦点陷阱（见 docs/TESTING.md）
 - 性能：dev 口径指标与生产口径基线（见 docs/PERF_BASELINE.md）
 - 错误码：docs/ERRORS.md
+
 ## License
 
 MIT

@@ -2,10 +2,15 @@
 
 ## 现状
 
-`packages/server/prisma/migrations` 中的迁移历史与 `schema.prisma` 已对齐。当前共 12 个迁移，
-`prisma migrate status` 在本机数据库上输出 **Database schema is up to date!**，
-并且已验证：空数据库从零执行 `prisma migrate deploy` 可以完整建出与 `schema.prisma`
-一致的库（无 drift）。
+`packages/server/prisma/migrations` 中的迁移历史与 `schema.prisma` 已对齐。当前共 **14** 个迁移
+（最新为 `20261110110000_notification_params`），`prisma migrate status` 在本机数据库上输出
+**Database schema is up to date!**，并且已验证：空数据库从零执行 `prisma migrate deploy`
+可以完整建出与 `schema.prisma` 一致的库（无 drift）。
+
+> 升级已部署环境时请使用 `prisma migrate deploy`（只执行未记录迁移）。
+> 若线上库是早期 `db push` 演进而来、`20261110040000_baseline_sync` 处于 pending，
+> 需先确认相关列已存在，再 `prisma migrate resolve --applied 20261110040000_baseline_sync`；
+> 详细步骤见 [DEPLOYMENT.md](./DEPLOYMENT.md) 的「升级已部署环境」。
 
 ### 历史说明
 
