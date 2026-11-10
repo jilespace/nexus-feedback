@@ -98,33 +98,51 @@ export function Changelog({ projectName }: { projectName: string }) {
             className="absolute bottom-2 left-[5px] top-2 w-px bg-line-subtle md:left-[148px]"
             aria-hidden="true"
           />
-          <div className="space-y-8 md:space-y-10">
-            {entries.map((entry) => (
-              <article
-                key={entry.id}
-                id={`changelog-${entry.id}`}
-                className="relative scroll-mt-20 pl-6 md:grid md:grid-cols-[132px_1fr] md:gap-8 md:pl-0"
-              >
-                <span
-                  className="absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-brand bg-surface md:left-[143px] md:top-[9px]"
-                  aria-hidden="true"
-                />
-                <time
-                  dateTime={entry.published_at}
-                  className="block text-12 font-medium text-ink-tertiary md:pt-1.5 md:text-right"
+          <div className="space-y-6 md:space-y-10">
+            {entries.map((entry) => {
+              const isPublished = entry.published !== false;
+              return (
+                <article
+                  key={entry.id}
+                  id={`changelog-${entry.id}`}
+                  className="relative scroll-mt-20 pl-6 md:grid md:grid-cols-[132px_1fr] md:gap-8 md:pl-0"
                 >
-                  {formatDate(entry.published_at, i18n.language)}
-                </time>
-                <div className="card mt-2 p-4 sm:p-5 md:mt-0">
-                  <h2 className="text-16 font-semibold leading-snug text-ink">
-                    {entry.title}
-                  </h2>
-                  <div className="mt-2">
-                    <Markdown content={entry.content} />
+                  <span
+                    className="absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-brand bg-surface md:left-[143px] md:top-[9px]"
+                    aria-hidden="true"
+                  />
+                  <time
+                    dateTime={entry.published_at}
+                    className="block text-12 font-medium text-ink-tertiary md:pt-1.5 md:text-right"
+                  >
+                    {formatDate(entry.published_at, i18n.language)}
+                  </time>
+                  <div className="card mt-2 p-4 sm:p-5 md:mt-0">
+                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+                      <h2 className="text-16 font-semibold leading-snug text-ink">
+                        {entry.title}
+                      </h2>
+                      <span
+                        className={`inline-flex shrink-0 items-center gap-1.5 rounded-pill border border-line-subtle bg-surface-subtle px-2 py-[3px] text-11 font-medium ${
+                          isPublished ? 'text-ink-secondary' : 'text-ink-tertiary'
+                        }`}
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${isPublished ? 'bg-success' : 'bg-ink-tertiary'}`}
+                          aria-hidden="true"
+                        />
+                        {isPublished
+                          ? t('changelog.published')
+                          : t('changelog.draft')}
+                      </span>
+                    </div>
+                    <div className="mt-2.5">
+                      <Markdown content={entry.content} />
+                    </div>
                   </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         </div>
       )}

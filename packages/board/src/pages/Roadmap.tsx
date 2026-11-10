@@ -7,7 +7,7 @@ import { statusLabel } from '../lib/labels';
 import { usePageMeta } from '../lib/meta';
 import { PageHeader } from '../components/PageHeader';
 import { CategoryPill, CountBadge } from '../components/Badges';
-import { ArrowUpIcon, LayersIcon } from '../components/Icons';
+import { ArrowUpIcon, ChevronRightIcon, LayersIcon } from '../components/Icons';
 import { EmptyState, ErrorState, RoadmapSkeleton } from '../components/States';
 
 interface ColumnView {
@@ -128,38 +128,46 @@ export function Roadmap({ projectName }: { projectName: string }) {
           description={t('roadmap.emptyDescription')}
         />
       ) : (
-        <div className={`grid grid-cols-1 gap-4 md:gap-5 ${gridClass}`}>
-          {columns.map((column) => (
-            <section
-              key={column.key}
-              className="min-w-0 rounded-card border border-line-subtle bg-surface-subtle/60 p-2.5 sm:p-3"
-              aria-label={column.label}
-            >
-              <header className="flex items-center gap-2 px-1 pb-2.5 pt-0.5">
-                <span
-                  className="h-2 w-2 shrink-0 rounded-full"
-                  style={{ backgroundColor: column.color }}
-                  aria-hidden="true"
-                />
-                <h2 className="text-13 font-semibold text-ink">{column.label}</h2>
-                <CountBadge>{column.items.length}</CountBadge>
-              </header>
-              <div className="space-y-2.5">
-                {column.items.map((item) => (
-                  <RoadmapCard
-                    key={item.id}
-                    item={item}
-                    to={`${base}/feedback/${item.id}`}
+        <div>
+          <p className="mb-2 flex items-center gap-1.5 text-11 text-ink-tertiary md:hidden">
+            <ChevronRightIcon className="h-3 w-3" aria-hidden="true" />
+            {t('roadmap.swipeHint')}
+          </p>
+          <div
+            className={`relative -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 md:mx-0 md:grid md:gap-5 md:overflow-visible md:px-0 md:pb-0 ${gridClass}`}
+          >
+            {columns.map((column) => (
+              <section
+                key={column.key}
+                className="w-[85vw] max-w-[320px] shrink-0 snap-start rounded-card border border-line-subtle bg-surface-subtle/60 md:w-auto md:max-w-none"
+                aria-label={column.label}
+              >
+                <header className="flex items-center gap-2 rounded-t-card border-b border-line-subtle bg-surface-subtle px-3.5 py-2.5 md:sticky md:top-14 md:z-10">
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: column.color }}
+                    aria-hidden="true"
                   />
-                ))}
-                {column.items.length === 0 && (
-                  <p className="rounded-control border border-dashed border-line-strong/60 px-3 py-8 text-center text-12 text-ink-tertiary">
-                    {t('roadmap.emptyColumn')}
-                  </p>
-                )}
-              </div>
-            </section>
-          ))}
+                  <h2 className="text-13 font-semibold text-ink">{column.label}</h2>
+                  <CountBadge>{column.items.length}</CountBadge>
+                </header>
+                <div className="space-y-2.5 p-2.5">
+                  {column.items.map((item) => (
+                    <RoadmapCard
+                      key={item.id}
+                      item={item}
+                      to={`${base}/feedback/${item.id}`}
+                    />
+                  ))}
+                  {column.items.length === 0 && (
+                    <p className="rounded-control border border-dashed border-line-strong/60 px-3 py-8 text-center text-12 text-ink-tertiary">
+                      {t('roadmap.emptyColumn')}
+                    </p>
+                  )}
+                </div>
+              </section>
+            ))}
+          </div>
         </div>
       )}
     </div>

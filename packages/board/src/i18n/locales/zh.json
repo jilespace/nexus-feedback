@@ -125,13 +125,16 @@
     "emptyDescription": "被选中进入路线图的反馈会展示在这里。",
     "errorTitle": "路线图加载失败",
     "errorDescription": "请稍后重试。",
-    "skeletonLabel": "正在加载路线图"
+    "skeletonLabel": "正在加载路线图",
+    "swipeHint": "左右滑动查看各列"
   },
   "changelog": {
     "title": "更新日志",
     "subtitle": "看看我们最近发布的新功能与改进。",
     "emptyTitle": "还没有更新",
     "emptyDescription": "产品更新发布后会第一时间出现在这里。",
+    "published": "已发布",
+    "draft": "草稿",
     "errorTitle": "更新日志加载失败",
     "errorDescription": "请稍后重试。",
     "skeletonLabel": "正在加载更新日志"

@@ -76,6 +76,8 @@ export interface ChangelogEntry {
   title: string;
   content: string;
   published_at: string;
+  /** `false` only for drafts; the public endpoint normally returns published entries. */
+  published?: boolean;
   /** Present on the public payload; used to resolve the project for opt-outs. */
   project_id?: string;
 }

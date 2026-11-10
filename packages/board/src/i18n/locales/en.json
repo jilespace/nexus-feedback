@@ -125,13 +125,16 @@
     "emptyDescription": "Feedback selected for the roadmap will appear here.",
     "errorTitle": "Couldn't load the roadmap",
     "errorDescription": "Please try again later.",
-    "skeletonLabel": "Loading roadmap"
+    "skeletonLabel": "Loading roadmap",
+    "swipeHint": "Swipe to explore each column"
   },
   "changelog": {
     "title": "Changelog",
     "subtitle": "What we've shipped recently.",
     "emptyTitle": "No updates yet",
     "emptyDescription": "Product updates will appear here as soon as they are released.",
+    "published": "Published",
+    "draft": "Draft",
     "errorTitle": "Couldn't load the changelog",
     "errorDescription": "Please try again later.",
     "skeletonLabel": "Loading changelog"
