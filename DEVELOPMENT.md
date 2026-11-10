@@ -645,6 +645,11 @@ node scripts/smoke.mjs \
   DELETE 取消关联 → 列表确认移除；finally 兜底取消，避免残留关联。
 - **通知免打扰**：保存并修改 DND 为全天窗口 → 公开 API 创建反馈 → `unread-count` 保持不变 →
   非法时间（25:00）返回 400 且不写库；finally 恢复原 DND 并软删除测试反馈/通知。
+- **公开看板订阅**：临时邮箱 POST `public/:slug/subscribe`（weekly_digest）→ 幂等重复订阅 →
+  管理端偏好确认 `weekly_digest=true` → 退订 → DELETE 偏好并断言无残留（finally 兜底清理）。
+- **通知按项目静音**：保存原 `mutedProjects`/`dnd` → PUT 静音 demo 项目 → 公开创建反馈 →
+  `unread-count` 保持不变且无该标题通知 → 恢复原设置 → 非法负载（非数组）返回 400；
+  finally 恢复设置并软删除测试反馈/通知。
 - **无障碍基础**：后台 dashboard / feedback / notifications 与公开端 board 首页 / submit 页断言
   `html lang` 合法、`h1` 唯一、可见交互元素均有可访问名称（排除 `aria-hidden` 与 `tabindex=-1`）、
   `img` 均有 `alt`。
@@ -839,4 +844,3 @@ pnpm a11y:check                                   # CI 门禁：严重 0 才通�
 node scripts/a11y.mjs --fail-on=medium --max-medium=2 --only=admin-feedback
 node scripts/a11y.mjs --only=admin-login          # 单独看某页，不影响退出码
 ```
-
