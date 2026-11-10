@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
 import { apiRequest } from '@/api/client';
 import { Button } from '@/components/ui';
+import { useDialogFocus } from '@/components/useDialogFocus';
 import { StatusBadge } from '@/components/StatusBadge';
 import { useToast } from '@/components/Toast';
 import { SearchIcon } from '@/components/icons';
@@ -36,6 +37,7 @@ const SEARCH_QUERY_MIN_LENGTH = 2;
 export function MergeDialog({ feedbackId, onClose, onMerged }: MergeDialogProps) {
   const { t } = useTranslation('detail');
   const toast = useToast();
+  const dialogRef = useDialogFocus<HTMLDivElement>(onClose);
   const [search, setSearch] = useState('');
   const showSuggestions = search.trim().length < SEARCH_QUERY_MIN_LENGTH;
 
@@ -82,9 +84,11 @@ export function MergeDialog({ feedbackId, onClose, onMerged }: MergeDialogProps)
         onClick={onClose}
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="merge-dialog-title"
+        tabIndex={-1}
         className="relative z-10 w-full animate-fade-up rounded-t-2xl border border-surface-3 bg-surface-0 p-5 shadow-pop dark:border-gray-700 dark:bg-gray-800 sm:max-w-lg sm:rounded-2xl"
       >
         <h3 id="merge-dialog-title" className="text-base font-semibold text-gray-900 dark:text-gray-50">
@@ -100,10 +104,6 @@ export function MergeDialog({ feedbackId, onClose, onMerged }: MergeDialogProps)
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('merge.searchPlaceholder')}
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') onClose();
-            }}
             className="h-10 w-full rounded-lg border border-surface-3 bg-surface-1/60 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-400 focus:bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-100"
           />
         </div>

@@ -63,6 +63,16 @@ export function FeedbackList() {
   const [exporting, setExporting] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const viewSaverTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const viewSaverWasOpen = useRef(false);
+
+  // Return focus to the trigger when the saved-view popover closes (keyboard a11y).
+  useEffect(() => {
+    if (viewSaverWasOpen.current && !showViewSaver) {
+      viewSaverTriggerRef.current?.focus();
+    }
+    viewSaverWasOpen.current = showViewSaver;
+  }, [showViewSaver]);
 
   const savedViews = useSavedViews(organization?.id);
   const firstProject = useFirstProject();
@@ -491,6 +501,7 @@ export function FeedbackList() {
                   </button>
                 )}
                 <button
+                  ref={viewSaverTriggerRef}
                   onClick={() => {
                     setShowViewSaver((v) => !v);
                     setViewName('');

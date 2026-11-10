@@ -401,6 +401,7 @@ export function FeedbackDetail() {
                       }
                     }}
                     placeholder={t('replies.placeholder')}
+                    aria-label={t('replies.title')}
                     rows={3}
                     className="w-full resize-none bg-transparent text-[13px] leading-relaxed text-gray-800 placeholder:text-gray-400 focus:outline-none dark:text-gray-100"
                   />
@@ -495,6 +496,7 @@ export function FeedbackDetail() {
             </h3>
             {canAssign ? (
               <select
+                aria-label={t('sidebar.assigneeTitle')}
                 value={data.assignee_id ?? ''}
                 onChange={(e) => assignMutation.mutate(e.target.value || null)}
                 disabled={assignMutation.isPending}
@@ -557,6 +559,7 @@ export function FeedbackDetail() {
             </div>
             {availableTags.length > 0 && (
               <select
+                aria-label={t('sidebar.addTag')}
                 onChange={(e) => {
                   if (e.target.value) {
                     assignTagMutation.mutate(e.target.value);

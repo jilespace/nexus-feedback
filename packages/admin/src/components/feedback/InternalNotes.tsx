@@ -121,6 +121,7 @@ export function InternalNotes({ feedbackId }: { feedbackId: string }) {
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder={t('notes.placeholder')}
+              aria-label={t('notes.title')}
               rows={2}
               className="w-full resize-none rounded-lg border border-surface-3 bg-surface-1/60 px-3 py-2 text-[13px] text-gray-800 placeholder:text-gray-400 focus:border-brand-400 focus:bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-100"
             />

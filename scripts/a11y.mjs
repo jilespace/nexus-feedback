@@ -120,9 +120,9 @@ const USAGE = `Nexus Feedback 无障碍审计（CDP，零依赖）
   --base-api=<url>     API 地址（默认 http://localhost:3000）
   --base-submit=<url>  公开提交页地址（默认 http://localhost:8081）
   --chrome-port=<port> Chrome CDP 端口（默认 9222；缺失时自动启动 headless Chrome）
-  --only=<keys>        只审计指定页面（逗号分隔：submit,board-home,board-detail,admin-login,admin-dashboard,admin-feedback,admin-notifications）
+  --only=<keys>        只审计指定页面（逗号分隔：submit,board-home,board-detail,admin-login,admin-dashboard,admin-feedback,admin-feedback-detail,admin-notifications,admin-notification-preferences）
   --theme=<mode>       主题：light（默认）/ dark / both（两套都审计，报告按页面×主题分组）
-  --interactions       追加键盘交互检查：dialog 焦点陷阱/Esc 关闭/焦点恢复、命令面板方向键/Enter/Esc
+  --interactions       追加键盘交互检查：命令面板、dialog 焦点陷阱/Esc/焦点恢复、popover、Switch Space 切换、表单 Tab 顺序
   --fail-on=<mode>     门禁阈值：none（默认，不影响退出码）/ serious（存在严重即失败）/ medium（存在严重或中等超限即失败）；
                        --theme=both 时任一主题超阈值即失败；键盘交互问题按「严重」计入
   --max-medium=<n>     仅 --fail-on=medium 时生效：每个主题允许的中等问题总数上限（默认 0）
@@ -986,6 +986,23 @@ async function resolveBoardDetailUrl(options) {
   return `${options.baseBoard}/${DEMO_PROJECT_SLUG}/feedback/${id}`;
 }
 
+async function resolveAdminFeedbackId(options, auth) {
+  const response = await httpJson(`${options.baseApi}/api/v1/admin/feedback?page_size=1`, {
+    headers: { Authorization: `Bearer ${auth.token}` },
+  });
+  return response.json?.data?.items?.[0]?.id ?? null;
+}
+
+async function resolveDemoProjectId(options, auth) {
+  const response = await httpJson(`${options.baseApi}/api/v1/org/projects`, {
+    headers: { Authorization: `Bearer ${auth.token}` },
+  });
+  const projects = response.json?.data ?? [];
+  const list = Array.isArray(projects) ? projects : (projects.items ?? []);
+  const project = list.find((item) => item.slug === DEMO_PROJECT_SLUG) ?? list[0];
+  return project?.id ?? null;
+}
+
 function buildThemeInitScript(adminOrigin, auth, theme) {
   const authBlock = auth
     ? `localStorage.setItem('admin_token', ${JSON.stringify(auth.token)});
@@ -1011,8 +1028,8 @@ function themeLabel(theme) {
 
 const ADMIN_READY = `(document.querySelector('main')?.innerText.trim().length ?? 0) > 20`;
 
-function buildPages(options, detailUrl) {
-  return [
+function buildPages(options, detailUrl, adminFeedbackId, demoProjectId) {
+  const pages = [
     {
       key: 'submit',
       label: '提交页',
@@ -1060,6 +1077,32 @@ function buildPages(options, detailUrl) {
       ready: ADMIN_READY,
     },
   ];
+  // 以下页面只用于 `--interactions` 键盘矩阵：不进入常规 DOM/焦点审计口径。
+  if (options.interactions) {
+    // 详情页依赖 admin 列表返回的第一条反馈；取不到时显式记 unavailable。
+    pages.splice(6, 0, {
+      key: 'admin-feedback-detail',
+      label: 'feedback 详情（登录态，仅交互）',
+      url: adminFeedbackId ? `${options.baseAdmin}/feedback/${adminFeedbackId}` : `${options.baseAdmin}/feedback`,
+      auth: true,
+      ready: `(document.querySelector('main')?.innerText.trim().length ?? 0) > 80`,
+      interactionOnly: true,
+      unavailableReason: adminFeedbackId ? null : '未能从 admin API 取到 feedback ID',
+    });
+    // 项目级通知偏好页（共享 Switch 组件；与 notifications 中心页分开，避免与通知内容改造互相干扰）。
+    pages.push({
+      key: 'admin-notification-preferences',
+      label: 'notification preferences（登录态）',
+      url: demoProjectId
+        ? `${options.baseAdmin}/projects/${demoProjectId}/notifications`
+        : `${options.baseAdmin}/notifications`,
+      auth: true,
+      ready: ADMIN_READY,
+      interactionOnly: true,
+      unavailableReason: demoProjectId ? null : '未能从 admin API 取到 demo 项目 ID',
+    });
+  }
+  return pages;
 }
 
 // ---------------------------------------------------------------------------
@@ -1069,6 +1112,7 @@ const VK_CODES = {
   Tab: 9,
   Escape: 27,
   Enter: 13,
+  Space: 32,
   ArrowDown: 40,
   ArrowUp: 38,
   Slash: 191,
@@ -1079,6 +1123,14 @@ function inPageFocusInfo() {
   const el = document.activeElement;
   if (!el) return null;
   const dialog = el.closest ? el.closest('[role="dialog"]') : null;
+  const dialogLabel = dialog
+    ? dialog.getAttribute('aria-label') ||
+      (dialog.getAttribute('aria-labelledby')
+        ? (document.getElementById(dialog.getAttribute('aria-labelledby'))?.textContent || '').trim()
+        : '') ||
+      (dialog.querySelector('h1, h2, h3')?.textContent || '').trim().slice(0, 60) ||
+      ''
+    : null;
   return {
     tag: el.tagName.toLowerCase(),
     id: el.id || '',
@@ -1087,19 +1139,27 @@ function inPageFocusInfo() {
       .replace(/\s+/g, ' ')
       .slice(0, 60),
     inDialog: Boolean(dialog),
-    dialogLabel: dialog ? dialog.getAttribute('aria-label') : null,
+    dialogLabel,
   };
 }
 
 function inPageDialogList() {
   return [...document.querySelectorAll('[role="dialog"]')]
     .filter((dialog) => dialog.getClientRects().length > 0)
-    .map((dialog) => ({
-      label: dialog.getAttribute('aria-label') || '',
-      focusables: dialog.querySelectorAll(
-        'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-      ).length,
-    }));
+    .map((dialog) => {
+      const labelledBy = dialog.getAttribute('aria-labelledby');
+      const label =
+        dialog.getAttribute('aria-label') ||
+        (labelledBy ? (document.getElementById(labelledBy)?.textContent || '').trim() : '') ||
+        (dialog.querySelector('h1, h2, h3')?.textContent || '').trim().slice(0, 60) ||
+        '';
+      return {
+        label,
+        focusables: dialog.querySelectorAll(
+          'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ).length,
+      };
+    });
 }
 
 function inPageFocusFirstDialog() {
@@ -1398,6 +1458,468 @@ async function runButtonModalInteraction(session) {
 }
 
 // ---------------------------------------------------------------------------
+// 通用键盘场景（配置化场景矩阵）
+// ---------------------------------------------------------------------------
+function inPageFindTrigger(spec) {
+  const candidates = [
+    ...document.querySelectorAll(
+      'button, [role="button"], a[href], input[type="submit"], input[type="button"]',
+    ),
+  ];
+  const normalize = (el) =>
+    (el.getAttribute('aria-label') || el.innerText || el.textContent || '')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .slice(0, 80);
+  const visible = (el) => el.getClientRects().length > 0 && !el.disabled;
+  let target = null;
+  if (spec.selector) {
+    target = candidates.find((el) => el.matches(spec.selector) && visible(el)) ?? null;
+  }
+  if (!target && spec.text) {
+    target = candidates.find((el) => visible(el) && normalize(el).includes(spec.text)) ?? null;
+  }
+  if (!target && spec.ariaLabel) {
+    target = candidates.find(
+      (el) => visible(el) && (el.getAttribute('aria-label') || '').includes(spec.ariaLabel),
+    ) ?? null;
+  }
+  if (!target) return null;
+  target.scrollIntoView({ block: 'center' });
+  target.focus();
+  const rect = target.getBoundingClientRect();
+  return {
+    tag: target.tagName.toLowerCase(),
+    id: target.id || '',
+    label: normalize(target),
+    x: rect.x + rect.width / 2,
+    y: rect.y + rect.height / 2,
+  };
+}
+
+function inPagePopoverFocus(selector) {
+  const el = document.querySelector(selector);
+  if (!el || !el.getClientRects().length) return { open: false, focused: false };
+  return { open: true, focused: document.activeElement === el };
+}
+
+function inPageVisibleSwitches() {
+  return [...document.querySelectorAll('[role="switch"]')].filter(
+    (el) => el.getClientRects().length > 0 && !el.disabled,
+  ).length;
+}
+
+function inPageFirstFormFocusable(formSelector) {
+  const form = document.querySelector(formSelector);
+  if (!form) return null;
+  const items = [
+    ...form.querySelectorAll(
+      'input:not([type="hidden"]), textarea, select, button, a[href], [tabindex]:not([tabindex="-1"])',
+    ),
+  ].filter((el) => !el.disabled && el.getClientRects().length > 0);
+  const first = items[0];
+  if (!first) return null;
+  return { id: first.id || '', tag: first.tagName.toLowerCase(), type: first.getAttribute('type') || '' };
+}
+
+function inPageSwitchState(selector) {
+  const el = document.querySelector(selector);
+  if (!el) return null;
+  return {
+    checked: el.getAttribute('aria-checked'),
+    disabled: el.disabled === true,
+    focused: document.activeElement === el,
+    label: (el.getAttribute('aria-label') || el.innerText || '').trim().slice(0, 60),
+  };
+}
+
+function inPageActiveDescriptor(formSelector) {
+  const el = document.activeElement;
+  if (!el) return null;
+  return {
+    tag: el.tagName.toLowerCase(),
+    id: el.id || '',
+    type: el.getAttribute('type') || '',
+    inForm: formSelector ? Boolean(el.closest(formSelector)) : false,
+    label: (el.getAttribute('aria-label') || el.innerText || el.textContent || '')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .slice(0, 60),
+  };
+}
+
+async function clickAt(session, point) {
+  await session.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: point.x, y: point.y });
+  await session.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', clickCount: 1 });
+  await session.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y: point.y, button: 'left', clickCount: 1 });
+}
+
+function newScenarioResult(scenario, checks) {
+  return { scenario, status: 'fail', checks, notes: [], issues: [] };
+}
+
+function addScenarioIssue(result, message) {
+  result.issues.push({ severity: 'serious', category: 'interaction', message, selector: '', snippet: '' });
+}
+
+async function runDialogInteraction(session, opts = {}) {
+  const result = newScenarioResult(opts.scenario ?? 'dialog', {
+    opened: false,
+    focusTrap: false,
+    escClosed: false,
+    focusRestored: false,
+  });
+  const triggerText = opts.triggerText ?? '';
+  await closeAllDialogs(session);
+  const trigger = await session.evaluate(
+    `(${inPageFindTrigger.toString()})(${JSON.stringify({ text: triggerText, ariaLabel: opts.triggerAriaLabel, selector: opts.triggerSelector })})`,
+  );
+  if (!trigger) {
+    if (opts.optional) {
+      result.status = 'skip';
+      result.reason = `未找到可选触发按钮「${triggerText}」`;
+      return result;
+    }
+    addScenarioIssue(result, `未找到触发按钮「${triggerText}」`);
+    return result;
+  }
+  await sleep(120);
+  await clickAt(session, trigger);
+  const labelJson = JSON.stringify(opts.dialogLabelIncludes ?? '');
+  result.checks.opened = await session.waitUntil(
+    `(() => {
+      const dialogs = [...document.querySelectorAll('[role="dialog"]')].filter((d) => d.getClientRects().length > 0);
+      return dialogs.some((d) => {
+        if (!${labelJson}) return true;
+        const labelledBy = d.getAttribute('aria-labelledby');
+        const text = [
+          d.getAttribute('aria-label') || '',
+          labelledBy ? (document.getElementById(labelledBy)?.textContent || '') : '',
+          (d.querySelector('h1, h2, h3')?.textContent || ''),
+          d.innerText || '',
+        ].join(' ');
+        return text.includes(${labelJson});
+      });
+    })()`,
+    { timeoutMs: 3000 },
+  );
+  if (!result.checks.opened) {
+    addScenarioIssue(result, `点击「${triggerText}」后未打开 dialog`);
+    return result;
+  }
+  await sleep(250);
+  const dialogs = await readDialogs(session);
+  const dialogLabel = dialogs.length ? dialogs[dialogs.length - 1].label : '';
+  result.notes.push(`dialog：${dialogLabel || '未命名'}`);
+
+  const trap = await dialogFocusTrapCheck(session, dialogLabel, 10);
+  result.checks.focusTrap = trap.pass;
+  if (!trap.pass) addScenarioIssue(result, `dialog Tab 焦点跑出（第 ${trap.escapedAt} 次 Tab）`);
+
+  await pressKey(session, { key: 'Escape', code: 'Escape' });
+  await sleep(400);
+  const afterEsc = await readDialogs(session);
+  result.checks.escClosed = afterEsc.length === 0;
+  if (!result.checks.escClosed) addScenarioIssue(result, 'dialog Esc 未关闭');
+
+  const focusAfter = await readFocus(session);
+  result.checks.focusRestored = sameFocus(focusAfter, trigger);
+  result.notes.push(
+    `触发：${trigger.tag}「${trigger.label}」；关闭后焦点：${focusAfter?.tag ?? '无'}「${focusAfter?.label ?? ''}」`,
+  );
+  if (!result.checks.focusRestored) {
+    addScenarioIssue(result, `dialog 关闭后焦点未恢复到触发按钮（当前 ${focusAfter?.tag ?? '无'}「${focusAfter?.label ?? ''}」）`);
+  }
+  result.status = result.issues.length ? 'fail' : 'pass';
+  return result;
+}
+
+async function runPopoverInteraction(session, opts = {}) {
+  const result = newScenarioResult(opts.scenario ?? 'popover', {
+    opened: false,
+    focusInPopover: false,
+    escClosed: false,
+    focusRestored: false,
+  });
+  const popoverSelector = opts.popoverSelector ?? '';
+  await closeAllDialogs(session);
+  const trigger = await session.evaluate(
+    `(${inPageFindTrigger.toString()})(${JSON.stringify({ text: opts.triggerText, ariaLabel: opts.triggerAriaLabel, selector: opts.triggerSelector })})`,
+  );
+  if (!trigger) {
+    addScenarioIssue(result, `未找到 popover 触发按钮「${opts.triggerText ?? opts.triggerAriaLabel ?? ''}」`);
+    return result;
+  }
+  await sleep(120);
+  await clickAt(session, trigger);
+  result.checks.opened = await session.waitUntil(
+    `(${inPagePopoverFocus.toString()})(${JSON.stringify(popoverSelector)}).open`,
+    { timeoutMs: 2500 },
+  );
+  if (!result.checks.opened) {
+    addScenarioIssue(result, '点击后 popover 未打开');
+    return result;
+  }
+  await sleep(200);
+  const focusState = await session.evaluate(`(${inPagePopoverFocus.toString()})(${JSON.stringify(popoverSelector)})`);
+  result.checks.focusInPopover = focusState.focused;
+  if (!focusState.focused) addScenarioIssue(result, 'popover 打开后焦点未进入弹层内容');
+
+  await pressKey(session, { key: 'Escape', code: 'Escape' });
+  await sleep(350);
+  const closedState = await session.evaluate(`(${inPagePopoverFocus.toString()})(${JSON.stringify(popoverSelector)})`);
+  result.checks.escClosed = !closedState.open;
+  if (!result.checks.escClosed) addScenarioIssue(result, 'popover Esc 未关闭');
+
+  const focusAfter = await readFocus(session);
+  result.checks.focusRestored = sameFocus(focusAfter, trigger);
+  result.notes.push(
+    `触发：${trigger.tag}「${trigger.label}」；关闭后焦点：${focusAfter?.tag ?? '无'}「${focusAfter?.label ?? ''}」`,
+  );
+  if (!result.checks.focusRestored) {
+    addScenarioIssue(
+      result,
+      `popover 关闭后焦点未恢复到触发按钮（当前 ${focusAfter?.tag ?? '无'}「${focusAfter?.label ?? ''}」）`,
+    );
+  }
+  result.status = result.issues.length ? 'fail' : 'pass';
+  return result;
+}
+
+async function readSwitchState(session, selector) {
+  return session.evaluate(`(${inPageSwitchState.toString()})(${JSON.stringify(selector)})`);
+}
+
+async function runSwitchInteraction(session, opts = {}) {
+  const result = newScenarioResult(opts.scenario ?? 'switch', {
+    found: false,
+    keyboardReachable: false,
+    spaceToggles: false,
+    focusRetained: false,
+  });
+  const selector = opts.selector ?? '[role="switch"]';
+  await closeAllDialogs(session);
+  const count = await session.evaluate(
+    `(() => [...document.querySelectorAll(${JSON.stringify(selector)})].filter((el) => el.getClientRects().length > 0 && !el.disabled).length)()`,
+  );
+  result.checks.found = count > 0;
+  if (!count) {
+    result.status = 'skip';
+    result.reason = opts.emptyReason ?? '页面无可见且可用的 switch（空态或数据未准备）';
+    return result;
+  }
+  const probe = await session.evaluate(`(() => {
+    const all = [...document.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+      .filter((el) => el.getClientRects().length > 0 && !el.disabled);
+    const index = all.findIndex((el) => el.matches(${JSON.stringify(selector)}));
+    if (index < 0) return null;
+    const target = all[index];
+    const previous = index > 0 ? all[index - 1] : null;
+    target.scrollIntoView({ block: 'center' });
+    if (previous) previous.focus();
+    const checked = target.getAttribute('aria-checked');
+    return {
+      viaTab: Boolean(previous),
+      label: (target.getAttribute('aria-label') || target.innerText || '').trim().slice(0, 60),
+      checked,
+      disabled: target.disabled === true,
+    };
+  })()`);
+  if (!probe) {
+    result.status = 'skip';
+    result.reason = '未能定位 switch 元素';
+    return result;
+  }
+  if (probe.viaTab) {
+    await pressKey(session, { key: 'Tab', code: 'Tab' });
+    await sleep(150);
+    result.checks.keyboardReachable = await session.evaluate(
+      `document.activeElement?.matches?.(${JSON.stringify(selector)}) ?? false`,
+    );
+  } else {
+    await session.evaluate(
+      `(() => { const el = document.querySelector(${JSON.stringify(selector)}); el?.focus(); return true; })()`,
+    );
+    result.checks.keyboardReachable = await session.evaluate(
+      `document.activeElement?.matches?.(${JSON.stringify(selector)}) ?? false`,
+    );
+    result.notes.push('switch 是页面首个可聚焦控件，直接聚焦后测试 Space');
+  }
+  if (!result.checks.keyboardReachable) addScenarioIssue(result, `Tab 无法到达 switch「${probe.label}」`);
+
+  await pressKey(session, { key: ' ', code: 'Space', text: ' ' });
+  // 偏好保存通常是异步的：轮询等待 aria-checked 变化/控件恢复可用，避免竞态误报。
+  let toggled = null;
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    await sleep(150);
+    const state = await readSwitchState(session, selector);
+    if (!state) break;
+    if (state.checked !== probe.checked) {
+      toggled = state;
+      break;
+    }
+  }
+  result.notes.push(`Space 后 aria-checked：${probe.checked} → ${toggled?.checked ?? '未变化'}`);
+  if (!toggled) {
+    addScenarioIssue(result, 'Space 未切换 switch 状态');
+    result.status = 'fail';
+    return result;
+  }
+  // 恢复原状态，避免留下测试副作用。
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const state = await readSwitchState(session, selector);
+    if (state && !state.disabled) break;
+    await sleep(150);
+  }
+  await pressKey(session, { key: ' ', code: 'Space', text: ' ' });
+  let restored = null;
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    await sleep(150);
+    const state = await readSwitchState(session, selector);
+    if (state && state.checked === probe.checked && !state.disabled) {
+      restored = state;
+      break;
+    }
+  }
+  result.checks.spaceToggles = Boolean(restored);
+  result.checks.focusRetained = Boolean(restored?.focused);
+  if (!result.checks.spaceToggles) addScenarioIssue(result, '再次 Space 未能恢复 switch 原状态（测试副作用需人工检查）');
+  if (!result.checks.focusRetained) addScenarioIssue(result, 'Space 切换后焦点离开 switch');
+  result.status = result.issues.length ? 'fail' : 'pass';
+  return result;
+}
+
+
+async function runTabOrderInteraction(session, opts = {}) {
+  const result = newScenarioResult(opts.scenario ?? 'tab-order', {
+    firstFieldInForm: false,
+    orderCorrect: false,
+    submitReachable: false,
+  });
+  const formSelector = opts.formSelector ?? '#feedback-form';
+  const expectedIds = opts.expectedIds ?? ['feedback-title', 'feedback-content', 'feedback-contact'];
+  const first = await session.evaluate(`(${inPageFirstFormFocusable.toString()})(${JSON.stringify(formSelector)})`);
+  result.checks.firstFieldInForm = first?.id === expectedIds[0];
+  result.notes.push(`首个表单控件：${first?.id || first?.tag || '无'}`);
+  if (!result.checks.firstFieldInForm) {
+    addScenarioIssue(result, `表单首个可聚焦控件不是「${expectedIds[0]}」（实际 ${first?.id || first?.tag || '无'}）`);
+  }
+
+  await session.evaluate(
+    `(() => { const el = document.querySelector(${JSON.stringify(`#${expectedIds[0]}`)}); if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); } return true; })()`,
+  );
+  const observed = [];
+  const maxTabs = opts.maxTabs ?? 16;
+  for (let index = 0; index < maxTabs; index += 1) {
+    await pressKey(session, { key: 'Tab', code: 'Tab' });
+    await sleep(70);
+    const active = await session.evaluate(
+      `(${inPageActiveDescriptor.toString()})(${JSON.stringify(formSelector)})`,
+    );
+    if (!active) break;
+    observed.push(active);
+    if (active.type === 'submit' || /提交/.test(active.label)) break;
+    if (index >= 2 && !active.inForm) break;
+  }
+  const ids = observed.map((item) => item.id).filter(Boolean);
+  // 当前焦点已人工定位到首个期望字段，序列从它开始计入。
+  const sequence = first?.id ? [first.id, ...ids] : ids;
+  result.notes.push(`Tab 序列：${observed.map((item) => item.id || item.label || item.tag).join(' → ')}`);
+  let cursor = -1;
+  let orderCorrect = true;
+  for (const id of expectedIds) {
+    const position = sequence.indexOf(id, cursor + 1);
+    if (position === -1) {
+      orderCorrect = false;
+      break;
+    }
+    cursor = position;
+  }
+  result.checks.orderCorrect = orderCorrect;
+  if (!orderCorrect) addScenarioIssue(result, `Tab 顺序未按预期经过 ${expectedIds.join(' → ')}`);
+  result.checks.submitReachable = observed.some(
+    (item) => item.type === 'submit' || /提交/.test(item.label),
+  );
+  if (!result.checks.submitReachable) addScenarioIssue(result, 'Tab 无法到达提交按钮');
+  result.status = result.issues.length ? 'fail' : 'pass';
+  return result;
+}
+
+const INTERACTION_MATRIX = {
+  'admin-dashboard': [
+    { scenario: 'command-palette', runner: runPaletteInteraction },
+    { scenario: 'dialog（? 快捷键帮助）', runner: runKeyboardModalInteraction },
+  ],
+  'admin-feedback': [
+    {
+      scenario: 'popover（保存视图：Esc + 焦点恢复）',
+      runner: runPopoverInteraction,
+      options: { triggerAriaLabel: '保存当前筛选为视图', popoverSelector: 'input[aria-label="视图名称"]' },
+    },
+    {
+      scenario: 'dialog（导入 CSV）',
+      runner: runDialogInteraction,
+      options: { triggerText: '导入 CSV', dialogLabelIncludes: '导入反馈 CSV' },
+    },
+  ],
+  'admin-feedback-detail': [
+    {
+      scenario: 'dialog（编辑反馈）',
+      runner: runDialogInteraction,
+      options: { triggerText: '编辑', dialogLabelIncludes: '编辑反馈' },
+    },
+    {
+      scenario: 'dialog（合并反馈）',
+      runner: runDialogInteraction,
+      options: { triggerText: '合并到其他反馈', dialogLabelIncludes: '合并反馈', optional: true },
+    },
+  ],
+  'admin-notifications': [
+    { scenario: 'dialog（按钮触发：清空全部）', runner: runButtonModalInteraction },
+    { scenario: 'dialog（? 快捷键帮助）', runner: runKeyboardModalInteraction },
+  ],
+  'admin-notification-preferences': [
+    {
+      scenario: 'switch（偏好开关键盘可达 + Space 切换）',
+      runner: runSwitchInteraction,
+      options: {
+        selector: '[role="switch"]',
+        emptyReason: '项目暂无通知偏好数据（偏好卡未渲染），数据存在时该场景自动启用',
+      },
+    },
+  ],
+  'board-home': [
+    {
+      scenario: 'dialog（提交反馈 SubmitModal）',
+      runner: runDialogInteraction,
+      options: { triggerText: '提交反馈', dialogLabelIncludes: '提交' },
+    },
+  ],
+  submit: [
+    {
+      scenario: 'Tab 顺序（提交表单）',
+      runner: runTabOrderInteraction,
+      options: { expectedIds: ['feedback-title', 'feedback-content', 'feedback-contact'], maxTabs: 20 },
+    },
+  ],
+};
+
+async function runInteractionScenario(session, descriptor) {
+  try {
+    return await descriptor.runner(session, descriptor.options ?? {});
+  } catch (error) {
+    const message = `场景执行异常：${error instanceof Error ? error.message : String(error)}`;
+    return {
+      scenario: descriptor.scenario,
+      status: 'fail',
+      checks: {},
+      notes: [],
+      issues: [{ severity: 'serious', category: 'interaction', message, selector: '', snippet: '' }],
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // 审计执行
 // ---------------------------------------------------------------------------
 async function auditPage(client, browserContextId, page, options, auth, adminOrigin, theme = 'light') {
@@ -1457,8 +1979,14 @@ async function auditPage(client, browserContextId, page, options, auth, adminOri
     result.themeSupported = theme === 'light' ? true : themeState.themeStyleDetected;
     await sleep(700);
 
-    result.audit = await session.evaluate(`(${pageAudit.toString()})()`);
     result.ready = ready || (await session.waitUntil(page.ready, { timeoutMs: 3000 }));
+    if (page.interactionOnly) {
+      // 仅交互探测页（如 admin 详情）：不把页面级 DOM/标签问题混入常规审计基线。
+      result.audit = null;
+      result.focus = null;
+      result.auditSkipped = '仅键盘交互探测，不参与常规 DOM/焦点审计';
+    } else {
+      result.audit = await session.evaluate(`(${pageAudit.toString()})()`);
 
     // ---- 键盘 Tab 焦点扫描 ----
     await session.evaluate(resetFocusScript());
@@ -1524,34 +2052,14 @@ async function auditPage(client, browserContextId, page, options, auth, adminOri
       observed,
       expected: expectedOrder,
     };
+    }
 
     // ---- 键盘交互检查（--interactions）----
     if (options.interactions) {
       const scenarios = [];
-      try {
-        if (page.key === 'admin-dashboard') {
-          scenarios.push(await runPaletteInteraction(session));
-          scenarios.push(await runKeyboardModalInteraction(session));
-        } else if (page.key === 'admin-notifications') {
-          scenarios.push(await runButtonModalInteraction(session));
-          scenarios.push(await runKeyboardModalInteraction(session));
-        }
-      } catch (error) {
-        scenarios.push({
-          scenario: 'interactions',
-          status: 'fail',
-          checks: {},
-          notes: [],
-          issues: [
-            {
-              severity: 'serious',
-              category: 'interaction',
-              message: `键盘交互检查异常：${error instanceof Error ? error.message : String(error)}`,
-              selector: '',
-              snippet: '',
-            },
-          ],
-        });
+      const plan = INTERACTION_MATRIX[page.key] ?? [];
+      for (const descriptor of plan) {
+        scenarios.push(await runInteractionScenario(session, descriptor));
       }
       result.interactions = { enabled: true, scenarios };
     } else {
@@ -1630,7 +2138,7 @@ function buildMarkdown(report) {
   );
   lines.push(`- 页面：${report.environment.baseAdmin} / ${report.environment.baseBoard} / ${report.environment.baseSubmit} / API ${report.environment.baseApi}`);
   if (report.environment.interactions) {
-    lines.push('- 键盘交互：已启用（dialog 焦点陷阱/Esc 关闭/焦点恢复、命令面板方向键/Enter/Esc）');
+    lines.push('- 键盘交互：已启用（场景矩阵：命令面板 / dialog 焦点陷阱·Esc·焦点恢复 / popover / Switch / 表单 Tab 顺序）');
   }
   lines.push('- 说明：DOM 级近似审计（可访问名称/标签/ARIA/对比度为近似实现），对比度按 computed color 与其祖先背景色计算；');
   lines.push('  默认只做报告，使用 `--fail-on`（或 `pnpm a11y:check`）可启用质量门禁，见下方「门禁」。');
@@ -1663,20 +2171,21 @@ function buildMarkdown(report) {
     lines.push('## 键盘交互');
     lines.push('');
     lines.push(
-      `| 页面 | ${multiTheme ? '主题 | ' : ''}场景 | 打开 | 焦点陷阱 | Esc 关闭 | 焦点恢复 | 方向键 | Enter | 结论 |`,
+      `| 页面 | ${multiTheme ? '主题 | ' : ''}场景 | 检查项 | 结论 |`,
     );
-    lines.push(`|---|${multiTheme ? '---|' : ''}---|---|---|---|---|---|---|---|`);
+    lines.push(`|---|${multiTheme ? '---|' : ''}---|---|---|`);
     const mark = (value) => (value === undefined ? '—' : value ? '✅' : '❌');
     const scenarioStatus = (scenario) =>
       scenario.status === 'skip' ? '⏭️ SKIP' : scenario.status === 'pass' ? '✅ PASS' : '❌ FAIL';
     for (const page of interactionPages) {
       for (const scenario of page.interactions.scenarios) {
         const checks = scenario.checks ?? {};
+        const checkText = Object.entries(checks)
+          .map(([key, value]) => `${key} ${mark(value)}`)
+          .join('；');
         lines.push(
           `| ${page.page.label} | ${multiTheme ? `${themeLabel(page.theme)} | ` : ''}${scenario.scenario} | ` +
-            `${mark(checks.opened)} | ${mark(checks.focusTrap)} | ${mark(checks.escClosed)} | ` +
-            `${mark(checks.focusRestored)} | ${mark(checks.arrowKeys)} | ${mark(checks.enterWorks)} | ` +
-            `${scenarioStatus(scenario)} |`,
+            `${checkText || '—'} | ${scenarioStatus(scenario)} |`,
         );
       }
     }
@@ -2064,8 +2573,12 @@ async function main() {
 
     const detailUrl = await resolveBoardDetailUrl(options);
     console.log(detailUrl ? `board 详情 URL：${detailUrl}` : '⚠️ 未能获取 demo 反馈详情 ID，跳过 board 详情');
+    const adminFeedbackId = await resolveAdminFeedbackId(options, auth);
+    console.log(adminFeedbackId ? `admin feedback 详情 ID：${adminFeedbackId}` : '⚠️ 未能获取 admin feedback ID，跳过详情页交互');
+    const demoProjectId = await resolveDemoProjectId(options, auth);
+    console.log(demoProjectId ? `demo 项目 ID：${demoProjectId}` : '⚠️ 未能获取 demo 项目 ID，跳过通知偏好页交互');
 
-    const pageList = buildPages(options, detailUrl).filter((page) => {
+    const pageList = buildPages(options, detailUrl, adminFeedbackId, demoProjectId).filter((page) => {
       if (!options.only) return true;
       return options.only.split(',').map((key) => key.trim()).filter(Boolean).includes(page.key);
     });
