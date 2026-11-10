@@ -37,6 +37,7 @@ model Member {
   invite_token          String?
   invite_token_expiry   DateTime?
   notification_settings Json?
+  saved_views           Json?
   created_at            DateTime  @default(now())
   updated_at            DateTime  @updatedAt
 

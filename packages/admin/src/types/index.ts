@@ -210,3 +210,10 @@ export type WidgetConfig = {
   successMessage: string;
   fields: WidgetFields;
 };
+
+/** Saved feedback-list filter preset, synced across devices via /org/member/saved-views. */
+export type SavedView = {
+  name: string;
+  filters: Record<string, string>;
+  created_at: string;
+};

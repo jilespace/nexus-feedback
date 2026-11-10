@@ -21,6 +21,7 @@ import { statusConfigRouter } from './routes/statusConfig.js';
 import { systemConfigRouter } from './routes/systemConfig.js';
 import { notificationPreferenceRouter } from './routes/notificationPreference.js';
 import { notificationCenterRouter } from './routes/notificationCenter.js';
+import { memberPreferencesRouter } from './routes/memberPreferences.js';
 import { categoryConfigRouter } from './routes/categoryConfig.js';
 import { auditRouter } from './routes/audit.js';
 import { swaggerRouter } from './routes/swagger.js';
@@ -47,6 +48,7 @@ export function createApp() {
   app.use('/api/v1/org', adminLimiter, systemConfigRouter);
   app.use('/api/v1/org', adminLimiter, notificationPreferenceRouter);
   app.use('/api/v1/org', adminLimiter, notificationCenterRouter);
+  app.use('/api/v1/org', adminLimiter, memberPreferencesRouter);
   app.use('/api/v1/org', adminLimiter, categoryConfigRouter);
   app.use('/api/v1/org', adminLimiter, auditRouter);
   app.use('/api/v1/org/changelog', adminLimiter, changelogRouter);
