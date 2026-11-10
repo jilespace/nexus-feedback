@@ -5,6 +5,50 @@
 
 ## 轮次记录
 
+### Round 18 — 2026-11-10（类型已读 / 暗色门禁达标 / 看板内页打磨 / 错误码文档）
+
+**本轮完成（Lead + 4 个 teammate 并行）**
+- **类型视角的全部标为已读（teammate）**：`POST /org/notifications/read-all` 支持可选 type（query/body，
+  非法 400）；前端在类型筛选下按钮文案/行为切换为「标记该类型全部已读」、无未读时禁用、
+  其他类型未读保留；service 51 条测试。
+- **暗色 a11y 收尾（teammate）**：Dashboard 分类图例 dark token 修为 `dark:text-gray-200`
+  （3.67→15:1）；`pnpm a11y:check:themes` 由 serious 升级为 **medium 门禁**，亮/暗 14 个
+  页面×主题组合全部 **0/0/0**、暗色专属 0 条，两门禁均 PASS。
+- **看板路线图/更新日志打磨（teammate）**：路线图按列骨架（CLS 0.0002@1440、0@390）、空列占位+计数、
+  错误重试、桌面 sticky 列头、移动端 85vw snap 横滑 + 提示（并修复 flex 横滚导致移动端 viewport
+  膨胀到 951px 的问题）；更新日志时间线骨架、已发布/草稿徽标、移动端间距收紧。
+- **smoke 47 项（teammate）**：新增「通知类型过滤」（类型纯度/分页 total 一致/unread 叠加/非法 400）
+  与「看板订阅已订阅态」（localStorage 回显 + 退订按钮）两项检查。
+- **错误码文档（Lead）**：新增 `docs/ERRORS.md`（信封格式、15 个错误码、Prisma 映射、客户端本地化
+  策略、新增错误码检查清单、客户端接入建议），并从 `docs/API.md` 链接。
+- **数据卫生**：清理回收站 145 条测试反馈与全部测试通知，demo 保持 41 条真实感反馈
+  （待处理 18 / 处理中 10 / 已关闭 7 / 已解决 6）。
+
+**验证**
+- `pnpm typecheck` ✅、`pnpm test` **295/295**（server 265 + admin 30）✅、`pnpm build` 5 包 ✅、
+  `pnpm lint` 0 error ✅、`pnpm smoke` **47/47 PASS**（36.8s）✅、
+  `pnpm a11y:check` PASS（亮色 medium）✅、`pnpm a11y:check:themes` PASS（亮+暗 medium）✅、
+  `pnpm perf` **12/12 PASS** ✅
+- CDP：类型筛选只清当前类型未读（3→2）、指派类型禁用态、390 无溢出；路线图 sticky/横滑/骨架；
+  订阅卡片已订阅回显；暗色 dashboard 图例对比度修复无视觉回归。
+
+**提交**：`4e38fcf`（smoke 47）、`c41e803`（类型已读）、`7a775a7`（暗色图例 + themes 门禁）、
+`4bdf594`（看板内页打磨）、`40a7b74`（错误码文档）
+
+**遗留 / 技术债**
+- 并行自动化共享 demo 账号会导致通知状态互扰（已通过清理与独立断言缓解）。
+- 订阅仍不发确认邮件；退订依赖 localStorage（跨设备需邮件退订）。
+- 通知内容仍服务端中文；公开端错误提示依赖前端 code 映射（未知码回退中文）。
+- admin index CSS ~79KB、Landing chunk 双语文案可继续压缩。
+- 回收站/测试数据需定期清理（本轮已清）。
+
+**下一轮计划（Round 19）**
+1. 订阅确认邮件（并入现有 emailTemplates，preview 已就绪）或退订入口邮件化。
+2. 公开看板路线图/更新日志加入 smoke 覆盖（骨架/状态/横滑基础断言）。
+3. 性能：admin 首屏 CSS/字体优化评估；生产口径 perf 纳入回归记录。
+4. 质量：主 locale 继续清理 + server 路由测试覆盖补齐（错误分支）。
+
+
 ### Round 17 — 2026-11-10（暗色 a11y / 订阅管理 / 类型过滤 / Landing 命名空间）
 
 **本轮完成（Lead + 4 个 teammate 并行）**
