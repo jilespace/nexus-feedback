@@ -27,6 +27,8 @@ import { checkMobile } from './smoke/checks/mobile.mjs';
 import { checkNotificationTypeFilter } from './smoke/checks/notification-types.mjs';
 import { checkBoardSubscriptionUi } from './smoke/checks/board-subscription.mjs';
 import { checkRoadmapPage, checkChangelogPage, checkUnsubscribeInvalidToken } from './smoke/checks/board-inner-pages.mjs';
+import { checkSavedViews } from './smoke/checks/saved-views.mjs';
+import { checkUnsubscribeTokenApi } from './smoke/checks/unsubscribe-token.mjs';
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
@@ -70,6 +72,8 @@ async function main() {
     await checkRoadmapPage(page, options);
     await checkChangelogPage(page, options);
     await checkUnsubscribeInvalidToken(page, options);
+    await checkSavedViews(options, context);
+    await checkUnsubscribeTokenApi(options);
   } catch (error) {
     pushFailure('环境初始化', error);
   } finally {
