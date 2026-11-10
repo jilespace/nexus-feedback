@@ -26,6 +26,7 @@ const {
   getNotificationSettings,
   updateNotificationSettings,
   isWithinDnd,
+  isNotificationType,
   MAX_DND_SLOTS,
   MAX_MUTED_PROJECTS,
 } = await import('../notificationCenter.js');
@@ -126,6 +127,93 @@ describe('notification center service', () => {
         where: { member_id: 'admin-1', org_id: 'org-1', read_at: null },
       }),
     );
+  });
+
+  it('filters the list and total by notification type', async () => {
+    (prisma.notification.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: 'n-2', type: 'feedback.comment' },
+    ]);
+    (prisma.notification.count as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(3);
+
+    const result = await listNotifications('admin-1', 'org-1', {
+      page: 1,
+      pageSize: 20,
+      skip: 0,
+      take: 20,
+      type: 'feedback.comment',
+    });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.total).toBe(2);
+    expect(result.unread_count).toBe(3);
+    expect(prisma.notification.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { member_id: 'admin-1', org_id: 'org-1', type: 'feedback.comment' },
+      }),
+    );
+    expect(prisma.notification.count).toHaveBeenNthCalledWith(1, {
+      where: { member_id: 'admin-1', org_id: 'org-1', type: 'feedback.comment' },
+    });
+  });
+
+  it('combines the type filter with the unread-only filter', async () => {
+    (prisma.notification.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.notification.count as ReturnType<typeof vi.fn>).mockResolvedValue(0);
+
+    await listNotifications('admin-1', 'org-1', {
+      page: 1,
+      pageSize: 20,
+      skip: 0,
+      take: 20,
+      unreadOnly: true,
+      type: 'feedback.assigned',
+    });
+
+    expect(prisma.notification.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          member_id: 'admin-1',
+          org_id: 'org-1',
+          read_at: null,
+          type: 'feedback.assigned',
+        },
+      }),
+    );
+  });
+
+  it('omits the type key when no type filter is requested', async () => {
+    (prisma.notification.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.notification.count as ReturnType<typeof vi.fn>).mockResolvedValue(0);
+
+    await listNotifications('admin-1', 'org-1', {
+      page: 1,
+      pageSize: 20,
+      skip: 0,
+      take: 20,
+    });
+
+    const findManyArgs = (prisma.notification.findMany as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as { where: Record<string, unknown> };
+    const countArgs = (prisma.notification.count as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as { where: Record<string, unknown> };
+    expect(findManyArgs.where).not.toHaveProperty('type');
+    expect(countArgs.where).not.toHaveProperty('type');
+  });
+
+  it('validates the notification type query parameter', () => {
+    for (const type of [
+      'feedback.created',
+      'feedback.assigned',
+      'feedback.status_changed',
+      'feedback.comment',
+    ]) {
+      expect(isNotificationType(type)).toBe(true);
+    }
+    for (const invalid of ['feedback', 'feedback.unknown', '', undefined, null, 42, ['feedback.comment']]) {
+      expect(isNotificationType(invalid)).toBe(false);
+    }
   });
 
   it('marks a single notification as read only for the owner', async () => {

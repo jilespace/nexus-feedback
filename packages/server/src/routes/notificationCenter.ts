@@ -11,7 +11,9 @@ import {
   clearNotifications,
   getNotificationSettings,
   updateNotificationSettings,
+  isNotificationType,
 } from '../services/notificationCenter.js';
+import { ValidationError } from '../utils/errors.js';
 
 export const notificationCenterRouter = Router();
 
@@ -52,9 +54,15 @@ notificationCenterRouter.get('/notifications', async (req, res, next) => {
   try {
     const pagination = parsePagination(req.query);
     const unreadOnly = req.query.unread === 'true';
+    const rawType = req.query.type;
+    const type = isNotificationType(rawType) ? rawType : undefined;
+    if (rawType !== undefined && rawType !== '' && !type) {
+      throw new ValidationError('无效的通知类型');
+    }
     const result = await listNotifications(req.memberId!, req.orgId!, {
       ...pagination,
       unreadOnly,
+      ...(type ? { type } : {}),
     });
     success(res, result);
   } catch (err) {

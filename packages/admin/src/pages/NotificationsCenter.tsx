@@ -16,16 +16,27 @@ import {
 } from '@/components/notifications/NotificationIcons';
 import { formatRelativeTime } from '@/utils/formatRelativeTime';
 import {
+  NOTIFICATIONS_PAGE_SIZE,
   useClearNotifications,
   useDeleteNotification,
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
-  useNotificationPage,
 } from '@/hooks/useNotifications';
-import type { NotificationItem, NotificationType } from '@/hooks/useNotifications';
+import type {
+  NotificationItem,
+  NotificationPage,
+  NotificationType,
+} from '@/hooks/useNotifications';
 import type { ProjectAccessInfo } from '@/types';
 
 type Filter = 'all' | 'unread';
+
+const TYPE_FILTER_ORDER: NotificationType[] = [
+  'feedback.created',
+  'feedback.assigned',
+  'feedback.status_changed',
+  'feedback.comment',
+];
 
 const TYPE_META: Record<
   NotificationType,
@@ -107,11 +118,23 @@ export function NotificationsCenter() {
   const toast = useToast();
   const { t } = useTranslation('notifications');
   const [filter, setFilter] = useState<Filter>('all');
+  const [typeFilter, setTypeFilter] = useState<NotificationType | 'all'>('all');
   const [page, setPage] = useState(1);
   const [confirmClear, setConfirmClear] = useState(false);
   const [dndDraft, setDndDraft] = useState<DndSettings | null>(null);
 
-  const { data, isLoading, isError, refetch } = useNotificationPage(filter, page);
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ['notifications', 'page', filter, page, typeFilter],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        page: String(page),
+        page_size: String(NOTIFICATIONS_PAGE_SIZE),
+      });
+      if (filter === 'unread') params.set('unread', 'true');
+      if (typeFilter !== 'all') params.set('type', typeFilter);
+      return apiRequest<NotificationPage>(`/org/notifications?${params.toString()}`);
+    },
+  });
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
   const deleteNotification = useDeleteNotification();
@@ -263,6 +286,14 @@ export function NotificationsCenter() {
     },
   ];
 
+  const typeFilters: Array<{ value: NotificationType | 'all'; label: string }> = [
+    { value: 'all', label: t('page.typeAll') },
+    ...TYPE_FILTER_ORDER.map((value) => ({
+      value,
+      label: t(NOTIFICATION_TYPE_LABEL_KEYS[value] ?? NOTIFICATION_TYPE_FALLBACK_LABEL_KEY),
+    })),
+  ];
+
   return (
     <div className="animate-fade-in space-y-5">
       <PageHeader
@@ -291,29 +322,56 @@ export function NotificationsCenter() {
         }
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex rounded-lg border border-surface-3 bg-surface-1/70 p-0.5 dark:border-gray-700 dark:bg-gray-900/40">
-          {filters.map(({ key, label }) => (
+      <div className="space-y-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="inline-flex rounded-lg border border-surface-3 bg-surface-1/70 p-0.5 dark:border-gray-700 dark:bg-gray-900/40">
+            {filters.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => {
+                  setFilter(key);
+                  setPage(1);
+                }}
+                className={clsx(
+                  'h-7 rounded-md px-3 text-xs font-medium transition-all',
+                  filter === key
+                    ? 'bg-surface-0 text-gray-900 shadow-sm dark:bg-gray-700 dark:text-gray-100'
+                    : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200',
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <span className="text-xs text-gray-400 dark:text-gray-500">
+            {t('page.total', { count: totalCount })}
+          </span>
+        </div>
+        <div
+          role="group"
+          aria-label={t('page.typeFilterLabel')}
+          className="flex flex-wrap items-center gap-1.5"
+        >
+          {typeFilters.map(({ value, label }) => (
             <button
-              key={key}
+              key={value}
+              type="button"
+              aria-pressed={typeFilter === value}
               onClick={() => {
-                setFilter(key);
+                setTypeFilter(value);
                 setPage(1);
               }}
               className={clsx(
-                'h-7 rounded-md px-3 text-xs font-medium transition-all',
-                filter === key
-                  ? 'bg-surface-0 text-gray-900 shadow-sm dark:bg-gray-700 dark:text-gray-100'
-                  : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200',
+                'h-7 rounded-full border px-2.5 text-[11px] font-medium transition-colors',
+                typeFilter === value
+                  ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-500/40 dark:bg-brand-600/15 dark:text-brand-300'
+                  : 'border-surface-3 bg-surface-0 text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200',
               )}
             >
               {label}
             </button>
           ))}
         </div>
-        <span className="text-xs text-gray-400 dark:text-gray-500">
-          {t('page.total', { count: totalCount })}
-        </span>
       </div>
 
       {isLoading ? (
@@ -333,8 +391,21 @@ export function NotificationsCenter() {
       ) : items.length === 0 ? (
         <Card>
           <EmptyState
-            title={filter === 'unread' ? t('page.emptyUnreadTitle') : t('page.emptyTitle')}
-            description={t('page.emptyBody')}
+            title={
+              typeFilter !== 'all'
+                ? t('page.emptyTypeTitle', {
+                    type: t(
+                      NOTIFICATION_TYPE_LABEL_KEYS[typeFilter] ??
+                        NOTIFICATION_TYPE_FALLBACK_LABEL_KEY,
+                    ),
+                  })
+                : filter === 'unread'
+                  ? t('page.emptyUnreadTitle')
+                  : t('page.emptyTitle')
+            }
+            description={
+              typeFilter !== 'all' ? t('page.emptyTypeBody') : t('page.emptyBody')
+            }
           />
         </Card>
       ) : (

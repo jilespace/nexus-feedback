@@ -38,6 +38,13 @@ export const NOTIFICATION_TYPE_KEYS: NotificationType[] = [
   'feedback.comment',
 ];
 
+/** Type guard for the optional `type` filter on the notifications list endpoint. */
+export function isNotificationType(value: unknown): value is NotificationType {
+  return (
+    typeof value === 'string' && (NOTIFICATION_TYPE_KEYS as readonly string[]).includes(value)
+  );
+}
+
 export const MAX_DND_SLOTS = 5;
 
 /** Upper bound for muted project ids stored per member. */
@@ -330,12 +337,20 @@ export async function notifyFeedbackComment(params: {
 
 export async function listNotifications(  memberId: string,
   orgId: string,
-  options: { page: number; pageSize: number; skip: number; take: number; unreadOnly?: boolean },
+  options: {
+    page: number;
+    pageSize: number;
+    skip: number;
+    take: number;
+    unreadOnly?: boolean;
+    type?: NotificationType;
+  },
 ) {
-  const where = {
+  const where: Prisma.NotificationWhereInput = {
     member_id: memberId,
     org_id: orgId,
     ...(options.unreadOnly ? { read_at: null } : {}),
+    ...(options.type ? { type: options.type } : {}),
   };
   const [items, total, unreadCount] = await Promise.all([
     prisma.notification.findMany({
