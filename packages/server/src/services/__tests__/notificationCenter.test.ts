@@ -256,6 +256,30 @@ describe('notification center service', () => {
     const result = await markAllNotificationsRead('admin-1', 'org-1');
 
     expect(result).toEqual({ updated: 4 });
+    expect(prisma.notification.updateMany).toHaveBeenCalledWith({
+      where: { member_id: 'admin-1', org_id: 'org-1', read_at: null },
+      data: { read_at: expect.any(Date) },
+    });
+    const updateArgs = (prisma.notification.updateMany as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as { where: Record<string, unknown> };
+    expect(updateArgs.where).not.toHaveProperty('type');
+  });
+
+  it('marks only unread notifications of the given type as read', async () => {
+    (prisma.notification.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 2 });
+
+    const result = await markAllNotificationsRead('admin-1', 'org-1', 'feedback.comment');
+
+    expect(result).toEqual({ updated: 2 });
+    expect(prisma.notification.updateMany).toHaveBeenCalledWith({
+      where: {
+        member_id: 'admin-1',
+        org_id: 'org-1',
+        read_at: null,
+        type: 'feedback.comment',
+      },
+      data: { read_at: expect.any(Date) },
+    });
   });
 
   describe('notification settings', () => {

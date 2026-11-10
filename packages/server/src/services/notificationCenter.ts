@@ -395,9 +395,18 @@ export async function markNotificationRead(
   return { updated: result.count > 0 };
 }
 
-export async function markAllNotificationsRead(memberId: string, orgId: string) {
+export async function markAllNotificationsRead(
+  memberId: string,
+  orgId: string,
+  type?: NotificationType,
+) {
   const result = await prisma.notification.updateMany({
-    where: { member_id: memberId, org_id: orgId, read_at: null },
+    where: {
+      member_id: memberId,
+      org_id: orgId,
+      read_at: null,
+      ...(type ? { type } : {}),
+    },
     data: { read_at: new Date() },
   });
   return { updated: result.count };

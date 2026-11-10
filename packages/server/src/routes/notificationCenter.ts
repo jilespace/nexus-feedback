@@ -72,7 +72,13 @@ notificationCenterRouter.get('/notifications', async (req, res, next) => {
 
 notificationCenterRouter.post('/notifications/read-all', async (req, res, next) => {
   try {
-    const result = await markAllNotificationsRead(req.memberId!, req.orgId!);
+    // `type` may come from the query string or the JSON body; both are optional.
+    const rawType = req.query.type ?? req.body?.type;
+    const type = isNotificationType(rawType) ? rawType : undefined;
+    if (rawType !== undefined && rawType !== '' && !type) {
+      throw new ValidationError('无效的通知类型');
+    }
+    const result = await markAllNotificationsRead(req.memberId!, req.orgId!, type);
     success(res, result);
   } catch (err) {
     next(err);

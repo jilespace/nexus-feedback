@@ -19,7 +19,6 @@ import {
   NOTIFICATIONS_PAGE_SIZE,
   useClearNotifications,
   useDeleteNotification,
-  useMarkAllNotificationsRead,
   useMarkNotificationRead,
 } from '@/hooks/useNotifications';
 import type {
@@ -135,10 +134,42 @@ export function NotificationsCenter() {
       return apiRequest<NotificationPage>(`/org/notifications?${params.toString()}`);
     },
   });
+  const { data: typeUnreadData } = useQuery({
+    queryKey: ['notifications', 'unread-by-type', typeFilter],
+    queryFn: () =>
+      apiRequest<NotificationPage>(
+        `/org/notifications?unread=true&type=${typeFilter}&page=1&page_size=1`,
+      ),
+    enabled: typeFilter !== 'all',
+  });
   const markRead = useMarkNotificationRead();
-  const markAllRead = useMarkAllNotificationsRead();
   const deleteNotification = useDeleteNotification();
   const clearNotifications = useClearNotifications();
+  const markAllRead = useMutation({
+    mutationFn: (type?: NotificationType) =>
+      apiRequest<{ updated: number }>('/org/notifications/read-all', {
+        method: 'POST',
+        ...(type ? { body: JSON.stringify({ type }) } : {}),
+      }),
+    onSuccess: (result, type) => {
+      if (result.updated > 0) {
+        toast.show(
+          type
+            ? t('toast.markedTypeRead', {
+                type: t(
+                  NOTIFICATION_TYPE_LABEL_KEYS[type] ?? NOTIFICATION_TYPE_FALLBACK_LABEL_KEY,
+                ),
+                count: result.updated,
+              })
+            : t('toast.markedRead', { count: result.updated }),
+        );
+      } else {
+        toast.show(t('toast.noUnread'));
+      }
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+    onError: () => toast.show(t('toast.operationFailed'), 'error'),
+  });
 
   const open = (item: NotificationItem) => {
     if (!item.read_at) {
@@ -157,15 +188,7 @@ export function NotificationsCenter() {
   };
 
   const readAll = () => {
-    markAllRead.mutate(undefined, {
-      onSuccess: (result) =>
-        toast.show(
-          result.updated > 0
-            ? t('toast.markedRead', { count: result.updated })
-            : t('toast.noUnread'),
-        ),
-      onError: () => toast.show(t('toast.operationFailed'), 'error'),
-    });
+    markAllRead.mutate(typeFilter === 'all' ? undefined : typeFilter);
   };
 
   const confirmClearAll = () => {
@@ -293,6 +316,11 @@ export function NotificationsCenter() {
       label: t(NOTIFICATION_TYPE_LABEL_KEYS[value] ?? NOTIFICATION_TYPE_FALLBACK_LABEL_KEY),
     })),
   ];
+  const selectedTypeLabel =
+    typeFilter === 'all'
+      ? ''
+      : t(NOTIFICATION_TYPE_LABEL_KEYS[typeFilter] ?? NOTIFICATION_TYPE_FALLBACK_LABEL_KEY);
+  const typeUnreadCount = typeFilter === 'all' ? 0 : (typeUnreadData?.total ?? 0);
 
   return (
     <div className="animate-fade-in space-y-5">
@@ -301,8 +329,19 @@ export function NotificationsCenter() {
         description={t('page.description')}
         actions={
           <>
-            <Button variant="secondary" onClick={readAll} disabled={markAllRead.isPending || unreadCount === 0}>
-              {markAllRead.isPending ? t('page.markingAllRead') : t('page.markAllRead')}
+            <Button
+              variant="secondary"
+              onClick={readAll}
+              disabled={
+                markAllRead.isPending ||
+                (typeFilter === 'all' ? unreadCount === 0 : typeUnreadCount === 0)
+              }
+            >
+              {markAllRead.isPending
+                ? t('page.markingAllRead')
+                : typeFilter === 'all'
+                  ? t('page.markAllRead')
+                  : t('page.markTypeAllRead', { type: selectedTypeLabel })}
             </Button>
             <button
               type="button"
