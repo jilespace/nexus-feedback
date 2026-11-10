@@ -18,6 +18,7 @@ const {
   notifyFeedbackCreated,
   notifyFeedbackAssigned,
   notifyFeedbackStatusChanged,
+  notifyFeedbackComment,
   listNotifications,
   markNotificationRead,
   markAllNotificationsRead,
@@ -101,6 +102,94 @@ describe('notification center service', () => {
     });
 
     expect(prisma.notification.createMany).not.toHaveBeenCalled();
+  });
+
+  it('stores structured params for created notifications', async () => {
+    (prisma.feedback.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+      project: { name: 'Demo Project' },
+    });
+
+    await notifyFeedbackCreated({
+      orgId: 'org-1',
+      feedbackId: 'fb-1',
+      title: 'Login is slow',
+      category: 'performance',
+      priority: 'high',
+      source: 'api',
+    });
+
+    const data = (prisma.notification.createMany as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as { data: Array<Record<string, unknown>> };
+    expect(data.data[0]?.params).toEqual({
+      feedback_title: 'Login is slow',
+      project_name: 'Demo Project',
+    });
+    // The legacy title/body texts are kept as fallback for old clients and emails.
+    expect(data.data[0]?.title).toBe('新反馈：Login is slow');
+    expect(data.data[0]?.body).toContain('优先级 high');
+  });
+
+  it('stores structured params for assigned, status and comment notifications', async () => {
+    (prisma.member.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+      display_name: 'Admin',
+    });
+
+    await notifyFeedbackAssigned({
+      orgId: 'org-1',
+      feedbackId: 'fb-1',
+      title: 'Login is slow',
+      assigneeId: 'admin-1',
+      actorId: 'owner-1',
+    });
+    await notifyFeedbackStatusChanged({
+      orgId: 'org-1',
+      feedbackId: 'fb-1',
+      title: 'Login is slow',
+      oldStatus: 'open',
+      newStatus: 'in_progress',
+      assigneeId: 'admin-1',
+    });
+    await notifyFeedbackComment({
+      orgId: 'org-1',
+      feedbackId: 'fb-1',
+      title: 'Login is slow',
+      excerpt: 'Same here',
+      assigneeId: 'admin-1',
+      actorId: 'owner-1',
+    });
+
+    const calls = (prisma.notification.createMany as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[{ data: Array<Record<string, unknown>> }]>;
+    expect(calls[0]?.[0].data[0]?.params).toEqual({
+      feedback_title: 'Login is slow',
+      actor_name: 'Admin',
+    });
+    expect(calls[1]?.[0].data[0]?.params).toEqual({
+      feedback_title: 'Login is slow',
+      from_status: 'open',
+      to_status: 'in_progress',
+    });
+    expect(calls[2]?.[0].data[0]?.params).toEqual({
+      feedback_title: 'Login is slow',
+      actor_name: 'Admin',
+    });
+  });
+
+  it('omits optional params when no actor or project is available', async () => {
+    (prisma.feedback.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    await notifyFeedbackCreated({
+      orgId: 'org-1',
+      feedbackId: 'fb-1',
+      title: 'Login is slow',
+      category: 'performance',
+      priority: 'high',
+      source: 'api',
+    });
+
+    const data = (prisma.notification.createMany as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as { data: Array<Record<string, unknown>> };
+    expect(data.data[0]?.params).toEqual({ feedback_title: 'Login is slow' });
   });
 
   it('lists notifications with unread count and supports unread only filter', async () => {
@@ -859,12 +948,18 @@ describe('notification center service', () => {
       expect(prisma.member.update).not.toHaveBeenCalled();
     });
 
-    it('does not call the feedback lookup when nobody mutes projects', async () => {
+    it('does not resolve the project for mute filtering when nobody mutes projects', async () => {
       mockMembers({ 'owner-1': null, 'admin-1': null });
 
       await createFeedbackNotification();
 
-      expect(prisma.feedback.findFirst).not.toHaveBeenCalled();
+      const muteLookups = (prisma.feedback.findFirst as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (call: unknown[]) => {
+          const args = call[0] as { select?: { project_id?: boolean } } | undefined;
+          return args?.select?.project_id === true;
+        },
+      );
+      expect(muteLookups).toHaveLength(0);
       expect(scheduledMemberIds()).toEqual(['admin-1', 'owner-1']);
     });
   });

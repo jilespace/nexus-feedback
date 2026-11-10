@@ -381,6 +381,7 @@ model Notification {
   type        String
   title       String
   body        String?
+  params      Json?
   link        String?
   feedback_id String?
   read_at     DateTime?

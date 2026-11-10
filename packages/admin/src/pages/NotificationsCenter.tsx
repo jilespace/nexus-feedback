@@ -15,6 +15,7 @@ import {
   TrashIcon,
 } from '@/components/notifications/NotificationIcons';
 import { formatRelativeTime } from '@/utils/formatRelativeTime';
+import { renderNotificationContent } from '@/components/notifications/notificationContent';
 import {
   NOTIFICATIONS_PAGE_SIZE,
   useClearNotifications,
@@ -115,7 +116,7 @@ export function NotificationsCenter() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const toast = useToast();
-  const { t } = useTranslation('notifications');
+  const { t, i18n } = useTranslation('notifications');
   const [filter, setFilter] = useState<Filter>('all');
   const [typeFilter, setTypeFilter] = useState<NotificationType | 'all'>('all');
   const [page, setPage] = useState(1);
@@ -457,6 +458,7 @@ export function NotificationsCenter() {
                 const typeLabel = t(
                   NOTIFICATION_TYPE_LABEL_KEYS[item.type] ?? NOTIFICATION_TYPE_FALLBACK_LABEL_KEY,
                 );
+                const content = renderNotificationContent(item, t, i18n.language);
                 return (
                   <li
                     key={item.id}
@@ -480,7 +482,7 @@ export function NotificationsCenter() {
                       <span className="min-w-0 flex-1">
                         <span className="flex min-w-0 items-center gap-2">
                           <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-gray-800 dark:text-gray-100">
-                            {item.title}
+                            {content.title}
                           </span>
                           <span className="shrink-0">
                             <Badge tone={meta.tone}>{typeLabel}</Badge>
@@ -489,9 +491,9 @@ export function NotificationsCenter() {
                             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" />
                           )}
                         </span>
-                        {item.body && (
+                        {content.body && (
                           <span className="mt-0.5 block truncate text-xs text-gray-500 dark:text-gray-400">
-                            {item.body}
+                            {content.body}
                           </span>
                         )}
                         <span className="mt-1 block text-[11px] text-gray-400 dark:text-gray-500">

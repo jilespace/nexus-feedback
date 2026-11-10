@@ -38,6 +38,27 @@
     "statusChanged": "Status change",
     "comment": "New comment"
   },
+  "content": {
+    "created": {
+      "title": "New feedback: {{title}}",
+      "body": "Project: {{project}}",
+      "bodyFallback": "Open the feedback to review it"
+    },
+    "assigned": {
+      "title": "Feedback assigned to you: {{title}}",
+      "bodyBy": "Assigned by {{actor}}",
+      "body": "Open the feedback to review and follow up"
+    },
+    "statusChanged": {
+      "title": "Feedback status updated: {{title}}",
+      "body": "{{from}} → {{to}}"
+    },
+    "comment": {
+      "title": "New comment: {{title}}",
+      "bodyBy": "{{actor}} commented on this feedback",
+      "body": "Open the feedback to read the comment"
+    }
+  },
   "page": {
     "title": "Notifications",
     "description": "Feedback submissions, assignments, status changes and comments all show up here.",

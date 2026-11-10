@@ -188,12 +188,23 @@ async function staffMemberIds(orgId: string): Promise<string[]> {
   return members.map((member) => member.id);
 }
 
+async function memberDisplayName(memberId: string | null | undefined): Promise<string | null> {
+  if (!memberId) return null;
+  const member = await prisma.member.findFirst({
+    where: { id: memberId },
+    select: { display_name: true },
+  });
+  return member?.display_name ?? null;
+}
+
 async function createForRecipients(params: {
   orgId: string;
   memberIds: string[];
   type: NotificationType;
   title: string;
   body?: string | null;
+  /** Structured params rendered client-side in the user's language; title/body stay as fallback. */
+  contentParams?: Prisma.InputJsonValue;
   link?: string | null;
   feedbackId?: string | null;
   /** Optional explicit project id; resolved from feedbackId when omitted. */
@@ -241,6 +252,7 @@ async function createForRecipients(params: {
       type: params.type,
       title: params.title,
       body: params.body ?? null,
+      ...(params.contentParams ? { params: params.contentParams } : {}),
       link: params.link ?? null,
       feedback_id: params.feedbackId ?? null,
     })),
@@ -258,12 +270,21 @@ export async function notifyFeedbackCreated(params: {
   actorId?: string | null;
 }) {
   const staff = await staffMemberIds(params.orgId);
+  const feedback = await prisma.feedback.findFirst({
+    where: { id: params.feedbackId },
+    select: { project: { select: { name: true } } },
+  });
+  const projectName = feedback?.project?.name ?? null;
   await createForRecipients({
     orgId: params.orgId,
     memberIds: staff,
     type: 'feedback.created',
     title: `新反馈：${params.title}`,
     body: `${params.category} · 优先级 ${params.priority} · 来自 ${params.source}`,
+    contentParams: {
+      feedback_title: params.title,
+      ...(projectName ? { project_name: projectName } : {}),
+    },
     link: `/feedback/${params.feedbackId}`,
     feedbackId: params.feedbackId,
     excludeMemberId: params.actorId,
@@ -277,12 +298,17 @@ export async function notifyFeedbackAssigned(params: {
   assigneeId: string;
   actorId?: string | null;
 }) {
+  const actorName = await memberDisplayName(params.actorId);
   await createForRecipients({
     orgId: params.orgId,
     memberIds: [params.assigneeId],
     type: 'feedback.assigned',
     title: `反馈已指派给你：${params.title}`,
     body: '打开反馈查看详情并跟进处理',
+    contentParams: {
+      feedback_title: params.title,
+      ...(actorName ? { actor_name: actorName } : {}),
+    },
     link: `/feedback/${params.feedbackId}`,
     feedbackId: params.feedbackId,
     excludeMemberId: params.actorId,
@@ -307,6 +333,11 @@ export async function notifyFeedbackStatusChanged(params: {
     type: 'feedback.status_changed',
     title: `反馈状态更新：${params.title}`,
     body: `${params.oldStatus} → ${params.newStatus}`,
+    contentParams: {
+      feedback_title: params.title,
+      from_status: params.oldStatus,
+      to_status: params.newStatus,
+    },
     link: `/feedback/${params.feedbackId}`,
     feedbackId: params.feedbackId,
     excludeMemberId: params.actorId,
@@ -323,12 +354,17 @@ export async function notifyFeedbackComment(params: {
 }) {
   const staff = await staffMemberIds(params.orgId);
   const recipients = params.assigneeId ? [params.assigneeId, ...staff] : staff;
+  const actorName = await memberDisplayName(params.actorId);
   await createForRecipients({
     orgId: params.orgId,
     memberIds: recipients,
     type: 'feedback.comment',
     title: `新评论：${params.title}`,
     body: params.excerpt.slice(0, 120),
+    contentParams: {
+      feedback_title: params.title,
+      ...(actorName ? { actor_name: actorName } : {}),
+    },
     link: `/feedback/${params.feedbackId}`,
     feedbackId: params.feedbackId,
     excludeMemberId: params.actorId,

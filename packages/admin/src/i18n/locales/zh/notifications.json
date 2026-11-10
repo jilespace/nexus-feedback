@@ -37,6 +37,27 @@
     "statusChanged": "状态变更",
     "comment": "新评论"
   },
+  "content": {
+    "created": {
+      "title": "新反馈：{{title}}",
+      "body": "项目：{{project}}",
+      "bodyFallback": "打开反馈查看详情"
+    },
+    "assigned": {
+      "title": "反馈已指派给你：{{title}}",
+      "bodyBy": "由 {{actor}} 指派",
+      "body": "打开反馈查看详情并跟进处理"
+    },
+    "statusChanged": {
+      "title": "反馈状态更新：{{title}}",
+      "body": "{{from}} → {{to}}"
+    },
+    "comment": {
+      "title": "新评论：{{title}}",
+      "bodyBy": "{{actor}} 发表了新评论",
+      "body": "打开反馈查看评论"
+    }
+  },
   "page": {
     "title": "通知",
     "description": "反馈创建、指派、状态变更与评论都会在这里提醒你。",

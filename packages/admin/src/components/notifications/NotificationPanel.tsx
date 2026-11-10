@@ -21,6 +21,7 @@ import {
   NotificationTypeIcon,
   TrashIcon,
 } from './NotificationIcons';
+import { renderNotificationContent } from './notificationContent';
 
 interface NotificationPanelProps {
   variant: 'sidebar' | 'mobile';
@@ -166,11 +167,12 @@ interface NotificationRowProps {
 }
 
 function NotificationRow({ item, onOpen, onDelete, deleting }: NotificationRowProps) {
-  const { t } = useTranslation('notifications');
+  const { t, i18n } = useTranslation('notifications');
   const unread = !item.read_at;
   const typeLabel = t(
     NOTIFICATION_TYPE_LONG_LABEL_KEYS[item.type] ?? NOTIFICATION_TYPE_FALLBACK_LABEL_KEY,
   );
+  const content = renderNotificationContent(item, t, i18n.language);
   return (
     <li
       className={clsx(
@@ -199,7 +201,7 @@ function NotificationRow({ item, onOpen, onDelete, deleting }: NotificationRowPr
                   : 'font-medium text-gray-700 dark:text-gray-300',
               )}
             >
-              {item.title}
+              {content.title}
             </span>
             {unread && (
               <span
@@ -208,9 +210,9 @@ function NotificationRow({ item, onOpen, onDelete, deleting }: NotificationRowPr
               />
             )}
           </span>
-          {item.body && (
+          {content.body && (
             <span className="mt-0.5 line-clamp-2 break-words text-[12px] leading-relaxed text-gray-500 dark:text-gray-400">
-              {item.body}
+              {content.body}
             </span>
           )}
           <span className="mt-1 block text-[11px] tabular-nums text-gray-400 dark:text-gray-500">
