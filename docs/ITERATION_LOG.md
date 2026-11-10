@@ -5,6 +5,52 @@
 
 ## 轮次记录
 
+### Round 19 — 2026-11-10（订阅邮件 / 视图同步 / 键盘交互 / 看板测试）
+
+**本轮完成（Lead + 4 个 teammate 并行）**
+- **订阅确认邮件 + 签名退订（teammate，全栈）**：HMAC-SHA256 签名 token（30 天、区分无效/过期、
+  项目作用域）；订阅成功后 fire-and-forget 发送品牌确认邮件（失败不影响订阅）；新增
+  `GET /public/:slug/unsubscribe-token` 校验接口；看板新增 `/:slug/unsubscribe` 页（确认/成功/
+  无效/过期/网络错误五态，zh/en、暗色、390、aria-live）；14 条测试。
+- **已保存视图服务端同步（teammate，全栈）**：`Member.saved_views` JSONB 迁移（13 个迁移，
+  shadow 空库 deploy 验证无 drift）；`GET/PUT /org/member/saved-views`（≤10、名称/filters 校验）；
+  `useSavedViews` 改为 react-query + 乐观更新/回滚 + localStorage 离线兜底 + 旧本地视图一次性迁移；
+  11 条路由测试。
+- **a11y 键盘交互审计（teammate）**：a11y 脚本新增 `--interactions`（真实 CDP 键盘事件：dialog
+  焦点陷阱/Esc/焦点恢复、命令面板方向键/Enter/Esc），问题按严重计入门禁；修复共享
+  `Modal`（初始焦点/Tab 循环/焦点恢复）与 `CommandPalette`（焦点陷阱/恢复）→ 基线 4 项严重 → 0；
+  新增 `pnpm a11y:interactions`。
+- **smoke 50 项（teammate）**：新增路线图页（390 列头/滑动提示/无溢出）、更新日志页（时间线条目）、
+  退订页无效 token 三项只读检查。
+- **看板前端测试基建（Lead）**：board 引入 vitest + 8 条 `urlFilters` 测试（默认值/非法回退/
+  round-trip/空白处理），`pnpm test` 现在覆盖 server 290 + admin 30 + board 8。
+- 工程：重启 API 服务并重新 `prisma generate`（清理 engine 临时文件），`migrate status` 13 个迁移
+  up to date；演示数据保持干净。
+
+**验证**
+- `pnpm typecheck` ✅、`pnpm test` **328/328**（server 290 + admin 30 + board 8）✅、`pnpm build` 5 包 ✅、
+  `pnpm lint` 0 error ✅、`pnpm smoke` **50/50 PASS**（40.6s）✅、
+  `pnpm a11y:check` / `a11y:check:themes` 均 PASS（medium 门禁，亮/暗全 0）✅、
+  `pnpm a11y:interactions` 4 场景（3 PASS / 1 条件 SKIP）✅、`migrate status` up to date ✅
+- CDP：订阅 → 确认邮件模板落盘（dev 无邮件服务，mock 断言 sendEmail）→ 退订页确认 → 偏好双 false
+  → 清理；保存视图 → 清 localStorage 后仍从服务端恢复；Modal/命令面板键盘焦点循环与恢复。
+
+**提交**：`287e3d4`（看板测试基建）、`1aae55f`（键盘交互 + 焦点修复）、`40e9984`（视图同步）、
+`9126231`（订阅邮件 + 退订页）、`de08971`（smoke 50）
+
+**遗留 / 技术债**
+- 开发环境无 RESEND_API_KEY，确认邮件不会真实投递（生产配置后生效）。
+- 订阅确认邮件为无状态 bearer 链接（30 天有效，URL 可见）。
+- 键盘交互仅覆盖 admin dashboard 场景（共享组件已修复）；其他页面可按需扩展矩阵。
+- 通知内容仍服务端中文；admin CSS 体积、Landing chunk 仍有优化空间。
+
+**下一轮计划（Round 20）**
+1. 生产口径性能基线纳入回归（`pnpm perf:prod` 记录到 docs/性能基线）。
+2. 键盘交互矩阵扩展到 feedback/notifications/board 提交弹窗。
+3. 功能候选：通知内容结构化（type+params）以支持英文；公开看板订阅偏好管理页（已订阅/退订入口）。
+4. 质量：服务端路由错误分支测试补齐；主 locale 剩余 key 清理。
+
+
 ### Round 18 — 2026-11-10（类型已读 / 暗色门禁达标 / 看板内页打磨 / 错误码文档）
 
 **本轮完成（Lead + 4 个 teammate 并行）**
