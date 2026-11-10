@@ -93,6 +93,8 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
   const [debounced, setDebounced] = useState('');
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const role = (member?.role ?? 'member') as OrgMemberRole;
@@ -138,14 +140,56 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
 
   useEffect(() => {
     if (open) {
+      previouslyFocusedRef.current =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
       setQuery('');
       setDebounced('');
       setActive(0);
-      requestAnimationFrame(() => inputRef.current?.focus());
+      const frame = requestAnimationFrame(() => inputRef.current?.focus());
+      return () => cancelAnimationFrame(frame);
     }
+    const target = previouslyFocusedRef.current;
+    if (target && document.contains(target)) target.focus();
+    previouslyFocusedRef.current = null;
+    return undefined;
   }, [open]);
 
   const close = () => onOpenChange(false);
+
+  // Keyboard focus trap while open（capture 阶段，和 Modal 保持一致）。
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return;
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      const items = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => !element.hasAttribute('disabled') && element.getClientRects().length > 0);
+      if (!items.length) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = items[0]!;
+      const last = items[items.length - 1]!;
+      const active = document.activeElement;
+      const inside = dialog.contains(active);
+      if (event.shiftKey) {
+        if (!inside || active === first) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (!inside || active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [open]);
 
   const copyBoardLink = async () => {
     const project = (projects as ProjectAccessInfo[] | undefined)?.[0];
@@ -321,9 +365,11 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
     <div className="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-[12vh]">
       <div className="absolute inset-0 animate-fade-in bg-gray-950/45 backdrop-blur-[2px]" onClick={close} />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={t('palette.aria_label')}
+        tabIndex={-1}
         className="relative z-10 w-full max-w-xl animate-scale-in overflow-hidden rounded-2xl border border-surface-3 bg-surface-0 shadow-pop dark:border-gray-700 dark:bg-gray-800"
       >
         <div className="flex items-center gap-2.5 border-b border-surface-2 px-4 dark:border-gray-700/60">

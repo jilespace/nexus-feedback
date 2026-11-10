@@ -55,6 +55,7 @@ function parseArgs(argv) {
     chromePort: 9222,
     only: '',
     theme: 'light',
+    interactions: false,
     failOn: 'none',
     maxMedium: null,
     help: false,
@@ -73,6 +74,10 @@ function parseArgs(argv) {
   for (const arg of argv) {
     if (arg === '--help' || arg === '-h') {
       options.help = true;
+      continue;
+    }
+    if (arg === '--interactions') {
+      options.interactions = true;
       continue;
     }
     const match = arg.match(/^--([a-z-]+)=(.*)$/);
@@ -117,8 +122,9 @@ const USAGE = `Nexus Feedback 无障碍审计（CDP，零依赖）
   --chrome-port=<port> Chrome CDP 端口（默认 9222；缺失时自动启动 headless Chrome）
   --only=<keys>        只审计指定页面（逗号分隔：submit,board-home,board-detail,admin-login,admin-dashboard,admin-feedback,admin-notifications）
   --theme=<mode>       主题：light（默认）/ dark / both（两套都审计，报告按页面×主题分组）
+  --interactions       追加键盘交互检查：dialog 焦点陷阱/Esc 关闭/焦点恢复、命令面板方向键/Enter/Esc
   --fail-on=<mode>     门禁阈值：none（默认，不影响退出码）/ serious（存在严重即失败）/ medium（存在严重或中等超限即失败）；
-                       --theme=both 时任一主题超阈值即失败
+                       --theme=both 时任一主题超阈值即失败；键盘交互问题按「严重」计入
   --max-medium=<n>     仅 --fail-on=medium 时生效：每个主题允许的中等问题总数上限（默认 0）
   --help               显示本帮助
 
@@ -1057,6 +1063,341 @@ function buildPages(options, detailUrl) {
 }
 
 // ---------------------------------------------------------------------------
+// 键盘交互检查（--interactions）
+// ---------------------------------------------------------------------------
+const VK_CODES = {
+  Tab: 9,
+  Escape: 27,
+  Enter: 13,
+  ArrowDown: 40,
+  ArrowUp: 38,
+  Slash: 191,
+  KeyK: 75,
+};
+
+function inPageFocusInfo() {
+  const el = document.activeElement;
+  if (!el) return null;
+  const dialog = el.closest ? el.closest('[role="dialog"]') : null;
+  return {
+    tag: el.tagName.toLowerCase(),
+    id: el.id || '',
+    label: (el.getAttribute('aria-label') || el.innerText || el.textContent || '')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .slice(0, 60),
+    inDialog: Boolean(dialog),
+    dialogLabel: dialog ? dialog.getAttribute('aria-label') : null,
+  };
+}
+
+function inPageDialogList() {
+  return [...document.querySelectorAll('[role="dialog"]')]
+    .filter((dialog) => dialog.getClientRects().length > 0)
+    .map((dialog) => ({
+      label: dialog.getAttribute('aria-label') || '',
+      focusables: dialog.querySelectorAll(
+        'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      ).length,
+    }));
+}
+
+function inPageFocusFirstDialog() {
+  const dialog = [...document.querySelectorAll('[role="dialog"]')]
+    .filter((item) => item.getClientRects().length > 0)
+    .pop();
+  if (!dialog) return false;
+  const items = [...dialog.querySelectorAll(
+    'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+  )].filter((el) => !el.hasAttribute('disabled') && el.getClientRects().length > 0);
+  if (items[0]) {
+    items[0].focus();
+    return true;
+  }
+  dialog.setAttribute('tabindex', '-1');
+  dialog.focus();
+  return true;
+}
+
+function inPagePaletteActive() {
+  const dialog = document.querySelector('[role="dialog"][aria-label]');
+  if (!dialog) return null;
+  const buttons = [...dialog.querySelectorAll('button[id^="cmd-item-"]')];
+  const active = buttons.find((button) =>
+    [...button.querySelectorAll('kbd')].some((kbd) => kbd.textContent.trim() === '↵'),
+  );
+  return {
+    count: buttons.length,
+    active: active ? (active.innerText || active.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 60) : null,
+  };
+}
+
+async function pressKey(session, { key, code, modifiers = 0, text }) {
+  const windowsVirtualKeyCode = VK_CODES[code] ?? 0;
+  const base = { key, code, modifiers, windowsVirtualKeyCode, nativeVirtualKeyCode: windowsVirtualKeyCode };
+  if (text) {
+    await session.send('Input.dispatchKeyEvent', { type: 'keyDown', ...base, text });
+  } else {
+    await session.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...base });
+  }
+  await session.send('Input.dispatchKeyEvent', { type: 'keyUp', ...base });
+}
+
+async function readFocus(session) {
+  return session.evaluate(`(${inPageFocusInfo.toString()})()`);
+}
+
+async function readDialogs(session) {
+  return session.evaluate(`(${inPageDialogList.toString()})()`);
+}
+
+async function focusFirstInDialog(session) {
+  return session.evaluate(`(${inPageFocusFirstDialog.toString()})()`);
+}
+
+async function pressTab(session, count, shift = false) {
+  for (let index = 0; index < count; index += 1) {
+    await pressKey(session, { key: 'Tab', code: 'Tab', modifiers: shift ? 8 : 0 });
+    await sleep(35);
+  }
+}
+
+async function dialogFocusTrapCheck(session, dialogLabel, hintSteps = 10) {
+  await focusFirstInDialog(session);
+  const dialogList = await readDialogs(session);
+  const focusableCount = dialogList.length ? dialogList[dialogList.length - 1].focusables : 0;
+  const tabSteps = Math.min(Math.max(hintSteps, focusableCount + 3), 40);
+  const states = [];
+  for (let index = 0; index < tabSteps; index += 1) {
+    await pressTab(session, 1);
+    const focus = await readFocus(session);
+    states.push(focus);
+    if (!focus || !focus.inDialog || (dialogLabel && focus.dialogLabel !== dialogLabel)) {
+      return { pass: false, escapedAt: index + 1, focus };
+    }
+  }
+  for (let index = 0; index < 3; index += 1) {
+    await pressTab(session, 1, true);
+    const focus = await readFocus(session);
+    if (!focus || !focus.inDialog) return { pass: false, escapedAt: tabSteps + index + 1, focus };
+  }
+  return { pass: true, escapedAt: null, focus: null };
+}
+
+async function closeAllDialogs(session) {
+  for (let index = 0; index < 4; index += 1) {
+    const dialogs = await readDialogs(session);
+    if (!dialogs.length) break;
+    await pressKey(session, { key: 'Escape', code: 'Escape' });
+    await sleep(200);
+  }
+}
+
+async function focusStableControl(session) {
+  return session.evaluate(`(() => {
+    const candidates = [...document.querySelectorAll('aside a[href], aside button, main a[href], main button')];
+    for (const el of candidates) {
+      if (!el.getClientRects().length) continue;
+      el.focus();
+      if (document.activeElement === el) {
+        return {
+          tag: el.tagName.toLowerCase(),
+          id: el.id || '',
+          label: (el.getAttribute('aria-label') || el.innerText || el.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 60),
+        };
+      }
+    }
+    return null;
+  })()`);
+}
+
+function sameFocus(a, b) {
+  if (!a || !b) return false;
+  if (a.id && b.id) return a.id === b.id;
+  return a.tag === b.tag && a.label === b.label;
+}
+
+async function runPaletteInteraction(session) {
+  const result = {
+    scenario: 'command-palette',
+    status: 'fail',
+    checks: { opened: false, focusTrap: false, arrowKeys: false, enterWorks: false, escClosed: false, focusRestored: false },
+    notes: [],
+    issues: [],
+  };
+  const addIssue = (message) => result.issues.push({ severity: 'serious', category: 'interaction', message, selector: '', snippet: '' });
+  await closeAllDialogs(session);
+  const restoreTarget = await focusStableControl(session);
+
+  await pressKey(session, { key: 'k', code: 'KeyK', modifiers: 2 });
+  result.checks.opened = await session.waitUntil(
+    `!!document.querySelector('[role="dialog"][aria-label="命令面板"]')`,
+    { timeoutMs: 3000 },
+  );
+  if (!result.checks.opened) {
+    addIssue('Ctrl+K 未能打开命令面板');
+    return result;
+  }
+  await sleep(300);
+  const dialogs = await readDialogs(session);
+  const dialogLabel = dialogs.length ? dialogs[dialogs.length - 1].label : '';
+
+  const trap = await dialogFocusTrapCheck(session, dialogLabel, 10);
+  result.checks.focusTrap = trap.pass;
+  if (!trap.pass) addIssue(`命令面板 Tab 焦点跑出 dialog（第 ${trap.escapedAt} 次 Tab）`);
+
+  await session.evaluate(`(() => { const input = document.querySelector('[role="dialog"] input'); if (input) input.focus(); return true; })()`);
+  const first = await session.evaluate(`(${inPagePaletteActive.toString()})()`);
+  await pressKey(session, { key: 'ArrowDown', code: 'ArrowDown' });
+  await sleep(120);
+  const second = await session.evaluate(`(${inPagePaletteActive.toString()})()`);
+  await pressKey(session, { key: 'ArrowUp', code: 'ArrowUp' });
+  await sleep(120);
+  const third = await session.evaluate(`(${inPagePaletteActive.toString()})()`);
+  result.checks.arrowKeys = Boolean(
+    first?.active && second?.active && second.active !== first.active && third?.active === first.active,
+  );
+  result.notes.push(`方向键：${first?.active ?? '无'} → ${second?.active ?? '无'} → ${third?.active ?? '无'}`);
+  if (!result.checks.arrowKeys) addIssue('命令面板方向键未改变/恢复选中项');
+
+  await session.evaluate(`(() => { const input = document.querySelector('[role="dialog"] input'); if (input) { input.focus(); input.select(); } return true; })()`);
+  await session.send('Input.insertText', { text: '快捷键' });
+  await sleep(450);
+  const filtered = await session.evaluate(`(${inPagePaletteActive.toString()})()`);
+  result.notes.push(`过滤后选中：${filtered?.active ?? '无'}`);
+  await pressKey(session, { key: 'Enter', code: 'Enter' });
+  await sleep(450);
+  const afterEnter = await readDialogs(session);
+  const paletteStillOpen = afterEnter.some((dialog) => dialog.label === '命令面板');
+  result.checks.enterWorks = !paletteStillOpen;
+  if (paletteStillOpen) addIssue('命令面板 Enter 未执行选中项（面板仍打开）');
+  await closeAllDialogs(session);
+
+  const escTarget = await focusStableControl(session);
+  await pressKey(session, { key: 'k', code: 'KeyK', modifiers: 2 });
+  await session.waitUntil(`!!document.querySelector('[role="dialog"][aria-label="命令面板"]')`, { timeoutMs: 3000 });
+  await sleep(250);
+  await pressKey(session, { key: 'Escape', code: 'Escape' });
+  await sleep(400);
+  const afterEsc = await readDialogs(session);
+  result.checks.escClosed = !afterEsc.some((dialog) => dialog.label === '命令面板');
+  const focusAfter = await readFocus(session);
+  result.checks.focusRestored = sameFocus(focusAfter, escTarget);
+  result.notes.push(`触发元素：${escTarget?.tag ?? '无'}「${escTarget?.label ?? ''}」；关闭后焦点：${focusAfter?.tag ?? '无'}「${focusAfter?.label ?? ''}」`);
+  if (!result.checks.escClosed) addIssue('命令面板 Esc 未能关闭');
+  if (!result.checks.focusRestored) {
+    addIssue(`命令面板关闭后焦点未恢复到触发前元素（当前 ${focusAfter?.tag ?? '无'}「${focusAfter?.label ?? ''}」）`);
+  }
+  result.status = result.issues.length ? 'fail' : 'pass';
+  return result;
+}
+
+async function runKeyboardModalInteraction(session) {
+  const result = {
+    scenario: 'dialog（? 快捷键帮助）',
+    status: 'fail',
+    checks: { opened: false, focusTrap: false, escClosed: false, focusRestored: false },
+    notes: [],
+    issues: [],
+  };
+  const addIssue = (message) => result.issues.push({ severity: 'serious', category: 'interaction', message, selector: '', snippet: '' });
+  await closeAllDialogs(session);
+  const trigger = await focusStableControl(session);
+  await pressKey(session, { key: '?', code: 'Slash', modifiers: 8, text: '?' });
+  result.checks.opened = await session.waitUntil(`!!document.querySelector('[role="dialog"]')`, { timeoutMs: 3000 });
+  if (!result.checks.opened) {
+    addIssue('按 ? 未能打开快捷键帮助 dialog');
+    return result;
+  }
+  await sleep(250);
+  const dialogs = await readDialogs(session);
+  const dialogLabel = dialogs.length ? dialogs[dialogs.length - 1].label : '';
+  result.notes.push(`dialog：${dialogLabel || '未命名'}`);
+
+  const trap = await dialogFocusTrapCheck(session, dialogLabel, 8);
+  result.checks.focusTrap = trap.pass;
+  if (!trap.pass) addIssue(`dialog Tab 焦点跑出（第 ${trap.escapedAt} 次 Tab）`);
+
+  await pressKey(session, { key: 'Escape', code: 'Escape' });
+  await sleep(350);
+  const afterEsc = await readDialogs(session);
+  result.checks.escClosed = afterEsc.length === 0;
+  if (!result.checks.escClosed) addIssue('dialog Esc 未关闭');
+
+  const focusAfter = await readFocus(session);
+  result.checks.focusRestored = sameFocus(focusAfter, trigger);
+  result.notes.push(`触发元素：${trigger?.tag ?? '无'}「${trigger?.label ?? ''}」；关闭后焦点：${focusAfter?.tag ?? '无'}「${focusAfter?.label ?? ''}」`);
+  if (!result.checks.focusRestored) {
+    addIssue(`dialog 关闭后焦点未恢复到触发元素（当前 ${focusAfter?.tag ?? '无'}「${focusAfter?.label ?? ''}」）`);
+  }
+  result.status = result.issues.length ? 'fail' : 'pass';
+  return result;
+}
+
+async function runButtonModalInteraction(session) {
+  const result = {
+    scenario: 'dialog（按钮触发：清空全部）',
+    status: 'skip',
+    checks: { opened: false, focusTrap: false, escClosed: false, focusRestored: false },
+    notes: [],
+    issues: [],
+  };
+  const addIssue = (message) => result.issues.push({ severity: 'serious', category: 'interaction', message, selector: '', snippet: '' });
+  await closeAllDialogs(session);
+  const trigger = await session.evaluate(`(() => {
+    const button = [...document.querySelectorAll('button')].find(
+      (item) => (item.innerText || '').trim().includes('清空全部') && !item.disabled && item.getClientRects().length > 0,
+    );
+    if (!button) return null;
+    button.scrollIntoView({ block: 'center' });
+    button.focus();
+    const rect = button.getBoundingClientRect();
+    return {
+      tag: 'button',
+      label: (button.innerText || '').trim().replace(/\\s+/g, ' ').slice(0, 60),
+      x: rect.x + rect.width / 2,
+      y: rect.y + rect.height / 2,
+    };
+  })()`);
+  if (!trigger) {
+    result.reason = '未找到可用的「清空全部」按钮（通知列表可能为空）';
+    return result;
+  }
+  await sleep(200);
+  await session.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: trigger.x, y: trigger.y });
+  await session.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: trigger.x, y: trigger.y, button: 'left', clickCount: 1 });
+  await session.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: trigger.x, y: trigger.y, button: 'left', clickCount: 1 });
+  result.checks.opened = await session.waitUntil(`!!document.querySelector('[role="dialog"]')`, { timeoutMs: 3000 });
+  if (!result.checks.opened) {
+    addIssue('点击「清空全部」后 dialog 未打开');
+    return result;
+  }
+  await sleep(250);
+  const dialogs = await readDialogs(session);
+  const dialogLabel = dialogs.length ? dialogs[dialogs.length - 1].label : '';
+  result.notes.push(`dialog：${dialogLabel || '未命名'}`);
+
+  const trap = await dialogFocusTrapCheck(session, dialogLabel, 8);
+  result.checks.focusTrap = trap.pass;
+  if (!trap.pass) addIssue(`dialog Tab 焦点跑出（第 ${trap.escapedAt} 次 Tab）`);
+
+  await pressKey(session, { key: 'Escape', code: 'Escape' });
+  await sleep(350);
+  const afterEsc = await readDialogs(session);
+  result.checks.escClosed = afterEsc.length === 0;
+  if (!result.checks.escClosed) addIssue('dialog Esc 未关闭');
+
+  const focusAfter = await readFocus(session);
+  result.checks.focusRestored = sameFocus(focusAfter, trigger);
+  result.notes.push(`触发按钮：${trigger?.label ?? '无'}；关闭后焦点：${focusAfter?.tag ?? '无'}「${focusAfter?.label ?? ''}」`);
+  if (!result.checks.focusRestored) {
+    addIssue(`dialog 关闭后焦点未回到触发按钮（当前 ${focusAfter?.tag ?? '无'}「${focusAfter?.label ?? ''}」）`);
+  }
+  result.status = result.issues.length ? 'fail' : 'pass';
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // 审计执行
 // ---------------------------------------------------------------------------
 async function auditPage(client, browserContextId, page, options, auth, adminOrigin, theme = 'light') {
@@ -1183,6 +1524,39 @@ async function auditPage(client, browserContextId, page, options, auth, adminOri
       observed,
       expected: expectedOrder,
     };
+
+    // ---- 键盘交互检查（--interactions）----
+    if (options.interactions) {
+      const scenarios = [];
+      try {
+        if (page.key === 'admin-dashboard') {
+          scenarios.push(await runPaletteInteraction(session));
+          scenarios.push(await runKeyboardModalInteraction(session));
+        } else if (page.key === 'admin-notifications') {
+          scenarios.push(await runButtonModalInteraction(session));
+          scenarios.push(await runKeyboardModalInteraction(session));
+        }
+      } catch (error) {
+        scenarios.push({
+          scenario: 'interactions',
+          status: 'fail',
+          checks: {},
+          notes: [],
+          issues: [
+            {
+              severity: 'serious',
+              category: 'interaction',
+              message: `键盘交互检查异常：${error instanceof Error ? error.message : String(error)}`,
+              selector: '',
+              snippet: '',
+            },
+          ],
+        });
+      }
+      result.interactions = { enabled: true, scenarios };
+    } else {
+      result.interactions = null;
+    }
     result.ok = true;
   } catch (error) {
     result.error = error instanceof Error ? error.message : String(error);
@@ -1226,12 +1600,20 @@ function summarizePage(result) {
     }
   }
   const all = [...violations, ...focusIssues];
+  const interactionIssues = [];
+  if (result.interactions?.scenarios) {
+    for (const scenario of result.interactions.scenarios) {
+      for (const issue of scenario.issues ?? []) interactionIssues.push(issue);
+    }
+  }
+  all.push(...interactionIssues);
   return {
     counts: severityCounts(all),
     total: all.length,
     violations: all,
     stats: result.audit?.stats ?? null,
     focus: result.focus,
+    interactions: result.interactions,
   };
 }
 
@@ -1247,6 +1629,9 @@ function buildMarkdown(report) {
     `- 主题：${report.environment.theme === 'both' ? 'light + dark（两套）' : report.environment.theme}；视口：${report.environment.viewport.width}×${report.environment.viewport.height}`,
   );
   lines.push(`- 页面：${report.environment.baseAdmin} / ${report.environment.baseBoard} / ${report.environment.baseSubmit} / API ${report.environment.baseApi}`);
+  if (report.environment.interactions) {
+    lines.push('- 键盘交互：已启用（dialog 焦点陷阱/Esc 关闭/焦点恢复、命令面板方向键/Enter/Esc）');
+  }
   lines.push('- 说明：DOM 级近似审计（可访问名称/标签/ARIA/对比度为近似实现），对比度按 computed color 与其祖先背景色计算；');
   lines.push('  默认只做报告，使用 `--fail-on`（或 `pnpm a11y:check`）可启用质量门禁，见下方「门禁」。');
   lines.push('');
@@ -1271,6 +1656,55 @@ function buildMarkdown(report) {
     );
   }
   lines.push('');
+  const interactionPages = report.pages.filter(
+    (page) => page.interactions?.enabled && (page.interactions.scenarios?.length ?? 0) > 0,
+  );
+  if (interactionPages.length) {
+    lines.push('## 键盘交互');
+    lines.push('');
+    lines.push(
+      `| 页面 | ${multiTheme ? '主题 | ' : ''}场景 | 打开 | 焦点陷阱 | Esc 关闭 | 焦点恢复 | 方向键 | Enter | 结论 |`,
+    );
+    lines.push(`|---|${multiTheme ? '---|' : ''}---|---|---|---|---|---|---|---|`);
+    const mark = (value) => (value === undefined ? '—' : value ? '✅' : '❌');
+    const scenarioStatus = (scenario) =>
+      scenario.status === 'skip' ? '⏭️ SKIP' : scenario.status === 'pass' ? '✅ PASS' : '❌ FAIL';
+    for (const page of interactionPages) {
+      for (const scenario of page.interactions.scenarios) {
+        const checks = scenario.checks ?? {};
+        lines.push(
+          `| ${page.page.label} | ${multiTheme ? `${themeLabel(page.theme)} | ` : ''}${scenario.scenario} | ` +
+            `${mark(checks.opened)} | ${mark(checks.focusTrap)} | ${mark(checks.escClosed)} | ` +
+            `${mark(checks.focusRestored)} | ${mark(checks.arrowKeys)} | ${mark(checks.enterWorks)} | ` +
+            `${scenarioStatus(scenario)} |`,
+        );
+      }
+    }
+    lines.push('');
+    const failedScenarios = interactionPages.flatMap((page) =>
+      (page.interactions.scenarios ?? [])
+        .filter((scenario) => scenario.status === 'fail')
+        .map((scenario) => ({ page, scenario })),
+    );
+    if (failedScenarios.length) {
+      lines.push('问题明细：');
+      lines.push('');
+      for (const { page, scenario } of failedScenarios) {
+        lines.push(`- ${page.page.label} · ${scenario.scenario}`);
+        for (const issue of scenario.issues ?? []) lines.push(`  - ${issue.message}`);
+      }
+      lines.push('');
+    }
+    const skippedScenarios = interactionPages.flatMap((page) =>
+      (page.interactions.scenarios ?? [])
+        .filter((scenario) => scenario.status === 'skip')
+        .map((scenario) => ({ page, scenario })),
+    );
+    for (const { page, scenario } of skippedScenarios) {
+      lines.push(`- ⏭️ ${page.page.label} · ${scenario.scenario}：${scenario.reason ?? '跳过'}`);
+    }
+    if (skippedScenarios.length) lines.push('');
+  }
   const gate = report.gate;
   if (gate) {
     lines.push('## 门禁');
@@ -1689,6 +2123,7 @@ async function main() {
         viewport: VIEWPORT,
         theme: options.theme,
         themes,
+        interactions: options.interactions,
         baseAdmin: options.baseAdmin,
         baseBoard: options.baseBoard,
         baseSubmit: options.baseSubmit,
@@ -1714,6 +2149,29 @@ async function main() {
     if (options.theme === 'both') {
       const label = darkOnlyIssues.length ? `${darkOnlyIssues.length} 条（详见报告）` : '0 条';
       console.log(`暗色专属问题：${label}`);
+    }
+    if (options.interactions) {
+      const scenarios = pages.flatMap((page) =>
+        (page.interactions?.scenarios ?? []).map((scenario) => ({
+          ...scenario,
+          pageLabel: page.page.label,
+          pageTheme: page.theme,
+        })),
+      );
+      const failed = scenarios.filter((scenario) => scenario.status === 'fail');
+      const skipped = scenarios.filter((scenario) => scenario.status === 'skip');
+      console.log(
+        `键盘交互：${scenarios.length} 个场景，PASS ${scenarios.length - failed.length - skipped.length} / FAIL ${failed.length} / SKIP ${skipped.length}`,
+      );
+      for (const scenario of failed) {
+        console.log(`  ❌ ${scenario.pageLabel}${scenario.pageTheme ? `（${themeLabel(scenario.pageTheme)}）` : ''} · ${scenario.scenario}`);
+        for (const issue of scenario.issues ?? []) console.log(`     - ${issue.message}`);
+      }
+      for (const scenario of skipped) {
+        console.log(
+          `  ⏭️ ${scenario.pageLabel}${scenario.pageTheme ? `（${themeLabel(scenario.pageTheme)}）` : ''} · ${scenario.scenario}：${scenario.reason ?? '跳过'}`,
+        );
+      }
     }
     printGate(gate);
     console.log('');

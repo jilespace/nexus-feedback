@@ -772,6 +772,11 @@ pnpm a11y
 node scripts/a11y.mjs --theme=dark
 node scripts/a11y.mjs --theme=both --fail-on=none
 
+# 键盘交互审计（dialog 焦点陷阱/Esc/焦点恢复、命令面板方向键/Enter/Esc）
+pnpm a11y:interactions
+node scripts/a11y.mjs --interactions --only=admin-dashboard
+node scripts/a11y.mjs --interactions --theme=both --only=admin-dashboard
+
 # 质量门禁：存在严重或中等问题则退出码 1（用于 CI / 提交前检查）
 pnpm a11y:check
 
@@ -793,6 +798,7 @@ node scripts/a11y.mjs --base-admin=http://localhost:8080 --chrome-port=9222
 | `--chrome-port` | `9222` | Chrome CDP 端口；不可用时自动启动 headless Chrome |
 | `--only` | 空（全部） | 只审计指定页面，逗号分隔：`submit,board-home,board-detail,admin-login,admin-dashboard,admin-feedback,admin-notifications` |
 | `--theme` | `light` | 主题：`light`（保持原行为）/ `dark` / `both`（亮色+暗色各跑一遍） |
+| `--interactions` | 关闭 | 追加键盘交互检查（dialog 焦点陷阱/Esc 关闭/焦点恢复、命令面板方向键/Enter/Esc）；问题按「严重」计入门禁 |
 | `--fail-on` | `none` | 门禁阈值：`none`（只报告）/ `serious`（存在严重即失败）/ `medium`（存在严重或中等超限即失败）；`--theme=both` 时任一主题超阈值即失败 |
 | `--max-medium` | `0` | 仅 `--fail-on=medium` 生效：允许的中等问题总数上限 |
 | `--help` | — | 显示帮助 |
@@ -834,6 +840,20 @@ node scripts/a11y.mjs --base-admin=http://localhost:8080 --chrome-port=9222
 - 门禁在 both 模式下逐主题判定：任一主题超过阈值即失败；`--max-medium` 为「每个主题」上限。
 - JSON `darkOnlyIssues` 字段包含暗色专属问题明细。
 
+### 键盘交互审计（`--interactions`）
+
+- 覆盖（admin 登录态）：`admin-dashboard` 执行「命令面板 + dialog」两个场景，`admin-notifications`
+  执行「按钮触发 dialog + 快捷键 dialog」场景（按钮可用时）。
+- 命令面板（Ctrl/⌘+K）：打开后校验 Tab 焦点陷阱（按可聚焦元素数量 +3 次 Tab 验证循环）、
+  方向键切换选中项、输入过滤后 Enter 执行、Esc 关闭，并校验关闭后焦点恢复到打开前元素。
+- dialog：通过 `?` 打开快捷键帮助（共享 `Modal`），及 notifications 「清空全部」按钮（共享
+  `Modal`，需按钮可用）打开确认弹窗；校验初始焦点、Tab/Shift+Tab 焦点陷阱、Esc 关闭、
+  关闭后焦点回到触发按钮。
+- 结果：终端打印「键盘交互：N 个场景，PASS/FAIL/SKIP」；JSON `pages[].interactions`、
+  `environment.interactions`；Markdown 新增「键盘交互」小节（打开/焦点陷阱/Esc/焦点恢复/方向键/Enter 表）；
+  交互问题以 `serious` 计入页面计数与门禁。
+- 条件跳过：notifications「清空全部」按钮在通知列表为空时不存在，该场景标记 SKIP（不计失败）。
+
 ### 输出与判定
 
 - 严重程度：`serious`（严重）/ `moderate`（中等）/ `minor`（轻微）；页面判定：有严重 → FAIL、
@@ -850,16 +870,22 @@ node scripts/a11y.mjs --base-admin=http://localhost:8080 --chrome-port=9222
   - `--fail-on=none`（默认）：只输出报告，退出码始终 0；
   - `--fail-on=serious`：总「严重」数 > 0 或任一页面采集失败 → 退出码 1，否则 0；
   - `--fail-on=medium`：在 serious 规则之外，「中等」总数 > `--max-medium`（默认 0）→ 退出码 1；
-  - `--theme=both` 时逐主题判定：任一主题超过阈值即失败；`--max-medium` 为每个主题的上限。
-- 当前 `package.json` 提供两个门禁脚本：`a11y:check`（亮色，`--fail-on=medium`）与
-  `a11y:check:themes`（亮色+暗色，`--fail-on=medium`，任一主题出现严重/中等即失败）；
-  可按需改为 `--fail-on=serious` 或放宽 `--max-medium`。
+  - `--theme=both` 时逐主题判定：任一主题超过阈值即失败；`--max-medium` 为每个主题的上限；
+  - `--interactions` 的键盘交互问题一律按「严重」计入，因此会被任何门禁模式拦截。
+- 当前 `package.json` 提供三个命令：`a11y`（仅报告）、`a11y:check`（亮色 medium 门禁）、
+  `a11y:check:themes`（亮色+暗色 medium 门禁）、`a11y:interactions`（追加键盘交互检查）；
+  可按需改 `--fail-on` 或放宽 `--max-medium`。
 - 审计结束（报告生成后）终端打印 `门禁：PASS/FAIL`、参数、总量计数、各主题计数、各页计数、
   超阈值页面与退出码；JSON 报告新增 `gate` 字段：`{ enabled, failOn, maxMedium, themes, perTheme,
   status, exitCode, totals, perPage, reasons, failedPages }`，Markdown 报告新增「门禁」小节。
 - 页面采集失败视为门禁失败（数据不完整时不放行）；环境初始化失败仍返回 1。
 - 当前基线（2026-11，7 页 × 亮/暗两主题）：**全部 0 严重 / 0 中等 / 0 轻微，暗色专属问题 0 条**；
   `pnpm a11y:check` 与 `pnpm a11y:check:themes` 均 PASS（exit 0），可接入 CI。
+  - 键盘交互基线：`--interactions` 4 个场景 **PASS 3 / FAIL 0 / SKIP 1**（notifications「清空全部」
+    按钮在列表为空时不渲染，该场景 SKIP），`--interactions --fail-on=serious` PASS（exit 0）。
+    修复前 dashboard 两个场景均 FAIL：共享 `Modal` 无焦点陷阱（首次 Tab 即逃逸）且不恢复焦点、
+    `CommandPalette` 无焦点陷阱（第 17 次 Tab 逃逸）且不恢复焦点；已修复为捕获阶段 Tab 循环 +
+    打开时记录/关闭时恢复焦点（详见下方「键盘交互审计」）。
   - 近期收尾修复：dashboard「分类分布」图例/统计标签在暗色下原为 `text-gray-700 dark:text-gray-300`，
     实际计算色 #6B7280 on #111827（3.67:1，中等），已改为 `dark:text-gray-200`（#E5E8EE，约 15:1），
     暗色 dashboard 由 0 严重/4 中等 → 0/0；亮色不受影响。
@@ -870,6 +896,8 @@ node scripts/a11y.mjs --base-admin=http://localhost:8080 --chrome-port=9222
 ```bash
 pnpm a11y:check                                              # 亮色 medium 门禁
 pnpm a11y:check:themes                                       # 亮色+暗色 medium 门禁
+pnpm a11y:interactions                                       # 键盘交互报告
+node scripts/a11y.mjs --interactions --fail-on=serious       # 含键盘交互的门禁
 node scripts/a11y.mjs --theme=both --fail-on=none            # 亮色+暗色基线报告
 node scripts/a11y.mjs --theme=dark --only=admin-dashboard    # 单页暗色排查
 node scripts/a11y.mjs --fail-on=medium --max-medium=2 --only=admin-feedback
