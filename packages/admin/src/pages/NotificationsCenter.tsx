@@ -310,7 +310,7 @@ export function NotificationsCenter() {
               disabled={totalCount === 0 || clearNotifications.isPending}
               className={clsx(
                 'inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors',
-                'text-rose-600 hover:bg-rose-50 active:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-40',
+                'text-rose-700 hover:bg-rose-50 active:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-40',
                 'dark:text-rose-300 dark:hover:bg-rose-500/10 dark:active:bg-rose-500/15',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0 dark:focus-visible:ring-offset-gray-800',
               )}

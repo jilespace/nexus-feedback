@@ -182,3 +182,28 @@
   }
 }
 
+
+/* a11y: dark-mode counterparts for the AA overrides above. Without these the
+   light values above would also apply on dark surfaces. */
+html.dark .text-gray-300 {
+  color: #94a3b8;
+}
+
+html.dark .text-gray-400 {
+  color: #9ca3af;
+}
+
+html.dark .text-gray-500 {
+  color: #9ca3af;
+}
+
+
+/* a11y: dark-mode text must stay AA regardless of which gray utility a component
+   picked; these override the generated utilities (including dark: variants). */
+html.dark .text-gray-300,
+html.dark .text-gray-400,
+html.dark .text-gray-500,
+html.dark .text-gray-600 {
+  color: #9ca3af !important;
+}
+

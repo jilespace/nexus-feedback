@@ -54,6 +54,7 @@ function parseArgs(argv) {
     baseSubmit: 'http://localhost:8081',
     chromePort: 9222,
     only: '',
+    theme: 'light',
     failOn: 'none',
     maxMedium: null,
     help: false,
@@ -65,6 +66,7 @@ function parseArgs(argv) {
     'base-submit': 'baseSubmit',
     'chrome-port': 'chromePort',
     only: 'only',
+    theme: 'theme',
     'fail-on': 'failOn',
     'max-medium': 'maxMedium',
   };
@@ -88,6 +90,9 @@ function parseArgs(argv) {
     options[optionKey] = value;
   }
   if (Number.isNaN(options.chromePort)) throw new Error('--chrome-port 需要数字');
+  if (!['light', 'dark', 'both'].includes(options.theme)) {
+    throw new Error(`--theme 仅支持 light / dark / both（当前 ${options.theme}）`);
+  }
   if (!['none', 'serious', 'medium'].includes(options.failOn)) {
     throw new Error(`--fail-on 仅支持 none / serious / medium（当前 ${options.failOn}）`);
   }
@@ -111,8 +116,10 @@ const USAGE = `Nexus Feedback 无障碍审计（CDP，零依赖）
   --base-submit=<url>  公开提交页地址（默认 http://localhost:8081）
   --chrome-port=<port> Chrome CDP 端口（默认 9222；缺失时自动启动 headless Chrome）
   --only=<keys>        只审计指定页面（逗号分隔：submit,board-home,board-detail,admin-login,admin-dashboard,admin-feedback,admin-notifications）
-  --fail-on=<mode>     门禁阈值：none（默认，不影响退出码）/ serious（存在严重即失败）/ medium（存在严重或中等超限即失败）
-  --max-medium=<n>     仅 --fail-on=medium 时生效：允许的中等问题总数上限（默认 0）
+  --theme=<mode>       主题：light（默认）/ dark / both（两套都审计，报告按页面×主题分组）
+  --fail-on=<mode>     门禁阈值：none（默认，不影响退出码）/ serious（存在严重即失败）/ medium（存在严重或中等超限即失败）；
+                       --theme=both 时任一主题超阈值即失败
+  --max-medium=<n>     仅 --fail-on=medium 时生效：每个主题允许的中等问题总数上限（默认 0）
   --help               显示本帮助
 
 门禁退出码：0 = PASS（或门禁未启用）；1 = FAIL（超阈值或环境/采集错误）。
@@ -369,7 +376,7 @@ class PageSession {
     this.targetId = null;
   }
 
-  async init({ browserContextId, viewport }) {
+  async init({ browserContextId, viewport, colorScheme = 'light' }) {
     const targetParams = { url: 'about:blank' };
     if (browserContextId) targetParams.browserContextId = browserContextId;
     const { targetId } = await this.client.send('Target.createTarget', targetParams);
@@ -390,7 +397,7 @@ class PageSession {
       mobile: Boolean(viewport.mobile),
     });
     await this.send('Emulation.setEmulatedMedia', {
-      features: [{ name: 'prefers-color-scheme', value: 'light' }],
+      features: [{ name: 'prefers-color-scheme', value: colorScheme }],
     });
   }
 
@@ -973,7 +980,7 @@ async function resolveBoardDetailUrl(options) {
   return `${options.baseBoard}/${DEMO_PROJECT_SLUG}/feedback/${id}`;
 }
 
-function buildAdminInitScript(adminOrigin, auth) {
+function buildThemeInitScript(adminOrigin, auth, theme) {
   const authBlock = auth
     ? `localStorage.setItem('admin_token', ${JSON.stringify(auth.token)});
       localStorage.setItem('org_member', ${JSON.stringify(JSON.stringify(auth.member))});
@@ -981,12 +988,19 @@ function buildAdminInitScript(adminOrigin, auth) {
     : '';
   return `(() => {
     try {
+      // board / admin 都从 localStorage.theme 读取初始主题（board 在 index.html 内联脚本中应用）
+      localStorage.setItem('theme', ${JSON.stringify(theme)});
       if (location.origin !== ${JSON.stringify(adminOrigin)}) return;
-      localStorage.setItem('theme', 'light');
       localStorage.setItem('lang', 'zh');
       ${authBlock}
     } catch (error) { /* localStorage 不可用时忽略 */ }
   })();`;
+}
+
+const THEME_LABELS = { light: '亮色', dark: '暗色' };
+
+function themeLabel(theme) {
+  return THEME_LABELS[theme] ?? theme;
 }
 
 const ADMIN_READY = `(document.querySelector('main')?.innerText.trim().length ?? 0) > 20`;
@@ -1045,22 +1059,63 @@ function buildPages(options, detailUrl) {
 // ---------------------------------------------------------------------------
 // 审计执行
 // ---------------------------------------------------------------------------
-async function auditPage(client, browserContextId, page, options, auth, adminOrigin) {
+async function auditPage(client, browserContextId, page, options, auth, adminOrigin, theme = 'light') {
   const session = new PageSession(client);
   const result = {
     page: { key: page.key, label: page.label, url: page.url ?? '' },
+    theme,
     ok: false,
     error: null,
     audit: null,
     focus: null,
+    themeFallback: false,
+    themeDetected: null,
+    themeSupported: theme === 'light',
   };
   try {
-    await session.init({ browserContextId, viewport: VIEWPORT });
-    await session.addInitScript(buildAdminInitScript(adminOrigin, page.auth ? auth : null));
+    await session.init({ browserContextId, viewport: VIEWPORT, colorScheme: theme });
+    await session.addInitScript(buildThemeInitScript(adminOrigin, page.auth ? auth : null, theme));
     const loaded = await session.navigate(page.url);
     if (!loaded) throw new Error('页面 load 事件超时（30s）');
     const ready = await session.waitUntil(page.ready, { timeoutMs: 10000 });
-    await sleep(1200);
+    await sleep(700);
+
+    // 校验并兜底应用主题（admin 在 React mount 后加 class，board 由内联脚本提前加）
+    const themeState = await session.evaluate(`(() => {
+      const root = document.documentElement;
+      const body = document.body;
+      const wasDark = root.classList.contains('dark');
+      const background = () => {
+        const bodyColor = body ? getComputedStyle(body).backgroundColor : '';
+        return bodyColor + '|' + getComputedStyle(root).backgroundColor;
+      };
+      root.classList.add('dark');
+      const darkBackground = background();
+      root.classList.remove('dark');
+      const lightBackground = background();
+      if (wasDark) root.classList.add('dark');
+      return {
+        dark: wasDark,
+        stored: localStorage.getItem('theme'),
+        themeStyleDetected: darkBackground !== lightBackground,
+      };
+    })()`);
+    const wantDark = theme === 'dark';
+    if (wantDark && !themeState.dark) {
+      await session.evaluate(
+        `(() => { document.documentElement.classList.add('dark'); document.documentElement.style.colorScheme = 'dark'; return true; })()`,
+      );
+      result.themeFallback = true;
+    } else if (!wantDark && themeState.dark) {
+      await session.evaluate(
+        `(() => { document.documentElement.classList.remove('dark'); document.documentElement.style.colorScheme = 'light'; return true; })()`,
+      );
+      result.themeFallback = true;
+    }
+    result.themeDetected = themeState;
+    result.themeSupported = theme === 'light' ? true : themeState.themeStyleDetected;
+    await sleep(700);
+
     result.audit = await session.evaluate(`(${pageAudit.toString()})()`);
     result.ready = ready || (await session.waitUntil(page.ready, { timeoutMs: 3000 }));
 
@@ -1182,28 +1237,35 @@ function summarizePage(result) {
 
 function buildMarkdown(report) {
   const lines = [];
+  const themes = report.environment.themes ?? [];
+  const multiTheme = themes.length > 1;
   lines.push('# Nexus Feedback 无障碍（a11y）审计报告');
   lines.push('');
   lines.push(`- 生成时间：${report.generatedAt}`);
   lines.push(`- Chrome：CDP ${report.environment.chromePort}（${report.environment.chromeReused ? '复用已运行实例' : '脚本自动启动 headless'}）`);
-  lines.push(`- 视口：${report.environment.viewport.width}×${report.environment.viewport.height}`);
+  lines.push(
+    `- 主题：${report.environment.theme === 'both' ? 'light + dark（两套）' : report.environment.theme}；视口：${report.environment.viewport.width}×${report.environment.viewport.height}`,
+  );
   lines.push(`- 页面：${report.environment.baseAdmin} / ${report.environment.baseBoard} / ${report.environment.baseSubmit} / API ${report.environment.baseApi}`);
   lines.push('- 说明：DOM 级近似审计（可访问名称/标签/ARIA/对比度为近似实现），对比度按 computed color 与其祖先背景色计算；');
   lines.push('  默认只做报告，使用 `--fail-on`（或 `pnpm a11y:check`）可启用质量门禁，见下方「门禁」。');
   lines.push('');
   lines.push('## 汇总');
   lines.push('');
-  lines.push('| 页面 | 严重 | 中等 | 轻微 | 对比度问题 | 可聚焦元素 | Tab 步数 | 判定 |');
-  lines.push('|---|---|---|---|---|---|---|---|');
+  lines.push(
+    `| 页面 | ${multiTheme ? '主题 | ' : ''}严重 | 中等 | 轻微 | 对比度问题 | 可聚焦元素 | Tab 步数 | 判定 |`,
+  );
+  lines.push(`|---|${multiTheme ? '---|' : ''}---|---|---|---|---|---|---|`);
   for (const page of report.pages) {
-    const s = page.summary;
+    const themeCell = multiTheme ? `${themeLabel(page.theme)} | ` : '';
     if (!page.ok) {
-      lines.push(`| ${page.page.label} | - | - | - | - | - | - | ❌ 采集失败 |`);
+      lines.push(`| ${page.page.label} | ${themeCell}- | - | - | - | - | - | ❌ 采集失败 |`);
       continue;
     }
+    const s = page.summary;
     const verdict = s.counts.serious > 0 ? '❌ FAIL（严重）' : s.counts.moderate > 0 ? '⚠️ WARN（中等）' : '✅ PASS';
     lines.push(
-      `| ${page.page.label} | ${s.counts.serious} | ${s.counts.moderate} | ${s.counts.minor} | ` +
+      `| ${page.page.label} | ${themeCell}${s.counts.serious} | ${s.counts.moderate} | ${s.counts.minor} | ` +
         `${page.summary.stats?.contrastViolations ?? 0} | ${page.summary.stats?.focusableCount ?? 0} | ` +
         `${page.summary.focus?.tabSteps ?? 0} | ${verdict} |`,
     );
@@ -1218,11 +1280,19 @@ function buildMarkdown(report) {
         ? '未启用（--fail-on=none）'
         : gate.failOn === 'serious'
           ? '--fail-on=serious（存在严重即失败）'
-          : `--fail-on=medium（允许中等 ≤ ${gate.maxMedium}）`;
+          : `--fail-on=medium（每个主题允许中等 ≤ ${gate.maxMedium}）`;
     const statusLabel = gate.status === 'disabled' ? '未启用' : gate.status === 'pass' ? '✅ PASS' : '❌ FAIL';
     lines.push(`- 模式：${modeLabel}`);
     lines.push(`- 结果：${statusLabel}（退出码 ${gate.exitCode}）`);
     lines.push(`- 计数：严重 ${gate.totals.serious} / 中等 ${gate.totals.moderate} / 轻微 ${gate.totals.minor}`);
+    if (gate.perTheme) {
+      for (const theme of Object.keys(gate.perTheme)) {
+        const counts = gate.perTheme[theme];
+        lines.push(
+          `- ${themeLabel(theme)}主题合计：严重 ${counts.serious} / 中等 ${counts.moderate} / 轻微 ${counts.minor}`,
+        );
+      }
+    }
     if (gate.reasons.length) {
       lines.push('- 原因：');
       for (const reason of gate.reasons) lines.push(`  - ${reason}`);
@@ -1240,20 +1310,19 @@ function buildMarkdown(report) {
     }
     lines.push('');
   }
-  lines.push('## 问题明细');
-  lines.push('');
-  for (const page of report.pages) {
-    lines.push(`### ${page.page.label}`);
+
+  const pushPageDetail = (page, heading) => {
+    lines.push(`${heading} ${page.page.label}`);
     lines.push('');
     if (!page.ok) {
       lines.push(`- ❌ 采集失败：${page.error}`);
       lines.push('');
-      continue;
+      return;
     }
     if (!page.summary.violations.length) {
       lines.push('- 未发现问题。');
       lines.push('');
-      continue;
+      return;
     }
     lines.push('| 级别 | 类别 | 说明 | 选择器 / 片段 |');
     lines.push('|---|---|---|---|');
@@ -1282,24 +1351,103 @@ function buildMarkdown(report) {
       );
       lines.push('');
     }
+  };
+
+  lines.push('## 问题明细');
+  lines.push('');
+  if (multiTheme) {
+    for (const theme of themes) {
+      lines.push(`### ${themeLabel(theme)}主题（${theme}）`);
+      lines.push('');
+      for (const page of report.pages.filter((entry) => entry.theme === theme)) {
+        pushPageDetail(page, '####');
+      }
+    }
+  } else {
+    for (const page of report.pages) pushPageDetail(page, '###');
   }
+
+  if (report.environment.theme === 'both') {
+    lines.push('## 暗色专属问题');
+    lines.push('');
+    const darkOnly = report.darkOnlyIssues ?? [];
+    if (!darkOnly.length) {
+      lines.push('- 未发现暗色专属问题（暗色结果与亮色基线一致）。');
+      lines.push('');
+    } else {
+      lines.push(`共 ${darkOnly.length} 条（暗色出现、亮色不存在的违规），按严重→中等排序：`);
+      lines.push('');
+      lines.push('| 页面 | 级别 | 类别 | 说明 | 选择器 |');
+      lines.push('|---|---|---|---|---|');
+      for (const issue of darkOnly) {
+        lines.push(
+          `| ${issue.page} | ${SEVERITY_LABELS[issue.severity]} | ${CATEGORY_LABELS[issue.category] ?? issue.category} | ` +
+            `${String(issue.message).replace(/\|/g, '\\|')} | ${String(issue.selector || issue.snippet || '').replace(/\|/g, '\\|')} |`,
+        );
+      }
+      lines.push('');
+    }
+  }
+
   lines.push('## 复跑方式');
   lines.push('');
   lines.push('```bash');
-  lines.push('pnpm a11y                              # 仅报告');
+  lines.push('pnpm a11y                              # 仅报告（亮色）');
   lines.push('pnpm a11y:check                        # 质量门禁（存在严重则 exit 1）');
+  lines.push('node scripts/a11y.mjs --theme=both --fail-on=none    # 亮色 + 暗色基线');
+  lines.push('node scripts/a11y.mjs --theme=dark --only=board-home');
   lines.push('node scripts/a11y.mjs --fail-on=medium --max-medium=2 --only=admin-login');
   lines.push('```');
   lines.push('');
-  lines.push('JSON 报告包含每个问题的选择器、片段与完整明细。');
+  lines.push('JSON 报告包含每个问题的选择器、片段、对比度数值与完整明细；`pages[].theme` 标明主题。');
   lines.push('');
   return lines.join('\n');
 }
 
+function issueKey(violation) {
+  return `${violation.severity}|${violation.category}|${violation.selector}|${violation.snippet ?? ''}`;
+}
+
+/** 暗色专属问题：同一页面在暗色下出现、亮色下不存在的违规（排序列严重→中等→轻微）。 */
+function collectDarkOnlyIssues(pages) {
+  const lightPages = new Map(pages.filter((entry) => entry.theme === 'light').map((entry) => [entry.page.key, entry]));
+  const issues = [];
+  for (const darkPage of pages.filter((entry) => entry.theme === 'dark' && entry.ok)) {
+    const lightPage = lightPages.get(darkPage.page.key);
+    const lightKeys = new Set();
+    if (lightPage?.ok) {
+      for (const violation of lightPage.summary.violations) lightKeys.add(issueKey(violation));
+    }
+    for (const violation of darkPage.summary.violations) {
+      if (lightKeys.has(issueKey(violation))) continue;
+      issues.push({
+        page: darkPage.page.label,
+        pageKey: darkPage.page.key,
+        severity: violation.severity,
+        category: violation.category,
+        message: violation.message,
+        selector: violation.selector,
+        snippet: violation.snippet,
+        extra: violation.extra ?? null,
+        darkOnly: true,
+      });
+    }
+  }
+  const order = { serious: 0, moderate: 1, minor: 2 };
+  return issues.sort(
+    (a, b) =>
+      (order[a.severity] ?? 3) - (order[b.severity] ?? 3) ||
+      String(a.page).localeCompare(String(b.page)) ||
+      String(a.selector).localeCompare(String(b.selector)),
+  );
+}
+
 function buildGate(pages, options) {
+  const multiTheme = options.theme === 'both';
   const perPage = pages.map((entry) => ({
     key: entry.page.key,
-    label: entry.page.label,
+    label: multiTheme ? `${entry.page.label}（${themeLabel(entry.theme)}）` : entry.page.label,
+    theme: entry.theme,
     url: entry.page.url,
     ok: entry.ok,
     error: entry.error ?? null,
@@ -1308,22 +1456,36 @@ function buildGate(pages, options) {
     minor: entry.ok ? entry.summary.counts.minor : null,
   }));
   const totals = { serious: 0, moderate: 0, minor: 0 };
+  const themes = multiTheme ? ['light', 'dark'] : [options.theme];
+  const perTheme = multiTheme ? Object.fromEntries(themes.map((theme) => [theme, { serious: 0, moderate: 0, minor: 0 }])) : null;
   for (const page of perPage) {
     if (!page.ok) continue;
     totals.serious += page.serious;
     totals.moderate += page.moderate;
     totals.minor += page.minor;
+    if (perTheme && perTheme[page.theme]) {
+      perTheme[page.theme].serious += page.serious;
+      perTheme[page.theme].moderate += page.moderate;
+      perTheme[page.theme].minor += page.minor;
+    }
   }
 
   const enabled = options.failOn !== 'none';
   const allowedMedium = options.failOn === 'medium' ? (options.maxMedium ?? 0) : null;
   const reasons = [];
   const collectionErrors = perPage.filter((page) => !page.ok).map((page) => `${page.label}：${page.error ?? '采集失败'}`);
+  const themeChecks = (multiTheme ? themes : [null]).map((theme) => {
+    if (theme) return { theme, counts: perTheme[theme] };
+    return { theme: null, counts: totals };
+  });
   if (enabled) {
     if (collectionErrors.length) reasons.push(`页面采集失败：${collectionErrors.join('；')}`);
-    if (totals.serious > 0) reasons.push(`严重问题 ${totals.serious} > 允许上限 0`);
-    if (options.failOn === 'medium' && totals.moderate > allowedMedium) {
-      reasons.push(`中等问题 ${totals.moderate} > 允许上限 ${allowedMedium}`);
+    for (const check of themeChecks) {
+      const prefix = check.theme ? `（${themeLabel(check.theme)}）` : '';
+      if (check.counts.serious > 0) reasons.push(`严重问题${prefix} ${check.counts.serious} > 允许上限 0`);
+      if (options.failOn === 'medium' && check.counts.moderate > allowedMedium) {
+        reasons.push(`中等问题${prefix} ${check.counts.moderate} > 允许上限 ${allowedMedium}`);
+      }
     }
   }
   const status = !enabled ? 'disabled' : reasons.length ? 'fail' : 'pass';
@@ -1343,6 +1505,8 @@ function buildGate(pages, options) {
     enabled,
     failOn: options.failOn,
     maxMedium: allowedMedium,
+    themes: multiTheme ? themes : null,
+    perTheme,
     status,
     exitCode: status === 'fail' ? 1 : 0,
     totals,
@@ -1353,9 +1517,17 @@ function buildGate(pages, options) {
 }
 
 function printGate(gate) {
+  const themeSummary = () => {
+    if (!gate.perTheme) return;
+    for (const theme of Object.keys(gate.perTheme)) {
+      const counts = gate.perTheme[theme];
+      console.log(`  ${themeLabel(theme)}：严重 ${counts.serious} / 中等 ${counts.moderate} / 轻微 ${counts.minor}`);
+    }
+  };
   if (!gate.enabled) {
     console.log('门禁：未启用（--fail-on=none，仅输出报告）');
     console.log(`  计数：严重 ${gate.totals.serious} / 中等 ${gate.totals.moderate} / 轻微 ${gate.totals.minor}`);
+    themeSummary();
     return;
   }
   const label =
@@ -1364,12 +1536,13 @@ function printGate(gate) {
       : `--fail-on=medium（允许中等 ≤ ${gate.maxMedium}）`;
   console.log(`门禁：${gate.status === 'pass' ? 'PASS' : 'FAIL'}（${label}）`);
   console.log(`  计数：严重 ${gate.totals.serious} / 中等 ${gate.totals.moderate} / 轻微 ${gate.totals.minor}`);
+  themeSummary();
   console.log('  各页计数：');
   for (const page of gate.perPage) {
     const counts = page.ok
       ? `严重 ${page.serious} / 中等 ${page.moderate} / 轻微 ${page.minor}`
       : `采集失败（${page.error ?? '未知错误'}）`;
-    console.log(`    ${padCell(page.label, 22)} ${counts}`);
+    console.log(`    ${padCell(page.label, gate.perTheme ? 26 : 22)} ${counts}`);
   }
   if (gate.reasons.length) {
     console.log('  原因：');
@@ -1380,23 +1553,26 @@ function printGate(gate) {
 }
 
 function printConsoleTable(report) {
-  const headers = ['页面', '严重', '中等', '轻微', '对比度', '可聚焦', 'Tab', '判定'];
-  const widths = [20, 5, 5, 5, 7, 7, 5, 16];
+  const multiTheme = (report.environment.themes?.length ?? 0) > 1;
+  const headers = ['页面', ...(multiTheme ? ['主题'] : []), '严重', '中等', '轻微', '对比度', '可聚焦', 'Tab', '判定'];
+  const widths = [20, ...(multiTheme ? [6] : []), 5, 5, 5, 7, 7, 5, 16];
+  const row = (cells) => cells.map((cell, index) => padCell(cell, widths[index])).join('');
   console.log('');
   console.log(headers.map((header, index) => padCell(header, widths[index])).join(''));
   console.log(widths.map((width) => '-'.repeat(width)).join(''));
   for (const page of report.pages) {
     if (!page.ok) {
       console.log(
-        ['采集失败', '-', '-', '-', '-', '-', '-', 'FAIL'].map((cell, index) => padCell(cell, widths[index])).join(''),
+        row(['采集失败', ...(multiTheme ? [themeLabel(page.theme)] : []), '-', '-', '-', '-', '-', '-', 'FAIL']),
       );
       continue;
     }
     const s = page.summary;
     const verdict = s.counts.serious > 0 ? 'FAIL（严重）' : s.counts.moderate > 0 ? 'WARN（中等）' : 'PASS';
     console.log(
-      [
+      row([
         page.page.label,
+        ...(multiTheme ? [themeLabel(page.theme)] : []),
         String(s.counts.serious),
         String(s.counts.moderate),
         String(s.counts.minor),
@@ -1404,9 +1580,7 @@ function printConsoleTable(report) {
         String(page.summary.stats?.focusableCount ?? 0),
         String(page.summary.focus?.tabSteps ?? 0),
         verdict,
-      ]
-        .map((cell, index) => padCell(cell, widths[index]))
-        .join(''),
+      ]),
     );
   }
 }
@@ -1432,7 +1606,10 @@ async function main() {
   console.log(
     `admin=${options.baseAdmin}  board=${options.baseBoard}  submit=${options.baseSubmit}  api=${options.baseApi}`,
   );
-  console.log(`视口：${VIEWPORT.width}×${VIEWPORT.height}；页面：submit / board 首页+详情 / admin 登录+dashboard+feedback+notifications`);
+  console.log(
+    `主题：${options.theme === 'both' ? 'light + dark（两套）' : options.theme}；视口：${VIEWPORT.width}×${VIEWPORT.height}；` +
+      '页面：submit / board 首页+详情 / admin 登录+dashboard+feedback+notifications',
+  );
 
   const adminOrigin = new URL(options.baseAdmin).origin;
   let client = null;
@@ -1459,43 +1636,59 @@ async function main() {
       return options.only.split(',').map((key) => key.trim()).filter(Boolean).includes(page.key);
     });
     if (!pageList.length) throw new Error(`--only 未匹配到页面：${options.only}`);
-    for (const page of pageList) {
-      if (page.unavailableReason) {
-        pages.push({
-          page: { key: page.key, label: page.label, url: page.url ?? '' },
-          ok: false,
-          error: page.unavailableReason,
-          audit: null,
-          focus: null,
-          summary: { counts: { serious: 0, moderate: 0, minor: 0 }, total: 0, violations: [], stats: null, focus: null },
-        });
-        continue;
-      }
-      const { browserContextId } = await client.send('Target.createBrowserContext', {});
-      browserContexts.push(browserContextId);
-      console.log(`\n▶ 审计 ${page.label}`);
-      const result = await auditPage(client, browserContextId, page, options, auth, adminOrigin);
-      await client.send('Target.disposeBrowserContext', { browserContextId }).catch(() => {});
-      browserContexts.pop();
-      const summary = summarizePage(result);
-      pages.push({ ...result, summary });
-      if (result.ok) {
-        console.log(
-          `  完成：严重 ${summary.counts.serious} / 中等 ${summary.counts.moderate} / 轻微 ${summary.counts.minor}；` +
-            `对比度问题 ${summary.stats?.contrastViolations ?? 0}；Tab ${summary.focus?.tabSteps ?? 0} 步`,
-        );
-      } else {
-        console.log(`  失败：${result.error}`);
+    const themes = options.theme === 'both' ? ['light', 'dark'] : [options.theme];
+    const multiTheme = themes.length > 1;
+    for (const theme of themes) {
+      if (multiTheme) console.log(`\n══ 主题：${themeLabel(theme)}（${theme}）══`);
+      for (const page of pageList) {
+        if (page.unavailableReason) {
+          pages.push({
+            page: { key: page.key, label: page.label, url: page.url ?? '' },
+            theme,
+            ok: false,
+            error: page.unavailableReason,
+            audit: null,
+            focus: null,
+            themeFallback: false,
+            themeDetected: null,
+            themeSupported: theme === 'light',
+            summary: { counts: { serious: 0, moderate: 0, minor: 0 }, total: 0, violations: [], stats: null, focus: null },
+          });
+          continue;
+        }
+        const { browserContextId } = await client.send('Target.createBrowserContext', {});
+        browserContexts.push(browserContextId);
+        console.log(`\n▶ 审计 ${page.label}${multiTheme ? ` · ${themeLabel(theme)}` : ''}`);
+        const result = await auditPage(client, browserContextId, page, options, auth, adminOrigin, theme);
+        await client.send('Target.disposeBrowserContext', { browserContextId }).catch(() => {});
+        browserContexts.pop();
+        const summary = summarizePage(result);
+        pages.push({ ...result, theme, summary });
+        if (result.ok) {
+          const notes = [];
+          if (theme === 'dark' && result.themeSupported === false) notes.push('该页面未声明暗色样式');
+          if (result.themeFallback) notes.push('主题由脚本兜底应用');
+          console.log(
+            `  完成：严重 ${summary.counts.serious} / 中等 ${summary.counts.moderate} / 轻微 ${summary.counts.minor}；` +
+              `对比度问题 ${summary.stats?.contrastViolations ?? 0}；Tab ${summary.focus?.tabSteps ?? 0} 步` +
+              `${notes.length ? `（${notes.join('；')}）` : ''}`,
+          );
+        } else {
+          console.log(`  失败：${result.error}`);
+        }
       }
     }
 
     const gate = buildGate(pages, options);
+    const darkOnlyIssues = options.theme === 'both' ? collectDarkOnlyIssues(pages) : [];
     const report = {
       generatedAt: startedAt.toISOString(),
       environment: {
         chromePort: options.chromePort,
         chromeReused,
         viewport: VIEWPORT,
+        theme: options.theme,
+        themes,
         baseAdmin: options.baseAdmin,
         baseBoard: options.baseBoard,
         baseSubmit: options.baseSubmit,
@@ -1504,6 +1697,7 @@ async function main() {
         maxMedium: options.maxMedium,
       },
       gate,
+      darkOnlyIssues,
       pages,
     };
 
@@ -1517,6 +1711,10 @@ async function main() {
     printConsoleTable(report);
     console.log('');
     console.log(`合计：严重 ${gate.totals.serious} / 中等 ${gate.totals.moderate} / 轻微 ${gate.totals.minor}`);
+    if (options.theme === 'both') {
+      const label = darkOnlyIssues.length ? `${darkOnlyIssues.length} 条（详见报告）` : '0 条';
+      console.log(`暗色专属问题：${label}`);
+    }
     printGate(gate);
     console.log('');
     console.log(`JSON 报告：${path.relative(ROOT, jsonPath)}`);

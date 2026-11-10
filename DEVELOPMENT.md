@@ -768,12 +768,16 @@ node scripts/perf.mjs --mode=preview --base-api=http://localhost:3000 --chrome-p
 # 全量审计（7 个页面）——默认只报告，不影响退出码
 pnpm a11y
 
-# 质量门禁：存在严重或中等问题则退出码 1（用于 CI / 提交前检查；当前基线 0 严重 / 0 中等）
+# 暗色模式审计 / 亮色+暗色两套（报告按页面×主题分组）
+node scripts/a11y.mjs --theme=dark
+node scripts/a11y.mjs --theme=both --fail-on=none
+
+# 质量门禁：存在严重或中等问题则退出码 1（用于 CI / 提交前检查）
 pnpm a11y:check
 
 # 只审计部分页面（迭代修复时更快）
 node scripts/a11y.mjs --only=submit
-node scripts/a11y.mjs --only=board-home,board-detail
+node scripts/a11y.mjs --theme=both --only=board-home,admin-login
 
 # 自定义门禁阈值：允许最多 2 个中等（默认 a11y:check 不允许任何中等）
 node scripts/a11y.mjs --fail-on=medium --max-medium=2
@@ -788,7 +792,8 @@ node scripts/a11y.mjs --base-admin=http://localhost:8080 --chrome-port=9222
 | `--base-admin` / `--base-board` / `--base-submit` / `--base-api` | 本地默认端口 | 页面与 API 地址 |
 | `--chrome-port` | `9222` | Chrome CDP 端口；不可用时自动启动 headless Chrome |
 | `--only` | 空（全部） | 只审计指定页面，逗号分隔：`submit,board-home,board-detail,admin-login,admin-dashboard,admin-feedback,admin-notifications` |
-| `--fail-on` | `none` | 门禁阈值：`none`（只报告）/ `serious`（存在严重即失败）/ `medium`（存在严重或中等超限即失败） |
+| `--theme` | `light` | 主题：`light`（保持原行为）/ `dark` / `both`（亮色+暗色各跑一遍） |
+| `--fail-on` | `none` | 门禁阈值：`none`（只报告）/ `serious`（存在严重即失败）/ `medium`（存在严重或中等超限即失败）；`--theme=both` 时任一主题超阈值即失败 |
 | `--max-medium` | `0` | 仅 `--fail-on=medium` 生效：允许的中等问题总数上限 |
 | `--help` | — | 显示帮助 |
 
@@ -815,6 +820,20 @@ node scripts/a11y.mjs --base-admin=http://localhost:8080 --chrome-port=9222
   WCAG AA：正文 ≥ `4.5:1`、大字（≥24px 或 ≥18.66px 加粗）≥ `3:1`；渐变/背景图无法可靠还原时
   跳过并计数（避免误报）。
 
+### 主题审计（`--theme`）
+
+- `--theme=light`（默认）：保持原有行为，只审计亮色。
+- `--theme=dark`：审计暗色；脚本在文档加载前把 `localStorage.theme` 设为 `dark`
+  （board 由 `index.html` 内联脚本应用、admin 由 `ThemeProvider` 在 mount 后加 `.dark` class），
+  同时通过 CDP `Emulation.setEmulatedMedia` 设置 `prefers-color-scheme: dark`；
+  加载后会校验主题是否生效，未生效时由脚本兜底补 `.dark` class（报告中 `themeFallback=true`）。
+- `--theme=both`：亮色、暗色各审计一遍；JSON `pages[].theme` 标注主题，`environment.theme/themes`
+  记录本次口径；Markdown 按「亮色主题 / 暗色主题」分组，并额外输出「暗色专属问题」表
+  （暗色出现、亮色不存在的违规，按严重→中等排序，含选择器与对比度数值）。
+- 无暗色样式的页面（如 submit 页）仍会审计，但报告 `themeSupported=false`，其暗色结果等同亮色。
+- 门禁在 both 模式下逐主题判定：任一主题超过阈值即失败；`--max-medium` 为「每个主题」上限。
+- JSON `darkOnlyIssues` 字段包含暗色专属问题明细。
+
 ### 输出与判定
 
 - 严重程度：`serious`（严重）/ `moderate`（中等）/ `minor`（轻微）；页面判定：有严重 → FAIL、
@@ -829,18 +848,32 @@ node scripts/a11y.mjs --base-admin=http://localhost:8080 --chrome-port=9222
 
 - 阈值语义：
   - `--fail-on=none`（默认）：只输出报告，退出码始终 0；
-  - `--fail-on=serious`：总「严重」数 > 0 或任一页面采集失败 → 退出码 1，否则 0（`pnpm a11y:check` 等价于此）；
-  - `--fail-on=medium`：在 serious 规则之外，「中等」总数 > `--max-medium`（默认 0）→ 退出码 1。
-- 审计结束（报告生成后）终端打印 `门禁：PASS/FAIL`、参数、总量计数、各页计数、超阈值页面与退出码；
-  JSON 报告新增 `gate` 字段：`{ enabled, failOn, maxMedium, status, exitCode, totals, perPage, reasons, failedPages }`，
-  Markdown 报告新增「门禁」小节（参数/结果/各页计数）。
+  - `--fail-on=serious`：总「严重」数 > 0 或任一页面采集失败 → 退出码 1，否则 0；
+  - `--fail-on=medium`：在 serious 规则之外，「中等」总数 > `--max-medium`（默认 0）→ 退出码 1；
+  - `--theme=both` 时逐主题判定：任一主题超过阈值即失败；`--max-medium` 为每个主题的上限。
+- 当前 `package.json` 的 `a11y:check` 使用 `--fail-on=medium`（不允许任何中等）；可按需改为
+  `--fail-on=serious` 或放宽 `--max-medium`。
+- 审计结束（报告生成后）终端打印 `门禁：PASS/FAIL`、参数、总量计数、各主题计数、各页计数、
+  超阈值页面与退出码；JSON 报告新增 `gate` 字段：`{ enabled, failOn, maxMedium, themes, perTheme,
+  status, exitCode, totals, perPage, reasons, failedPages }`，Markdown 报告新增「门禁」小节。
 - 页面采集失败视为门禁失败（数据不完整时不放行）；环境初始化失败仍返回 1。
-- 当前基线（2026-11，7 页）：**严重 0 / 中等 1 / 轻微 0**；`pnpm a11y:check` → PASS（exit 0），
-  唯一中等项在 feedback（登录态）页的 1 处对比度问题（动态数据相关，详见报告 `.tools/a11y/`）。
+- 当前基线（2026-11，7 页 × 主题）：
+  - **亮色**：严重 0 / 中等 0 / 轻微 0（`--fail-on=serious` PASS）。但 notifications 页
+    「清空全部」按钮在通知列表非空且可用时呈 `text-rose-600` 于画布底（约 4.38:1，差 0.12），
+    会出现 1 处中等对比度问题，使 `--fail-on=medium` 的 `pnpm a11y:check` 暂时 FAIL；
+    该问题属亮色侧既有样式（不在 a11y 脚本范围），可用 `--max-medium=1` 临时放宽或另行修复。
+  - **暗色**：严重 48 / 中等 72 / 轻微 0，集中在 admin 页面（dashboard 14/26、feedback 31/9、
+    notifications 3/37），均为颜色对比度（暗色二级文字如 `text-gray-300` 计算为 #475569 于
+    #111827 上仅 2.34:1 等）；board 首页/详情、submit、admin 登录页暗色 PASS。
+    submit 页无暗色样式（`themeSupported=false`）。
+  - 暗色专属问题 120 条（对比度违规每页最多列 40 条，完整对比度计数见 JSON
+    `stats.contrastViolations`），详见 `.tools/a11y/` 的 `--theme=both` 报告。
 - 常用命令：
 
 ```bash
-pnpm a11y:check                                   # CI 门禁：严重 0 才通过
+pnpm a11y:check                                              # 当前为 medium 门禁
+node scripts/a11y.mjs --theme=light --fail-on=serious        # 亮色仅严重门禁
+node scripts/a11y.mjs --theme=both --fail-on=none            # 亮色+暗色基线报告
 node scripts/a11y.mjs --fail-on=medium --max-medium=2 --only=admin-feedback
-node scripts/a11y.mjs --only=admin-login          # 单独看某页，不影响退出码
+node scripts/a11y.mjs --only=admin-login                     # 单独看某页，不影响退出码
 ```
