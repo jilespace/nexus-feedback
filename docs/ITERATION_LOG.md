@@ -5,6 +5,43 @@
 
 ## 轮次记录
 
+### Round 15 — 2026-11-10（公开订阅 / 项目静音 / a11y 门禁）
+
+**本轮完成（Lead + 3 个 teammate 并行）**
+- **公开看板邮件订阅（全栈，teammate）**：`POST /public/:projectSlug/subscribe`（email 归一校验、type 枚举、
+  项目 404、复用 public 限流、幂等 upsert NotificationPreference、不发邮件）；看板全局页脚新增订阅卡片
+  （邮箱 + 类型选择、行内校验 aria、成功/失败态、remember email），zh/en/暗色/390；6 条路由测试。
+- **通知按项目静音（全栈，teammate）**：`notification_settings.mutedProjects`（≤50、读时归一/去重/截断）；
+  fan-out 链路「类型偏好 → 项目静音 → DND」跳过命中收件人（按需解析 feedback.project）；偏好卡项目
+  checkbox 多选 + 乐观保存 + 上限提示；12 条 service 测试（notificationCenter 共 46 条）。
+- **a11y 门禁模式（teammate）**：`--fail-on=serious|medium|none` + `--max-medium`，退出码语义明确、
+  JSON/MD 报告含 gate 字段；新增 `pnpm a11y:check`（当前基线：严重 0 / 中等 1 → PASS）。
+- **登录页对比度（Lead）**：auth ink-3 加深 + 深色品牌面板页脚文字提亮 → 登录页中等 **4 → 0**；
+  全站 a11y 中等降至 **1**（仅数据驱动标签色）。
+
+**验证**
+- `pnpm typecheck` ✅、`pnpm test` **287/287**（server 260 + admin 27）✅、`pnpm build` 5 包 ✅、
+  `pnpm lint` 0 error ✅、`pnpm smoke` **43/43 PASS**（32.6s）✅、`pnpm a11y:check` **PASS**（exit 0）✅
+- CDP：真实订阅写库→DB 确认→unsubscribe 清理；静音项目→提交无通知→取消恢复；登录页对比度 0；
+  截图 `.tools/shots/board-subscribe/`、`.tools/shots/notification-mute-projects/`。
+
+**提交**：`008df72`（登录页对比度）、`9714a7c`（a11y 门禁）、`41f8842`（项目静音）、
+`166a0b3`（公开订阅）
+
+**遗留 / 技术债**
+- a11y 中等 1 处：反馈列表标签颜色由数据驱动（自定义标签色），可做「深色文字 + 低饱和底色」兜底。
+- 订阅类型语义：单类型订阅不关闭另一类型（unsubscribe 按 type 置 false），产品语义待明确。
+- 通知内容仍服务端中文；DND/静音均静默丢弃不补发；静音需按 feedback 反查项目（可让调用方传 projectId 优化）。
+- 主 locale 冗余 key 未清理；Landing 文案仍内置双语字典。
+
+**下一轮计划（Round 16）**
+1. smoke 增加订阅/静音 API 链路检查（43 → 45）。
+2. 标签颜色 a11y 兜底（深色文字 + 低饱和背景），把最后 1 处中等消除，`--fail-on=medium` 可达标。
+3. 功能候选：反馈详情 Markdown 复制包含附件；公开看板「订阅/退订」入口联动；
+   通知按类型分组折叠。
+4. 删除/清理：评估主 locale 冗余 key 清理与 Landing 命名空间迁移。
+
+
 ### Round 14 — 2026-11-10（对比度清零 / 免打扰多时段 / 合并来源）
 
 **本轮完成（Lead + 3 个 teammate 并行）**
