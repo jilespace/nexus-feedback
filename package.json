@@ -23,7 +23,7 @@
     "db:start": "docker compose up -d db",
     "db:migrate": "pnpm --filter @nexus-feedback/server prisma:migrate",
     "db:seed": "pnpm --filter @nexus-feedback/server prisma:seed",
-    "a11y:check:themes": "node scripts/a11y.mjs --theme=both --fail-on=serious"
+    "a11y:check:themes": "node scripts/a11y.mjs --theme=both --fail-on=medium"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

@@ -851,29 +851,27 @@ node scripts/a11y.mjs --base-admin=http://localhost:8080 --chrome-port=9222
   - `--fail-on=serious`：总「严重」数 > 0 或任一页面采集失败 → 退出码 1，否则 0；
   - `--fail-on=medium`：在 serious 规则之外，「中等」总数 > `--max-medium`（默认 0）→ 退出码 1；
   - `--theme=both` 时逐主题判定：任一主题超过阈值即失败；`--max-medium` 为每个主题的上限。
-- 当前 `package.json` 的 `a11y:check` 使用 `--fail-on=medium`（不允许任何中等）；可按需改为
-  `--fail-on=serious` 或放宽 `--max-medium`。
+- 当前 `package.json` 提供两个门禁脚本：`a11y:check`（亮色，`--fail-on=medium`）与
+  `a11y:check:themes`（亮色+暗色，`--fail-on=medium`，任一主题出现严重/中等即失败）；
+  可按需改为 `--fail-on=serious` 或放宽 `--max-medium`。
 - 审计结束（报告生成后）终端打印 `门禁：PASS/FAIL`、参数、总量计数、各主题计数、各页计数、
   超阈值页面与退出码；JSON 报告新增 `gate` 字段：`{ enabled, failOn, maxMedium, themes, perTheme,
   status, exitCode, totals, perPage, reasons, failedPages }`，Markdown 报告新增「门禁」小节。
 - 页面采集失败视为门禁失败（数据不完整时不放行）；环境初始化失败仍返回 1。
-- 当前基线（2026-11，7 页 × 主题）：
-  - **亮色**：严重 0 / 中等 0 / 轻微 0（`--fail-on=serious` PASS）。但 notifications 页
-    「清空全部」按钮在通知列表非空且可用时呈 `text-rose-600` 于画布底（约 4.38:1，差 0.12），
-    会出现 1 处中等对比度问题，使 `--fail-on=medium` 的 `pnpm a11y:check` 暂时 FAIL；
-    该问题属亮色侧既有样式（不在 a11y 脚本范围），可用 `--max-medium=1` 临时放宽或另行修复。
-  - **暗色**：严重 48 / 中等 72 / 轻微 0，集中在 admin 页面（dashboard 14/26、feedback 31/9、
-    notifications 3/37），均为颜色对比度（暗色二级文字如 `text-gray-300` 计算为 #475569 于
-    #111827 上仅 2.34:1 等）；board 首页/详情、submit、admin 登录页暗色 PASS。
-    submit 页无暗色样式（`themeSupported=false`）。
-  - 暗色专属问题 120 条（对比度违规每页最多列 40 条，完整对比度计数见 JSON
-    `stats.contrastViolations`），详见 `.tools/a11y/` 的 `--theme=both` 报告。
+- 当前基线（2026-11，7 页 × 亮/暗两主题）：**全部 0 严重 / 0 中等 / 0 轻微，暗色专属问题 0 条**；
+  `pnpm a11y:check` 与 `pnpm a11y:check:themes` 均 PASS（exit 0），可接入 CI。
+  - 近期收尾修复：dashboard「分类分布」图例/统计标签在暗色下原为 `text-gray-700 dark:text-gray-300`，
+    实际计算色 #6B7280 on #111827（3.67:1，中等），已改为 `dark:text-gray-200`（#E5E8EE，约 15:1），
+    暗色 dashboard 由 0 严重/4 中等 → 0/0；亮色不受影响。
+  - 历史遗留（已解决）：notifications「清空全部」按钮亮色 4.38:1、admin 暗色二级文字大面积低对比度等，
+    均已在各自迭代中修复；如出现回归，门禁会以 exit 1 阻断。
 - 常用命令：
 
 ```bash
-pnpm a11y:check                                              # 当前为 medium 门禁
-node scripts/a11y.mjs --theme=light --fail-on=serious        # 亮色仅严重门禁
+pnpm a11y:check                                              # 亮色 medium 门禁
+pnpm a11y:check:themes                                       # 亮色+暗色 medium 门禁
 node scripts/a11y.mjs --theme=both --fail-on=none            # 亮色+暗色基线报告
+node scripts/a11y.mjs --theme=dark --only=admin-dashboard    # 单页暗色排查
 node scripts/a11y.mjs --fail-on=medium --max-medium=2 --only=admin-feedback
 node scripts/a11y.mjs --only=admin-login                     # 单独看某页，不影响退出码
 ```

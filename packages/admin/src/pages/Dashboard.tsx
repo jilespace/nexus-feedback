@@ -340,7 +340,7 @@ export function Dashboard() {
               {categoryEntries.map(([name, value]) => (
                 <div key={name}>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
+                    <span className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-200">
                       <span
                         className="h-2 w-2 rounded-full"
                         style={{ backgroundColor: categoryColor(name) }}
