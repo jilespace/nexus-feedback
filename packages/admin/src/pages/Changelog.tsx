@@ -67,6 +67,18 @@ export function Changelog() {
     enabled: linkingId !== null,
   });
 
+  const highlightId = searchParams.get('highlight');
+
+  useEffect(() => {
+    if (!highlightId) return;
+    const timer = window.setTimeout(() => {
+      document
+        .getElementById(`changelog-entry-${highlightId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [highlightId, data]);
+
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['changelog'] });
 
   const createMutation = useMutation({
@@ -239,6 +251,7 @@ export function Changelog() {
             <EntryCard
               key={entry.id}
               entry={entry}
+              highlighted={entry.id === highlightId}
               editing={editing}
               setEditing={setEditing}
               getProjectName={getProjectName}
@@ -445,6 +458,7 @@ function entryStatus(entry: ChangelogEntry): { labelKey: string; tone: 'gray' | 
 
 function EntryCard({
   entry,
+  highlighted = false,
   editing,
   setEditing,
   getProjectName,
@@ -456,6 +470,7 @@ function EntryCard({
   onUnlinkFeedback,
 }: {
   entry: ChangelogEntry;
+  highlighted?: boolean;
   editing: EditingState;
   setEditing: (e: EditingState) => void;
   getProjectName: (id: string | null) => string;
@@ -542,8 +557,14 @@ function EntryCard({
   }
 
   return (
-    <Card className="p-5 transition-shadow hover:shadow-card-hover">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div id={`changelog-entry-${entry.id}`}>
+      <Card
+        className={clsx(
+          'p-5 transition-shadow hover:shadow-card-hover',
+          highlighted && 'ring-2 ring-brand-400/70 dark:ring-brand-500/60',
+        )}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="truncate text-[15px] font-semibold text-gray-900 dark:text-gray-50">
@@ -631,7 +652,8 @@ function EntryCard({
           ))}
         </div>
       )}
-    </Card>
+      </Card>
+    </div>
   );
 }
 

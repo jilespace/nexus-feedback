@@ -82,7 +82,9 @@
     "linked": "已关联「{{title}}」",
     "unlinked": "已取消关联",
     "linkFailed": "关联失败",
-    "unlinkFailed": "取消关联失败"
+    "unlinkFailed": "取消关联失败",
+    "viewInChangelog": "在更新日志中查看",
+    "viewInChangelogAria": "在更新日志中查看 {{title}}"
   },
   "notes": {
     "title": "内部备注",

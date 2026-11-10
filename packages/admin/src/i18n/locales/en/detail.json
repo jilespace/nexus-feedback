@@ -82,7 +82,9 @@
     "linked": "Linked “{{title}}”",
     "unlinked": "Changelog unlinked",
     "linkFailed": "Failed to link changelog",
-    "unlinkFailed": "Failed to unlink changelog"
+    "unlinkFailed": "Failed to unlink changelog",
+    "viewInChangelog": "View in changelog",
+    "viewInChangelogAria": "View {{title}} in changelog"
   },
   "notes": {
     "title": "Internal notes",

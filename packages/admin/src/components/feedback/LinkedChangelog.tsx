@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { apiRequest } from '@/api/client';
@@ -27,6 +28,7 @@ function linkedFeedbackIds(entry: ChangelogEntry): string[] {
  */
 export function LinkedChangelog({ feedbackId, projectId }: LinkedChangelogProps) {
   const { t } = useTranslation('detail');
+  const navigate = useNavigate();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
@@ -147,6 +149,23 @@ export function LinkedChangelog({ feedbackId, projectId }: LinkedChangelogProps)
                           {formatDateTime(entry.published_at ?? entry.created_at)}
                         </span>
                       </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/changelog?highlight=${entry.id}`)}
+                      aria-label={t('changelog.viewInChangelogAria', { title: entry.title })}
+                      title={t('changelog.viewInChangelog')}
+                      className="shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:bg-surface-2 hover:text-brand-600 dark:hover:bg-gray-700 dark:hover:text-brand-400"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                        <path
+                          d="M6 3.5h6.5V10M12.5 3.5 3.5 12.5"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
                     </button>
                     <button
                       type="button"
