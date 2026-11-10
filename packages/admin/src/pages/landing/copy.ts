@@ -2,7 +2,7 @@
 // All translated copy lives in the `landing` i18n namespace:
 // packages/admin/src/i18n/locales/{zh,en}/landing.json
 
-const GITHUB_URL = 'https://github.com/nexus-feedback/nexus-feedback';
+const GITHUB_URL = 'https://github.com/jilespace/nexus-feedback';
 const BRAND_NAME = 'Nexus Feedback';
 const BRAND_SUB = 'Feedback OS';
 

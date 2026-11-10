@@ -324,15 +324,15 @@
         "links": [
           {
             "label": "GitHub repo",
-            "href": "https://github.com/nexus-feedback/nexus-feedback"
+            "href": "https://github.com/jilespace/nexus-feedback"
           },
           {
             "label": "Deployment docs",
-            "href": "https://github.com/nexus-feedback/nexus-feedback"
+            "href": "https://github.com/jilespace/nexus-feedback/blob/main/docs/DEPLOYMENT.md"
           },
           {
             "label": "Release notes",
-            "href": "https://github.com/nexus-feedback/nexus-feedback/releases"
+            "href": "https://github.com/jilespace/nexus-feedback/releases"
           }
         ]
       },
@@ -341,15 +341,15 @@
         "links": [
           {
             "label": "License",
-            "href": "https://github.com/nexus-feedback/nexus-feedback/blob/main/LICENSE"
+            "href": "https://github.com/jilespace/nexus-feedback/blob/main/LICENSE"
           },
           {
             "label": "Issues",
-            "href": "https://github.com/nexus-feedback/nexus-feedback/issues"
+            "href": "https://github.com/jilespace/nexus-feedback/issues"
           },
           {
             "label": "Security",
-            "href": "https://github.com/nexus-feedback/nexus-feedback/blob/main/SECURITY.md"
+            "href": "https://github.com/jilespace/nexus-feedback/blob/main/docs/AUTH_AND_SECURITY.md"
           }
         ]
       }
