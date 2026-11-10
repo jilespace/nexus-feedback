@@ -19,7 +19,7 @@
     "perf": "node scripts/perf.mjs",
     "perf:prod": "node scripts/perf.mjs --mode=preview",
     "a11y": "node scripts/a11y.mjs",
-    "a11y:check": "node scripts/a11y.mjs --fail-on=serious",
+    "a11y:check": "node scripts/a11y.mjs --fail-on=medium",
     "db:start": "docker compose up -d db",
     "db:migrate": "pnpm --filter @nexus-feedback/server prisma:migrate",
     "db:seed": "pnpm --filter @nexus-feedback/server prisma:seed"

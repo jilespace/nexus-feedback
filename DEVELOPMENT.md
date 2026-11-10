@@ -763,14 +763,14 @@ node scripts/perf.mjs --mode=preview --base-api=http://localhost:3000 --chrome-p
 # 全量审计（7 个页面）——默认只报告，不影响退出码
 pnpm a11y
 
-# 质量门禁：存在严重问题则退出码 1（用于 CI / 提交前检查）
+# 质量门禁：存在严重或中等问题则退出码 1（用于 CI / 提交前检查；当前基线 0 严重 / 0 中等）
 pnpm a11y:check
 
 # 只审计部分页面（迭代修复时更快）
 node scripts/a11y.mjs --only=submit
 node scripts/a11y.mjs --only=board-home,board-detail
 
-# 自定义门禁阈值：严重不容忍、允许最多 2 个中等
+# 自定义门禁阈值：允许最多 2 个中等（默认 a11y:check 不允许任何中等）
 node scripts/a11y.mjs --fail-on=medium --max-medium=2
 node scripts/a11y.mjs --fail-on=medium --only=admin-feedback
 

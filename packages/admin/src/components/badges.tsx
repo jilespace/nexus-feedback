@@ -17,7 +17,7 @@ export function CategoryBadge({ category }: { category: string }) {
 const PRIORITY_WEIGHTS: Record<FeedbackPriority, string> = {
   low: 'text-gray-500 dark:text-gray-400',
   medium: 'text-gray-600 dark:text-gray-300',
-  high: 'text-orange-600 dark:text-orange-400',
+  high: 'text-orange-700 dark:text-orange-400',
   critical: 'text-rose-600 dark:text-rose-400',
 };
 
