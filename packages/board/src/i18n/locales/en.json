@@ -12,7 +12,8 @@
     "homeTitle": "{{project}} · Feedback board",
     "roadmapTitle": "Roadmap · {{project}}",
     "changelogTitle": "Changelog · {{project}}",
-    "detailTitle": "{{title}} · {{project}}"
+    "detailTitle": "{{title}} · {{project}}",
+    "unsubscribeTitle": "Unsubscribe · {{project}}"
   },
   "share": {
     "action": "Share",
@@ -149,7 +150,27 @@
     "notFoundDescription": "It may have been removed, or the link is incorrect.",
     "anonymous": "Anonymous"
   },
-  "subscribe": {
+  "unsubscribe": {
+    "subtitle": "After confirming, this project will stop emailing you updates.",
+    "loading": "Verifying your unsubscribe link…",
+    "confirmTitle": "Unsubscribe from updates",
+    "confirmDescription": "{{email}} will no longer receive {{type}} emails for this project.",
+    "confirmHint": "This only affects update emails for this project.",
+    "confirmAction": "Confirm unsubscribe",
+    "cancelAction": "Keep subscription",
+    "submitting": "Unsubscribing…",
+    "successTitle": "Unsubscribed",
+    "successDescription": "{{email}} will no longer receive update emails. You can subscribe again from the board at any time.",
+    "invalidTitle": "Invalid unsubscribe link",
+    "invalidDescription": "This link is incomplete or has already been used. Please return to the board to unsubscribe.",
+    "expiredTitle": "Unsubscribe link expired",
+    "expiredDescription": "This link is older than 30 days. Please return to the board to unsubscribe.",
+    "errorTitle": "Couldn't unsubscribe",
+    "errorDescription": "A network or service error occurred. Please try again.",
+    "retry": "Retry",
+    "backToBoard": "Back to board",
+    "footerHint": "This link is generated automatically. Contact the project team if you have questions."
+  },  "subscribe": {
     "title": "Subscribe to updates",
     "description": "Get status changes and a weekly digest in your inbox. Unsubscribe anytime from any email.",
     "emailLabel": "Email",

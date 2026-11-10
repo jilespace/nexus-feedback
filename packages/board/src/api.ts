@@ -10,6 +10,7 @@ import type {
   RoadmapData,
   SubscribeResult,
   SubscribeType,
+  UnsubscribeTokenPayload,
 } from './types';
 
 export function getProjectSlug(): string {
@@ -22,19 +23,51 @@ function baseUrl(): string {
   return `/api/v1/public/${getProjectSlug()}`;
 }
 
+export class ApiRequestError extends Error {
+  status: number;
+  code?: number;
+
+  constructor(message: string, status: number, code?: number) {
+    super(message);
+    this.name = 'ApiRequestError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
+async function readResponse<T>(
+  res: Response,
+  fallbackMessage: string,
+): Promise<T> {
+  let json: ApiResponse<T> | null = null;
+  try {
+    json = (await res.json()) as ApiResponse<T>;
+  } catch {
+    json = null;
+  }
+  if (!res.ok) {
+    throw new ApiRequestError(
+      json?.message || `${fallbackMessage}${res.status}`,
+      res.status,
+      json?.code,
+    );
+  }
+  if (!json || json.code !== 0) {
+    throw new ApiRequestError(
+      json?.message || '未知错误',
+      res.status,
+      json?.code,
+    );
+  }
+  return json.data;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${baseUrl()}${path}`, {
     headers: { 'Content-Type': 'application/json' },
     ...options,
   });
-  if (!res.ok) {
-    throw new Error(`请求失败: ${res.status}`);
-  }
-  const json = (await res.json()) as ApiResponse<T>;
-  if (json.code !== 0) {
-    throw new Error(json.message || '未知错误');
-  }
-  return json.data;
+  return readResponse<T>(res, '请求失败: ');
 }
 
 /** Request an endpoint that is not scoped under /public/:projectSlug. */
@@ -46,14 +79,7 @@ async function requestAbsolute<T>(
     headers: { 'Content-Type': 'application/json' },
     ...options,
   });
-  if (!res.ok) {
-    throw new Error(`请求失败: ${res.status}`);
-  }
-  const json = (await res.json()) as ApiResponse<T>;
-  if (json.code !== 0) {
-    throw new Error(json.message || '未知错误');
-  }
-  return json.data;
+  return readResponse<T>(res, '请求失败: ');
 }
 
 export interface FeedbackListParams {
@@ -153,6 +179,14 @@ export function unsubscribeFromUpdates(body: {
       method: 'POST',
       body: JSON.stringify(body),
     },
+  );
+}
+
+export function verifyUnsubscribeToken(
+  token: string,
+): Promise<UnsubscribeTokenPayload> {
+  return request<UnsubscribeTokenPayload>(
+    `/unsubscribe-token?token=${encodeURIComponent(token)}`,
   );
 }
 

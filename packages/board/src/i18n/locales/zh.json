@@ -12,7 +12,8 @@
     "homeTitle": "{{project}} · 反馈看板",
     "roadmapTitle": "路线图 · {{project}}",
     "changelogTitle": "更新日志 · {{project}}",
-    "detailTitle": "{{title}} · {{project}}"
+    "detailTitle": "{{title}} · {{project}}",
+    "unsubscribeTitle": "退订更新 · {{project}}"
   },
   "share": {
     "action": "分享",
@@ -149,7 +150,27 @@
     "notFoundDescription": "这条反馈可能已被删除，或者链接有误。",
     "anonymous": "匿名"
   },
-  "subscribe": {
+  "unsubscribe": {
+    "subtitle": "确认后将不再接收该项目的更新邮件。",
+    "loading": "正在验证退订链接…",
+    "confirmTitle": "退订更新邮件",
+    "confirmDescription": "将不再向 {{email}} 发送「{{type}}」更新邮件。",
+    "confirmHint": "退订只影响此项目的更新邮件。",
+    "confirmAction": "确认退订",
+    "cancelAction": "保留订阅",
+    "submitting": "退订中…",
+    "successTitle": "已退订",
+    "successDescription": "我们已停止向 {{email}} 发送更新邮件，你可以随时回到看板重新订阅。",
+    "invalidTitle": "退订链接无效",
+    "invalidDescription": "该链接不完整或已被使用，请回到看板重新退订。",
+    "expiredTitle": "退订链接已过期",
+    "expiredDescription": "该退订链接已超过 30 天有效期，请回到看板重新退订。",
+    "errorTitle": "退订失败",
+    "errorDescription": "网络或服务异常，请稍后重试。",
+    "retry": "重试",
+    "backToBoard": "返回看板",
+    "footerHint": "退订链接由系统自动生成；如有疑问请联系该项目的维护团队。"
+  },  "subscribe": {
     "title": "订阅更新",
     "description": "留下邮箱，接收状态变更与每周精选更新，随时可在邮件中退订。",
     "emailLabel": "邮箱",

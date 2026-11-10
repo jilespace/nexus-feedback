@@ -184,6 +184,32 @@ ${ctaButton('重置密码', resetUrl)}
   return emailWrapper(content);
 }
 
+export function buildSubscriptionConfirmationEmail(
+  projectName: string,
+  unsubscribeUrl: string,
+  type: string,
+): string {
+  const typeLabels: Record<string, string> = {
+    status_updates: '状态变更',
+    weekly_digest: '每周精选',
+    all: '全部更新',
+  };
+  const typeLabel = typeLabels[type] ?? type;
+  const content = `<h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827">订阅成功</h1>
+<p style="margin:0 0 16px;color:#6b7280;font-size:14px">你已成功订阅 <strong style="color:#111827">${escapeHtml(projectName)}</strong> 的「${escapeHtml(typeLabel)}」，之后有新更新时我们会通过邮件通知你。</p>
+<div style="background:${BRAND_COLOR_LIGHT};border-radius:10px;padding:16px 20px;margin:20px 0">
+<p style="margin:0;font-size:13px;color:#374151">不想继续接收？点击下方按钮即可退订，无需登录。</p>
+</div>
+<div style="text-align:center;margin:24px 0">
+${ctaButton('退订更新', unsubscribeUrl)}
+</div>
+<p style="margin:0 0 8px;color:#9ca3af;font-size:13px;text-align:center">或复制以下链接到浏览器打开：</p>
+<p style="margin:0 0 24px;color:${BRAND_COLOR};font-size:12px;word-break:break-all;text-align:center">${escapeHtml(unsubscribeUrl)}</p>
+<p style="margin:0 0 8px;color:#9ca3af;font-size:12px">此退订链接将在 <strong>30 天</strong>内有效。</p>
+<p style="margin:0;font-size:12px;color:#9ca3af">如果这不是你本人的操作，请忽略此邮件。</p>`;
+  return emailWrapper(content);
+}
+
 export interface SampleEmailPreview {
   html: string;
   subject: string;

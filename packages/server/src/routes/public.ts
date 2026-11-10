@@ -2,9 +2,15 @@ import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import { prisma } from '../db/client.js';
 import { success } from '../utils/response.js';
-import { NotFoundError, ValidationError, isValidEmail } from '../utils/errors.js';
+import {
+  AppError,
+  NotFoundError,
+  ValidationError,
+  isValidEmail,
+} from '../utils/errors.js';
 import { addComment } from '../services/comment.js';
 import { notifyNewFeedback } from '../services/notification.js';
+import { sendEmail } from '../services/email.js';
 import { createApiKeyLimiter } from '../middleware/rateLimit.js';
 import { moderateComment, sanitizeContent } from '../middleware/commentModeration.js';
 import { getProjectCategories, getProjectCategoryObjects } from '../services/categoryConfig.js';
@@ -12,7 +18,13 @@ import { getBoardConfig } from '../services/boardConfig.js';
 import {
   isSubscriptionType,
   subscribeToProjectUpdates,
+  type SubscriptionType,
 } from '../services/notificationPreference.js';
+import { buildSubscriptionConfirmationEmail } from '../utils/emailTemplates.js';
+import {
+  signUnsubscribeToken,
+  verifyUnsubscribeToken,
+} from '../utils/unsubscribeToken.js';
 
 const apiKeyLimiter = createApiKeyLimiter();
 
@@ -105,6 +117,52 @@ function resolveBoardBaseUrl(req: Request, configured: string | null | undefined
   }
   const host = req.get('host');
   return host ? `${req.protocol}://${host}` : '';
+}
+
+interface SubscriptionProject {
+  id: string;
+  slug: string;
+  name: string;
+  org_id: string;
+}
+
+/**
+ * Send the subscription confirmation email with a signed unsubscribe link.
+ * Fire-and-forget: any failure is logged and never fails the subscription.
+ */
+async function sendSubscriptionConfirmation(
+  req: Request,
+  project: SubscriptionProject,
+  email: string,
+  type: SubscriptionType,
+): Promise<void> {
+  try {
+    const organization = await prisma.organization?.findUnique?.({
+      where: { id: project.org_id },
+      select: { board_url: true },
+    });
+    const token = signUnsubscribeToken({
+      email,
+      project_id: project.id,
+      type,
+    });
+    const baseUrl = resolveBoardBaseUrl(req, organization?.board_url);
+    const unsubscribeUrl = `${baseUrl}/${project.slug}/unsubscribe?token=${encodeURIComponent(token)}`;
+    await sendEmail(
+      email,
+      `订阅成功：${project.name} 更新`,
+      buildSubscriptionConfirmationEmail(project.name, unsubscribeUrl, type),
+      project.org_id,
+    );
+  } catch (error) {
+    console.log(
+      JSON.stringify({
+        level: 'warn',
+        msg: 'subscription confirmation email failed',
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    );
+  }
 }
 
 function buildChangelogRss(options: {
@@ -417,10 +475,32 @@ publicRouter.post('/subscribe', async (req, res, next) => {
     if (!isValidEmail(email)) throw new ValidationError('邮箱格式不正确');
     if (!isSubscriptionType(type)) throw new ValidationError('无效的订阅类型');
 
-    // Public endpoint reuses the router-level per-IP publicLimiter; no email is
-    // sent here (confirmation emails are out of scope for this round).
+    // Public endpoint reuses the router-level per-IP publicLimiter. The
+    // confirmation email is fire-and-forget and cannot fail the subscription.
     const result = await subscribeToProjectUpdates(email, project.id, type);
+    void sendSubscriptionConfirmation(req, project, email, type);
     success(res, result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+publicRouter.get('/unsubscribe-token', async (req, res, next) => {
+  try {
+    const project = req.project!;
+    const token = typeof req.query.token === 'string' ? req.query.token : '';
+    if (!token) throw new ValidationError('缺少退订令牌');
+
+    const verified = verifyUnsubscribeToken(token);
+    if (!verified.valid) {
+      throw verified.reason === 'expired'
+        ? new AppError(400, 40002, '退订链接已过期')
+        : new ValidationError('退订链接无效');
+    }
+    if (verified.payload.project_id !== project.id) {
+      throw new ValidationError('退订链接无效');
+    }
+    success(res, verified.payload);
   } catch (err) {
     next(err);
   }

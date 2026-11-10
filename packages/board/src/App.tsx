@@ -9,6 +9,7 @@ import { BoardHome } from './pages/BoardHome';
 import { FeedbackDetail } from './pages/FeedbackDetail';
 import { Roadmap } from './pages/Roadmap';
 import { Changelog } from './pages/Changelog';
+import { Unsubscribe } from './pages/Unsubscribe';
 
 function NotFoundPage({ showReturn = true }: { showReturn?: boolean }) {
   const { t } = useTranslation();
@@ -103,6 +104,10 @@ function BoardLayout() {
           <Route
             path="changelog"
             element={<Changelog projectName={projectName} />}
+          />
+          <Route
+            path="unsubscribe"
+            element={<Unsubscribe projectName={projectName} />}
           />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

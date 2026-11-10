@@ -101,6 +101,13 @@ export interface StoredBoardSubscription {
   projectId?: string;
 }
 
+/** Payload returned by the signed unsubscribe-token validation endpoint. */
+export interface UnsubscribeTokenPayload {
+  email: string;
+  project_id: string;
+  type: SubscribeType;
+}
+
 export interface BoardConfig {
   project: { id?: string; name: string; slug: string };
   organization?: {
