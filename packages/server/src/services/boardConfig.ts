@@ -31,7 +31,7 @@ export async function getBoardConfig(project: BoardConfigProject) {
   }
 
   return {
-    project: { name: project.name, slug: project.slug },
+    project: { id: project.id, name: project.name, slug: project.slug },
     organization: org ?? null,
     widget,
     roadmap:

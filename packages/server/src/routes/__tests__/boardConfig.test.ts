@@ -83,7 +83,7 @@ describe('Board/Widget Config Routes', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.code).toBe(0);
-    expect(res.body.data.project).toEqual({ name: 'Demo Project', slug: 'demo-project' });
+    expect(res.body.data.project).toEqual({ id: 'project-1', name: 'Demo Project', slug: 'demo-project' });
     expect(res.body.data.organization).toEqual({
       name: 'Demo Org',
       logo_url: null,
