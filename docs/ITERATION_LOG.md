@@ -5,6 +5,45 @@
 
 ## 轮次记录
 
+### Round 16 — 2026-11-10（a11y 全清零 / 可分享筛选 / Markdown 附件）
+
+**本轮完成（Lead + 3 个 teammate 并行）**
+- **a11y 全站清零（Lead）**：高优先级 badge 由 orange-600→orange-700（3.56→4.9:1）→ 全站 7 页
+  **严重 0 / 中等 0 / 轻微 0**；`pnpm a11y:check` 阈值收紧为 `--fail-on=medium`（任何中等即失败），
+  当前基线通过，DEVELOPMENT 同步。
+- **看板筛选 URL 持久化（teammate）**：首页 sort/status/category/q 与 URL 双向同步（防抖 300ms、
+  `replaceState` 不增历史、popstate 应用、非法值回退并规范化、清除移除参数）；分享按钮复制带筛选
+  完整链接；新增纯函数 `urlFilters.ts`；a11y board 复跑 0/0。
+- **Markdown 复制含附件（teammate）**：`buildFeedbackMarkdown` 增加附件章节（内容后、回复前，
+  `- [name](url)`，无附件不输出），label 转义 + 特殊 URL `<>` 包裹；详情页传入附件绝对链接；
+  6 条测试（由 3 条扩展）。
+- **smoke 43 → 45（teammate）**：新增「公开看板订阅」（幂等 upsert、偏好查询、退订+删除清理）与
+  「通知按项目静音」（保存/恢复设置、静默丢弃、非法负载 400）两项写操作链路检查。
+
+**验证**
+- `pnpm typecheck` ✅、`pnpm test` **290/290**（server 260 + admin 30）✅、`pnpm build` 5 包 ✅、
+  `pnpm lint` 0 error ✅、`pnpm smoke` **45/45 PASS**（34.2s）✅、`pnpm a11y:check` **PASS**
+  （0 严重 / 0 中等 / 0 轻微，exit 0）✅、`pnpm perf` **12/12 PASS** ✅
+- CDP：分享链接还原筛选（1440/390）、非法参数回退、前进/后退同步；Markdown 附件（zh 336 字符 /
+  en 383 字符含附件章节）；订阅写入 DB 后清理；静音项目静默丢弃后恢复。
+
+**提交**：`4a9c49b`（badge 对比度 + 门禁收紧）、`19f49b4`（smoke 45）、`3819a12`（Markdown 附件）、
+`349411b`（看板 URL 筛选）
+
+**遗留 / 技术债**
+- a11y 审计仍为 DOM 近似且只覆盖亮色模式；暗色对比度未纳入门禁（可后续扩展）。
+- 看板 URL 未知 category 在数据加载后才回退（短暂空列表）。
+- 订阅类型语义（单类型订阅不关闭另一类）待产品确认；订阅不发确认邮件。
+- 通知内容仍服务端中文；主 locale 冗余 key 未清理；Landing 双语字典未接命名空间。
+- smoke 覆盖订阅/静音，但「订阅成功后的退订入口」UI 未做。
+
+**下一轮计划（Round 17）**
+1. a11y 门禁扩展暗色模式（脚本增加 dark 扫描与阈值）；补充键盘交互回归（焦点顺序断言）。
+2. 公开看板订阅体验完善：已订阅邮箱状态回显 / 退订入口（复用 unsubscribe）。
+3. 功能候选：通知按类型过滤/分组折叠、反馈详情关联更新日志双向跳转、合并建议已合并来源跳转。
+4. 质量：Landing 文案拆分命名空间 + 主 locale 冗余 key 清理（配合 parity 测试）。
+
+
 ### Round 15 — 2026-11-10（公开订阅 / 项目静音 / a11y 门禁）
 
 **本轮完成（Lead + 3 个 teammate 并行）**
